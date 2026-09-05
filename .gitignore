@@ -1,0 +1,76 @@
+# Internal tooling
+.freebuff/
+.shannon/
+.playwright/
+
+# Data directories (MPC shares, wallet data, transactions)
+data/
+mpc-node/data/
+
+# Dependencies
+node_modules/
+/node_modules/
+/*/node_modules/
+dist/
+/dist/
+/*/dist/
+build/
+/build/
+/*/build/
+coverage/
+/coverage/
+/*/coverage/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+*.env
+
+# Certificates and keys
+*.pem
+*.key
+*.p12
+*.crt
+*.der
+*.pfx
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# OS and System Files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Local databases and cache files
+*.db
+*.sqlite
+*.sqlite3
+*.local
+.cache/
+.playwright/
+.shannon/
+backend/globalPayData.json
+backend/scheduledTransferData.json
+backend/server.log

@@ -1,0 +1,28 @@
+# GlobalPay MPC node — Railway config-as-code (applies to all three services).
+#
+# All three Railway services (mpc-node-a, mpc-node-b, mpc-node-c) are built
+# from THIS folder's Dockerfile and this same railway.toml. The services differ
+# ONLY by per-service variables and by their per-service volume (see
+# RAILWAY.md) — never by code.
+#
+# NOTE: there is deliberately no `healthcheckPath` here. `/api/v1/health`
+# requires a mutual-TLS client certificate (production is fail-closed at the
+# TLS layer), which Railway's plain-HTTP health probe cannot present. Enabling
+# a healthcheck here would fail-closed and cause a restart loop. Monitor node
+# health out-of-band with an mTLS-capable client (see docs/operations.md).
+#
+# PERSISTENT STORAGE: each service needs a persistent volume mounted at /data.
+# Railway volumes are attached per-service (dashboard: Settings → Volumes, or
+# `railway volume add --service mpc-node-<x> --mount /data`); they cannot be
+# declared in this file. `requiredMountPath` makes Railway REFUSE to deploy a
+# service until a volume exists at /data, so a node can never boot without
+# durable storage for its encrypted shares. MPC_NODE_DATA_DIR=/data is baked
+# into the image (see Dockerfile); the entrypoint makes the volume writable by
+# the non-root UID 65532.
+
+[build]
+builder = "dockerfile"
+
+[deploy]
+restart_policy_type = "on_failure"
+requiredMountPath = "/data"

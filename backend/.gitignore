@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+dist/
+build/
+coverage/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+*.env
+
+# Certificates and keys
+*.pem
+*.key
+*.p12
+*.crt
+*.der
+*.pfx
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+
+# OS and System Files
+.DS_Store
+
+# Local databases and cache files
+*.db
+*.sqlite
+*.sqlite3
+*.local
+.cache/
+globalPayData.json
+scheduledTransferData.json
+server.log

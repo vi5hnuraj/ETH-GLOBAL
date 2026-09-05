@@ -1,0 +1,16 @@
+{
+  "name": "globalpay",
+  "version": "1.0.0",
+  "description": "GlobalPay — Cross-border crypto payment platform on Base Sepolia (USDC)",
+  "private": true,
+  "scripts": {
+    "start": "bash start.sh",
+    "backend": "cd backend && node server.js",
+    "frontend": "cd client && npx vite --host",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "install:all": "cd backend && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
