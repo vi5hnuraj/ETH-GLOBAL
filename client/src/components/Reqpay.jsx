@@ -146,14 +146,18 @@ const Reqpay = ({
   const liveBotPrice = Number(liveBotPriceState || botPriceSnapshotNum || rateDetails?.botPrice || 0);
 
   // Exact target USD value requested by merchant
-  const targetUSD = reqCurrency === "USD" ? reqAmount : (reqAmount / rateSnapshot);
-  // Recalculated required ETH amount based on LIVE ETH price so merchant receives exact USD value
-  // Fallbacks never treat the USD amount as ETH: prefer the live rate, then the
+  const targetUSD = reqCurrency === "USD" ? reqAmount
+    : reqCurrency === "USDC" ? reqAmount
+    : (reqAmount / rateSnapshot);
+  // Recalculated required USDC amount based on LIVE USDC price so merchant receives exact USD value
+  // Fallbacks never treat the USD amount as USDC: prefer the live rate, then the
   // snapshot stored at invoice creation, then the snapshot rate, else a sane floor.
-  const liveBotRequiredAmount = liveBotPrice > 0
-    ? (targetUSD / liveBotPrice)
-    : (botAmountSnapshot ? Number(botAmountSnapshot)
-      : (botPriceSnapshotNum > 0 ? (targetUSD / botPriceSnapshotNum) : 0));
+  const liveBotRequiredAmount = reqCurrency === "USDC"
+    ? reqAmount
+    : (liveBotPrice > 0
+      ? (targetUSD / liveBotPrice)
+      : (botAmountSnapshot ? Number(botAmountSnapshot)
+        : (botPriceSnapshotNum > 0 ? (targetUSD / botPriceSnapshotNum) : 0)));
 
   // Build the qrData object that QRPaymentModal expects.
   // Uses live-resolved wallet address so receiver's primary wallet changes are picked up.

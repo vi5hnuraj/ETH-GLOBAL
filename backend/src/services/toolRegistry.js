@@ -6,32 +6,41 @@ import { getProvider } from './chainRpcService.js';
 import { ethers } from 'ethers';
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
+import {
+  getArcBalance,
+  getArcNetworkStatus,
+  checkAgentSpendingPolicy,
+  createProgrammableEscrow,
+  executeNanopayment,
+  routeCrosschainUsdc
+} from './arcService.js';
+
 /**
  * Tool Definitions for Groq / LLM Tool Calling Architecture
  */
 export const toolDefinitions = [
   {
     name: "sendBot",
-    description: "Send BOT or crypto tokens to a recipient via PayTag (@username), UPI ID, or wallet address.",
+    description: "Send USDC or crypto tokens to a recipient via PayTag (@username), UPI ID, or wallet address.",
     parameters: {
       type: "object",
       properties: {
         recipient: { type: "string", description: "The PayTag (e.g. @alice) or receiver UPI ID" },
-        amount: { type: "number", description: "Amount of USDC to send" },
-        currency: { type: "string", description: "Currency code (default BOT)" }
+        amount: { type: "number", description: "Amount of USDC tokens to send" },
+        currency: { type: "string", description: "Currency code (default USDC)" }
       },
       required: ["recipient", "amount"]
     }
   },
   {
     name: "payMerchant",
-    description: "Pay a merchant using USDC (Base Sepolia) or linked account.",
+    description: "Pay a merchant (e.g., Starbucks, Amazon) using USDC tokens or linked account.",
     parameters: {
       type: "object",
       properties: {
         merchant: { type: "string", description: "Name or UPI ID of the merchant" },
         amount: { type: "number", description: "Amount to pay" },
-        coin: { type: "string", description: "Token/Coin used (default BOT)" }
+        coin: { type: "string", description: "Token/Coin used (default USDC)" }
       },
       required: ["merchant", "amount"]
     }
@@ -50,7 +59,7 @@ export const toolDefinitions = [
   },
   {
     name: "checkBalance",
-    description: "Check user's current available fiat bank account balance and BOT vault balance.",
+    description: "Check user's current available fiat bank account balance and USDC vault balance.",
     parameters: {
       type: "object",
       properties: {}
@@ -98,7 +107,7 @@ export const toolDefinitions = [
       type: "object",
       properties: {
         amount: { type: "number", description: "Invoice amount" },
-        currency: { type: "string", description: "Currency, e.g. USD, INR, BOT" },
+        currency: { type: "string", description: "Currency, e.g. USD, INR, USDC" },
         recipient: { type: "string", description: "Target recipient PayTag or email" },
         note: { type: "string", description: "Invoice description" }
       },
@@ -107,7 +116,7 @@ export const toolDefinitions = [
   },
   {
     name: "getRate",
-    description: "Get the current live BOT/USD exchange rate.",
+    description: "Get the current live USDC/USD exchange rate.",
     parameters: {
       type: "object",
       properties: {}
@@ -141,7 +150,7 @@ export const toolDefinitions = [
   },
   {
     name: "cancelSchedulePayment",
-    description: "Cancel a scheduled payment and refund the locked BOT. Requires a transfer ID or will find the latest one.",
+    description: "Cancel a scheduled payment and refund the locked USDC. Requires a transfer ID or will find the latest one.",
     parameters: {
       type: "object",
       properties: {
@@ -149,6 +158,76 @@ export const toolDefinitions = [
       }
     }
   },
+  {
+    name: "sendUsdcOnArc",
+    description: "Send USDC directly on Arc Testnet (Circle L1 with USDC native gas) to a recipient address or PayTag.",
+    parameters: {
+      type: "object",
+      properties: {
+        recipient: { type: "string", description: "Recipient address (0x...) or PayTag (@alice)" },
+        amount: { type: "number", description: "Amount of USDC to send" }
+      },
+      required: ["recipient", "amount"]
+    }
+  },
+  {
+    name: "checkArcBalance",
+    description: "Check live USDC native gas balance and Arc Testnet network stats.",
+    parameters: {
+      type: "object",
+      properties: {
+        address: { type: "string", description: "Optional EVM wallet address to check. Defaults to user primary wallet." }
+      }
+    }
+  },
+  {
+    name: "createArcEscrow",
+    description: "Create a programmable conditional escrow on Arc Testnet for multi-step settlement.",
+    parameters: {
+      type: "object",
+      properties: {
+        payeeAddress: { type: "string", description: "Payee EVM address" },
+        amountUsdc: { type: "number", description: "Amount of USDC to lock in escrow" },
+        milestone: { type: "string", description: "Milestone or condition description" }
+      },
+      required: ["payeeAddress", "amountUsdc"]
+    }
+  },
+  {
+    name: "executeAgentNanopayment",
+    description: "Execute an autonomous Agent-to-Agent nanopayment in USDC on Arc for API or service execution.",
+    parameters: {
+      type: "object",
+      properties: {
+        recipientAddress: { type: "string", description: "Target agent or API provider address" },
+        amountUsdc: { type: "number", description: "Amount of USDC to pay" },
+        serviceName: { type: "string", description: "Service or inference job name" }
+      },
+      required: ["recipientAddress", "amountUsdc"]
+    }
+  },
+  {
+    name: "bridgeUsdcViaGateway",
+    description: "Bridge USDC from another chain to Arc Testnet via Circle Gateway / CCTP.",
+    parameters: {
+      type: "object",
+      properties: {
+        sourceChain: { type: "string", description: "Source chain (e.g., 'base-sepolia', 'ethereum')" },
+        amountUsdc: { type: "number", description: "Amount of USDC to bridge" }
+      },
+      required: ["sourceChain", "amountUsdc"]
+    }
+  },
+  {
+    name: "getAgentSpendingPolicy",
+    description: "Inspect the autonomous AI Agent's spending policy, daily budget, and per-transaction limits on Arc.",
+    parameters: {
+      type: "object",
+      properties: {
+        agentId: { type: "string", description: "AI Agent ID" }
+      }
+    }
+  }
 ];
 
 /**
@@ -174,7 +253,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
 
   switch (name) {
     case "sendBot": {
-      const { recipient, amount, currency = "BOT" } = args;
+      const { recipient, amount, currency = "USDC" } = args;
       if (!recipient || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
         return { tool: "sendBot", success: false, message: "❌ Include a valid recipient and an amount greater than zero." };
       }
@@ -301,67 +380,54 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
 
       const currSymbol = currencySymbolMap[region] || '₹';
 
-      let internalBal = 0;
-      let externalBal = 0;
+      let internalBotBal = 0;
+      let externalBotBal = 0;
 
       try {
         const { ethers } = await import('ethers');
-        const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         if (userObj?.internal_wallet_address) {
           const rawInt = await provider.getBalance(userObj.internal_wallet_address);
-          internalBal = parseFloat(ethers.formatUnits(rawInt, 18));
+          internalBotBal = parseFloat(ethers.formatUnits(rawInt, 18));
         }
 
         if (userObj?.metamask_id && userObj.metamask_id.startsWith('0x')) {
           const rawExt = await provider.getBalance(userObj.metamask_id);
-          externalBal = parseFloat(ethers.formatUnits(rawExt, 18));
+          externalBotBal = parseFloat(ethers.formatUnits(rawExt, 18));
         }
       } catch (err) {
         logger.error("Tool checkBalance RPC Error:", err.message);
-        internalBal = bankDetails?.usdc_balance || 0;
+        internalBotBal = bankDetails?.usdc_balance || 0;
       }
 
-      const tokenPrice = 1.0; // 1 USDC = 1 USD
-      const totalBal = internalBal + externalBal;
-      const totalUsd = totalBal.toFixed(2);
-      const internalUsd = internalBal.toFixed(2);
+      let usdcPrice = 1.00;
+      try {
+        usdcPrice = await getLiveBotPrice();
+      } catch (e) { }
 
-      let msg = `🤖 Base Sepolia Web3 Balances:\n`;
-      msg += `🏦 Internal Vault: ${internalBal.toFixed(4)} USDC (≈ $${internalUsd} USD)\n`;
-      if (externalBal > 0) {
-        msg += `🦊 Connected Wallet: ${externalBal.toFixed(4)} ETH / USDC\n`;
-      }
-      msg += `📊 Combined Liquidity: $${totalUsd} USD`;
+      const totalUsdcBal = internalBotBal + externalBotBal;
+      const totalUsd = (totalUsdcBal * usdcPrice).toFixed(2);
+      const internalUsd = (internalBotBal * usdcPrice).toFixed(2);
 
-      return {
-        tool: "checkBalance",
-        success: true,
-        region,
-        fiatBalance: Number(bankBal),
-        fiatCurrency: currSymbol,
-        internalCryptoBalance: internalBal,
-        externalCryptoBalance: externalBal,
-        totalCryptoBalance: totalBal,
-        tokenPrice: tokenPrice,
-        message: msg
-      };
+      let msg = `🤖 Arc Chain Balances:\n`;
+      msg += `🏦 Internal Vault: ${internalBotBal.toFixed(4)} USDC (≈ $${internalUsd} USD)\n`;
 
       if (userObj?.metamask_id && userObj.metamask_id !== 'Not Connected') {
-        const externalUsd = (externalBotBal * botPrice).toFixed(2);
-        msg += `🔗 External Web3 Wallet: ${externalBotBal.toFixed(4)} BOT (≈ $${externalUsd} USD)\n`;
+        const externalUsd = (externalBotBal * usdcPrice).toFixed(2);
+        msg += `🔗 External Web3 Wallet: ${externalBotBal.toFixed(4)} USDC (≈ $${externalUsd} USD)\n`;
       }
 
-      msg += `💎 Total On-Chain Balance: ${totalBotBal.toFixed(4)} BOT (≈ $${totalUsd} USD)`;
+      msg += `💎 Total On-Chain Balance: ${totalUsdcBal.toFixed(4)} USDC (≈ $${totalUsd} USD)`;
 
       return {
         tool: "checkBalance",
         success: true,
-        totalBotBalance: totalBotBal,
+        totalBotBalance: totalUsdcBal,
         internalBotBalance: internalBotBal,
         externalBotBalance: externalBotBal,
-        botPrice,
+        botPrice: usdcPrice,
         message: msg
       };
     }
@@ -396,7 +462,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
           senderUPI: t.sender_pay_tag,
           receiverUPI: t.receiver_pay_tag,
           amount: t.bot_amount || t.amount || 0,
-          coin: 'BOT',
+          coin: 'USDC',
           txHash: t.tx_hash,
           date: t.created_at
         })),
@@ -406,7 +472,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
           senderUPI: p.sender_pay_tag,
           receiverUPI: p.recipient_pay_tag,
           amount: p.bot_amount_snapshot || p.amount || 0,
-          coin: p.coin || 'BOT',
+          coin: p.coin || 'USDC',
           txHash: p.tx_hash,
           date: p.created_at
         }))
@@ -458,7 +524,10 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         };
       }
 
-      const explorerUrl = process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || "https://sepolia.basescan.org/";
+      const explorerUrl = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || process.env.BOTCHAIN_EXPLORER_URL || "https://testnet.arcscan.app";
+      // The chat bubble renders links itself but does not parse Markdown
+      // emphasis. Keep transaction history as clean plain text so users do
+      // not see literal ** and * markers.
       let msg = `📜 Recent Transactions (${sliced.length}):\n`;
 
       sliced.forEach((tx, i) => {
@@ -468,9 +537,10 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         const amountStr = `${Number(tx.amount).toFixed(4)} ${tx.coin || 'USDC'}`;
         const dateStr = new Date(tx.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-        msg += `\n${i + 1}. ${icon} ${amountStr} (${direction}) • ${dateStr}`;
+        const scheduledLabel = tx.txHash && tx.sender && tx.receiver ? ' • Scheduled / locked' : '';
+        msg += `\n${i + 1}. ${icon} ${amountStr} (${direction})${scheduledLabel} • ${dateStr}`;
         if (tx.txHash) {
-          msg += `\n    🔗 [Basescan Verified ↗](${explorerUrl}/tx/${tx.txHash})`;
+          msg += `\n    🔗 [ArcScan Verified ↗](${explorerUrl}/tx/${tx.txHash})`;
         }
       });
 
@@ -589,7 +659,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         : new Date(Date.now() + 86400000);
 
       if (isNaN(scheduledAt.getTime())) {
-        return { tool: "schedulePayment", success: false, message: "❌ Invalid date/time format. Try: 'Schedule 5 BOT to @user tomorrow at 3pm'." };
+        return { tool: "schedulePayment", success: false, message: "❌ Invalid date/time format. Try: 'Schedule 5 USDC to @user tomorrow at 3pm'." };
       }
 
       const cleanTag = recipient.replace(/^@/, '').trim();
@@ -638,7 +708,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
           receiver_id: receiverUser.id,
           receiver_pay_tag: recipient,
           amount: Number(amount),
-          network: 'base-sepolia',
+          network: process.env.NETWORK || 'arc-testnet',
           status: 'PENDING',
           bot_amount: Number(amount),
           created_at: new Date().toISOString(),
@@ -654,7 +724,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
 
       if (error) throw error;
 
-      const managerAddress = process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x6F3B1DC09A8C968F0B829276570bCF10AB9858c1";
+      const managerAddress = process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x775Ab463A19E51072C61bAe94A0931E00F7caa42";
       const receiverTag = receiverUser.global_pay_tag || recipient;
 
       // ---- Fee computation (exact, no hidden charges) ----
@@ -693,7 +763,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
       const releaseDisplay = localRelease.toISOString().replace('T', ' ').slice(0, 16);
 
       const feeLine = (feeWallet && Number(feeTotal) > 0)
-        ? `\n💸 Transaction fee: ${schedulingFee} BOT (scheduling) + ${releaseFee} BOT (release) = ${feeTotal} BOT\n🧾 Total deduction: ${totalDeduct.toFixed(6)} BOT (${amount} + ${feeTotal} BOT)\n\nOnly this exact amount is deducted from your wallet — no other charges.`
+        ? `\n💸 Transaction fee: ${schedulingFee} USDC (scheduling) + ${releaseFee} USDC (release) = ${feeTotal} USDC\n🧾 Total deduction: ${totalDeduct.toFixed(6)} USDC (${amount} + ${feeTotal} USDC)\n\nOnly this exact amount is deducted from your wallet — no other charges.`
         : '';
 
         return {
@@ -713,12 +783,12 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
           totalDeduct,
           feeWallet,
           requiresAuth: true,
-          message: `⏰ Scheduled ${amount} BOT to ${receiverTag}\n\n📬 Recipient: ${receiverTag}\n🔗 Wallet: ${targetAddress}\n⏱ Release: ${releaseDisplay} (your local time)${feeLine}`
+          message: `⏰ Scheduled ${amount} USDC to ${receiverTag}\n\n📬 Recipient: ${receiverTag}\n🔗 Wallet: ${targetAddress}\n⏱ Release: ${releaseDisplay} (your local time)${feeLine}`
         };
     }
 
     case "createInvoice": {
-      const { amount, currency = "USD", recipient, note = "" } = args;
+      const { amount, currency = "USDC", recipient, note = "" } = args;
 
       const { data: userProfile } = await supabase
         .from('profiles')
@@ -727,12 +797,12 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         .single();
 
       if (!recipient) {
-        return { tool: "createInvoice", success: false, message: "❌ Include an invoice recipient—for example: Create invoice 10 USD for @username." };
+        return { tool: "createInvoice", success: false, message: "❌ Include an invoice recipient—for example: Create invoice 10 USDC for @username." };
       }
 
       const normalizedCurrency = String(currency).toUpperCase();
-      const liveBotPrice = normalizedCurrency === 'USD' ? await getLiveBotPrice() : null;
-      const botAmount = normalizedCurrency === 'USD' ? Number(amount) / liveBotPrice : Number(amount);
+      const liveBotPrice = normalizedCurrency === 'USD' || normalizedCurrency === 'USDC' ? await getLiveBotPrice() : null;
+      const botAmount = normalizedCurrency === 'USD' || normalizedCurrency === 'USDC' ? Number(amount) / liveBotPrice : Number(amount);
       const invoiceItem = {
         user_id: userId,
         recipient_pay_tag: recipient || "Open Customer",
@@ -761,18 +831,21 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         currency: normalizedCurrency,
         recipient: recipient || "Open Customer",
         message: normalizedCurrency === 'USD'
-          ? `📄 Created a $${Number(amount).toFixed(2)} invoice for ${recipient} (payable in USDC on Base Sepolia).`
-          : `📄 Created Invoice for ${amount} ${normalizedCurrency}.`
+          ? `📄 Created a $${Number(amount).toFixed(2)} invoice for ${recipient}. Estimated at ${botAmount.toFixed(4)} USDC.`
+          : `📄 Created a ${Number(amount).toFixed(2)} ${normalizedCurrency} invoice for ${recipient}.`
       };
     }
 
     case "getRate": {
-      const tokenPrice = 1.0;
+      let botPrice = 1.0;
+      try {
+        botPrice = await getLiveBotPrice();
+      } catch (e) {}
       return {
         tool: "getRate",
         success: true,
-        rate: tokenPrice,
-        message: `💎 Current USDC Rate: $1.00 USD (Base Sepolia)`
+        rate: botPrice,
+        message: `💎 Current USDC/USD Rate: $${botPrice.toFixed(6)} per USDC (native gas on Arc)`
       };
     }
 
@@ -839,7 +912,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
     }
 
     case "getHelp": {
-      const helpMsg = `📋 Commands\n\n/send — Send BOT\n/balance — View balances\n/history — Transaction log\n/rate — Live BOT price\n/wallet — Your addresses\n/primary — Switch wallet\n/find — Search users\n/schedule — Future payment\n/cancel — Cancel a schedule\n/invoice — Create invoice\n\nTip: Type naturally like "Send 5 BOT to @user"`;
+      const helpMsg = `📋 Commands\n\n/send — Send USDC\n/balance — View balances\n/history — Transaction log\n/wallet — Your addresses\n/primary — Switch wallet\n/find — Search users\n/schedule — Future payment\n/cancel — Cancel a schedule\n/invoice — Create invoice\n\nTip: Type naturally like "Send 5 USDC to @user"`;
 
       return {
         tool: "getHelp",
@@ -850,7 +923,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
 
     case "cancelSchedulePayment": {
       const { transferId } = args;
-      const managerAddress = process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x6F3B1DC09A8C968F0B829276570bCF10AB9858c1";
+      const managerAddress = process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x775Ab463A19E51072C61bAe94A0931E00F7caa42";
 
       const mgrAbi = [
         { "inputs": [{"internalType": "bytes32", "name": "id", "type": "bytes32"}], "name": "getPayment", "outputs": [
@@ -915,7 +988,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
           contractAddress: managerAddress,
           recipient: t.receiver_pay_tag || 'Unknown',
           amount: Number(t.bot_amount || t.amount || 0),
-          message: `🔍 Found scheduled transfer #${t.id} (${t.status}) to ${t.receiver_pay_tag || 'Unknown'} for ${Number(t.bot_amount || t.amount || 0)} BOT.\n\nTo cancel and refund, click "Cancel & Refund" below. This will send a cancel transaction to the GlobalPay Manager contract via MetaMask.`
+          message: `🔍 Found scheduled transfer #${t.id} (${t.status}) to ${t.receiver_pay_tag || 'Unknown'} for ${Number(t.bot_amount || t.amount || 0)} USDC.\n\nTo cancel and refund, click "Cancel & Refund" below. This will send a cancel transaction to the GlobalPay Manager contract via MetaMask.`
         };
       };
 
@@ -990,7 +1063,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
             recipient: c.t.receiver_pay_tag || 'Unknown',
             amount: Number(c.t.bot_amount || c.t.amount || 0),
             funded: true,
-            label: `${Number(c.t.bot_amount || c.t.amount || 0)} BOT → ${c.t.receiver_pay_tag || 'Unknown'} · ${whenLabel}`
+            label: `${Number(c.t.bot_amount || c.t.amount || 0)} USDC → ${c.t.receiver_pay_tag || 'Unknown'} · ${whenLabel}`
           };
         });
 
@@ -1004,6 +1077,116 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         cancelPlan: true,
         cancelOptions: options,
         message: `📋 Your scheduled payments that can still be cancelled:\n\n${options.map((o) => `☐ ${o.label} · funds locked 🔒`).join('\n')}\n\nTick the box(es) you want to cancel below, then tap "Cancel Selected" and approve each MetaMask request.`
+      };
+    }
+
+    case "sendUsdcOnArc": {
+      const { recipient, amount } = args;
+      if (!recipient || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+        return { tool: "sendUsdcOnArc", success: false, message: "❌ Please provide a valid recipient and USDC amount greater than zero." };
+      }
+      return {
+        tool: "sendUsdcOnArc",
+        success: true,
+        requiresAuth: true,
+        actionRequired: true,
+        network: "Arc Testnet",
+        chainId: 5042002,
+        currency: "USDC",
+        recipient,
+        amount: Number(amount),
+        message: `⚡ Initiating transfer of ${amount} USDC on Arc Testnet to ${recipient}. USDC is used directly as native gas.`
+      };
+    }
+
+    case "checkArcBalance": {
+      try {
+        const addr = args?.address || user?.internalWalletAddress || user?.internal_wallet_address;
+        const status = await getArcNetworkStatus();
+        let bal = null;
+        if (addr && ethers.utils.isAddress(addr)) {
+          bal = await getArcBalance(addr);
+        }
+        return {
+          tool: "checkArcBalance",
+          success: true,
+          network: status.network,
+          chainId: status.chainId,
+          nativeGas: "USDC",
+          blockHeight: status.blockNumber,
+          address: addr || 'Not configured',
+          balanceUsdc: bal ? bal.balanceUsdc : '0.00',
+          message: `🌐 Arc L1 Network Status: ${status.status.toUpperCase()}\n• Chain ID: ${status.chainId}\n• Native Gas: USDC\n• Wallet: ${addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'None'}\n• Balance: ${bal ? bal.balanceUsdc : '0.00'} USDC\n• Block Height: #${status.blockNumber || 'Syncing'}`
+        };
+      } catch (err) {
+        return { tool: "checkArcBalance", success: false, message: `❌ Error checking Arc status: ${err.message}` };
+      }
+    }
+
+    case "createArcEscrow": {
+      const { payeeAddress, amountUsdc, milestone } = args;
+      const res = await createProgrammableEscrow({
+        payerAddress: user?.internalWalletAddress || user?.internal_wallet_address || '0xUser',
+        payeeAddress,
+        amountUsdc,
+        conditions: { milestone: milestone || 'milestone_complete', autoRelease: true }
+      });
+      return {
+        tool: "createArcEscrow",
+        success: true,
+        escrowId: res.escrowId,
+        amountUsdc,
+        payeeAddress,
+        message: `🔒 Programmable Escrow created on Arc Testnet (#${res.escrowId})\n• Amount: ${amountUsdc} USDC\n• Payee: ${payeeAddress}\n• Condition: ${milestone || 'Job Completion'}\n• Settlement: Native USDC on Arc`
+      };
+    }
+
+    case "executeAgentNanopayment": {
+      const { recipientAddress, amountUsdc, serviceName } = args;
+      try {
+        const receipt = await executeNanopayment({
+          payerAgentId: user?.id || 'agent_primary',
+          recipientAddress,
+          amountUsdc,
+          serviceName
+        });
+        return {
+          tool: "executeAgentNanopayment",
+          success: true,
+          receipt,
+          message: `🤖 Agent Nanopayment Settled on Arc!\n• Service: ${serviceName || 'AI Inference'}\n• Amount: ${amountUsdc} USDC\n• Tx Hash: ${receipt.txHash}\n• Explorer: ${receipt.explorerUrl}`
+        };
+      } catch (err) {
+        return { tool: "executeAgentNanopayment", success: false, message: `❌ Nanopayment failed: ${err.message}` };
+      }
+    }
+
+    case "bridgeUsdcViaGateway": {
+      const { sourceChain, amountUsdc } = args;
+      const bridgeRes = await routeCrosschainUsdc({
+        sourceChain,
+        destinationChain: 'arc-testnet',
+        amountUsdc,
+        recipientAddress: user?.internalWalletAddress || user?.internal_wallet_address || '0xUser'
+      });
+      return {
+        tool: "bridgeUsdcViaGateway",
+        success: true,
+        bridgeRes,
+        message: `🌉 Circle Gateway / CCTP Bridge Initiated:\n• Route: ${sourceChain} ➔ Arc Testnet\n• Amount: ${amountUsdc} USDC\n• Transfer ID: ${bridgeRes.transferId}\n• Status: Settled in Native USDC`
+      };
+    }
+
+    case "getAgentSpendingPolicy": {
+      const policy = await checkAgentSpendingPolicy({
+        agentId: args?.agentId || user?.id,
+        amountUsdc: 1
+      });
+      return {
+        tool: "getAgentSpendingPolicy",
+        success: true,
+        policy,
+        message: `🛡️ Arc Agent Spending Policy:\n• Daily Limit: 2500 USDC\n• Max Single Tx: 500 USDC\n• Remaining Budget: ${policy.remainingDailyBudget || 2500} USDC\n• Status: Active`
       };
     }
 

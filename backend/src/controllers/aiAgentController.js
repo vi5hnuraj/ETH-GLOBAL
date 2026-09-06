@@ -27,24 +27,24 @@ export const handleAgentChat = async (req, res) => {
       }
     }));
 
-    const systemPrompt = `
+const systemPrompt = `
 You are the AI Remittance Agent for GlobalPay.
-Your task is to assist users with financial actions: sending USDC, checking balance, getting transaction history, paying merchants, paying QR codes, finding users, scheduling payments, and creating invoices.
+Your task is to assist users with financial actions: sending USDC tokens, checking balance, getting transaction history, paying merchants, paying QR codes, finding users, scheduling payments, and creating invoices.
 
 Always select and call the appropriate tool when the user's intent matches one of the available functions:
-- sendBot: Send BOT or crypto tokens to a recipient (e.g., "Send 25 BOT to @alice").
-- payMerchant: Pay a merchant (e.g., "Pay merchant Starbucks 15 BOT").
+- sendBot: Send USDC or crypto tokens to a recipient (e.g., "Send 25 USDC to @alice").
+- payMerchant: Pay a merchant (e.g., "Pay merchant Starbucks 15 USDC").
 - payQR: Pay a QR code payload or address (e.g., "Pay this QR").
 - checkBalance: Check available fiat and crypto balance (e.g., "Show my balance").
 - getTransactionHistory: View recent activity log (e.g., "Show my transactions").
 - findUser: Search for a user (e.g., "Find user @alice").
-- schedulePayment: Schedule a payment for later (e.g., "Schedule 10 BOT to @bob tomorrow").
-- createInvoice: Create an invoice (e.g., "Create invoice 50 BOT").
-- getRate: Get the live BOT/USD exchange rate (e.g., "What's the BOT price?" or "Show rate").
+- schedulePayment: Schedule a payment for later (e.g., "Schedule 10 USDC to @bob tomorrow").
+- createInvoice: Create an invoice (e.g., "Create invoice 50 USDC").
+- getRate: Get the live USDC/USD exchange rate (e.g., "What's the USDC price?" or "Show rate").
 - getWallet: Show your wallet addresses (e.g., "Show my wallet").
 - switchPrimary: Switch primary receiving wallet (e.g., "Switch to external wallet").
 - getHelp: List all commands (e.g., "What can you do?" or "Help").
- 
+
 Never output raw code. Choose the best matching tool to execute backend actions.
     `;
 
@@ -116,7 +116,7 @@ Never output raw code. Choose the best matching tool to execute backend actions.
         return amountMatch ? parseFloat(amountMatch[1]) : 10;
       };
 
-      const extractCurrency = (str) => /\bUSD\b|\$/i.test(str) ? 'USD' : 'BOT';
+      const extractCurrency = (str) => /\bUSD\b|\$/i.test(str) ? 'USD' : 'USDC';
 
       const parseScheduleDate = (str) => {
         const lower = str.toLowerCase();
@@ -336,7 +336,7 @@ Never output raw code. Choose the best matching tool to execute backend actions.
             aiResponseText = toolCallResult.message;
           }
         } else if (!aiResponseText) {
-          aiResponseText = "👋 Hi! I'm your GlobalPay AI Agent. I can execute commands for you! Try:\n• 'Send 25 BOT to @alice'\n• 'Show my balance'\n• 'Show my transactions'\n• 'What's the BOT price?'\n• 'Show my wallet'\n• 'Switch to external wallet'\n• 'Schedule 5 BOT to @bob tomorrow at 3pm'\n• 'Create invoice 50 BOT'\n• 'Help'";
+          aiResponseText = "👋 Hi! I'm your GlobalPay AI Agent. I can execute commands for you! Try:\n• 'Send 25 USDC to @alice'\n• 'Show my balance'\n• 'Show my transactions'\n• 'Show my wallet'\n• 'Switch to external wallet'\n• 'Schedule 5 USDC to @bob tomorrow at 3pm'\n• 'Create invoice 50 USDC'\n• 'Help'";
         }
     }
 

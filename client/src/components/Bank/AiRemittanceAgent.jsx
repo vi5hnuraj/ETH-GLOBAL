@@ -105,16 +105,15 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
   const hasMpc = !!getMpcAccount();
 
   const commandTools = [
-    { command: '/send', title: 'Send ETH', prompt: 'Send 1 ETH to @username', desc: 'Transfer ETH to @username' },
+    { command: '/send', title: 'Send USDC', prompt: 'Send 1 USDC to @username', desc: 'Transfer USDC to @username' },
     { command: '/balance', title: 'Check Balance', prompt: 'Show my balance', desc: 'View fiat & on-chain vault balances' },
     { command: '/history', title: 'Transaction History', prompt: 'Show my transactions', desc: 'View recent activity log' },
-    { command: '/rate', title: 'ETH Price', prompt: 'Show ETH price in USD', desc: 'Live ETH/USD exchange rate' },
     { command: '/wallet', title: 'My Wallets', prompt: 'Show my wallet addresses', desc: 'Internal Vault & external wallet' },
     { command: '/find', title: 'Find User', prompt: 'Find user @username', desc: 'Search GlobalPay user' },
-    ...(hasExternalWallet ? [{ command: '/schedule', title: 'Schedule Payment', prompt: 'Schedule 5 ETH to @username tomorrow at 3pm', desc: 'Queue future transfer (external wallet)' }] : []),
+    ...(hasExternalWallet ? [{ command: '/schedule', title: 'Schedule Payment', prompt: 'Schedule 5 USDC to @username tomorrow at 3pm', desc: 'Queue future transfer (external wallet)' }] : []),
     { command: '/cancel', title: 'Cancel Schedule', prompt: 'Cancel my recent scheduled payment', desc: 'Cancel & refund a scheduled payment' },
 
-    { command: '/invoice', title: 'Create Invoice', prompt: 'Create invoice 10 USD for @username', desc: 'Generate payment invoice' },
+    { command: '/invoice', title: 'Create Invoice', prompt: 'Create invoice 10 USDC for @username', desc: 'Generate payment invoice' },
     { command: '/help', title: 'Help', prompt: 'What can you do?', desc: 'List all available commands' },
   ];
 
@@ -248,7 +247,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
         amt: Number(data.amount),
         sender: currentUser._id || currentUser.id,
         keyword: 'AI Agent transfer',
-        coin: data.currency || 'ETH',
+        coin: data.currency || 'USDC',
         txHash: result.transactionHash,
         botAmountSnapshot: Number(data.amount),
         senderWalletType: 'internal',
@@ -262,7 +261,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       setMessages(prev => [...prev, {
         id: Date.now(),
         sender: 'ai',
-        text: `✅ Payment confirmed! ${data.amount} ${data.currency || 'ETH'} was sent to ${data.recipient}.`,
+        text: `✅ Payment confirmed! ${data.amount} ${data.currency || 'USDC'} was sent to ${data.recipient}.`,
         isSuccess: true
       }]);
 
@@ -292,7 +291,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       m.id === messageId ? { ...m, isAction: false, text: m.text + '\n\n⏳ Awaiting MetaMask approval...' } : m
     ));
 
-    const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532).toString(16);
+    const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_ARC_CHAIN_ID || 5042002).toString(16);
 
     try {
       let currentChainId;
@@ -311,10 +310,10 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: chainIdHex,
-                rpcUrls: [import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org'],
-                chainName: import.meta.env.VITE_CHAIN_NAME || 'Base Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                blockExplorerUrls: [import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org']
+                rpcUrls: [import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io'],
+                chainName: import.meta.env.VITE_ARC_CHAIN_NAME || import.meta.env.VITE_CHAIN_NAME || 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                blockExplorerUrls: [import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app']
               }]
             });
           }
@@ -353,7 +352,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
         amt: Number(data.amount),
         sender: currentUser._id || currentUser.id,
         keyword: 'AI Agent transfer',
-        coin: data.currency || 'ETH',
+        coin: data.currency || 'USDC',
         txHash,
         botAmountSnapshot: Number(data.amount),
         senderWalletType: 'external',
@@ -367,7 +366,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       setMessages(prev => [...prev, {
         id: Date.now(),
         sender: 'ai',
-        text: `✅ Payment confirmed! ${data.amount} ${data.currency || 'ETH'} was sent to ${data.recipient}.`,
+        text: `✅ Payment confirmed! ${data.amount} ${data.currency || 'USDC'} was sent to ${data.recipient}.`,
         isSuccess: true
       }]);
 
@@ -426,7 +425,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
         m.id === messageId ? { ...m, isAction: false, text: m.text + '\n\n⏳ Sending funds to timelock contract via MetaMask...' } : m
       ));
 
-      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532).toString(16);
+      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_ARC_CHAIN_ID || 5042002).toString(16);
 
       let currentChainId;
       try {
@@ -444,10 +443,10 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: chainIdHex,
-                rpcUrls: [import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org'],
-                chainName: import.meta.env.VITE_CHAIN_NAME || 'Base Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                blockExplorerUrls: [import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org']
+                rpcUrls: [import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io'],
+                chainName: import.meta.env.VITE_ARC_CHAIN_NAME || import.meta.env.VITE_CHAIN_NAME || 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                blockExplorerUrls: [import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app']
               }]
             });
           }
@@ -521,7 +520,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       let feeTxHash = null;
       if (data.feeWallet && Number(data.feeTotal) > 0) {
         setMessages(prev => prev.map(m =>
-          m.id === messageId ? { ...m, text: m.text + `\n\n⏳ Sending transaction fee (${Number(data.feeTotal).toFixed(6)} ETH) via MetaMask...` } : m
+          m.id === messageId ? { ...m, text: m.text + `\n\n⏳ Sending transaction fee (${Number(data.feeTotal).toFixed(6)} USDC) via MetaMask...` } : m
         ));
         try {
           const feeValueHex = ethers.utils.hexlify(
@@ -541,7 +540,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
           setMessages(prev => [...prev, {
             id: Date.now(),
             sender: 'ai',
-            text: `⚠️ Payment locked, but the transaction fee (${Number(data.feeTotal).toFixed(6)} ETH) could not be sent. Release may be delayed until the fee is covered.`
+            text: `⚠️ Payment locked, but the transaction fee (${Number(data.feeTotal).toFixed(6)} USDC) could not be sent. Release may be delayed until the fee is covered.`
           }]);
           if (refreshData) refreshData();
           return;
@@ -549,13 +548,13 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       }
 
       setMessages(prev => prev.map(m =>
-        m.id === messageId ? { ...m, text: m.text.replace('\n\n⏳ Sending funds to timelock contract via MetaMask...', '').replace(`\n\n⏳ Sending transaction fee (${Number(data.feeTotal).toFixed(6)} ETH) via MetaMask...`, '') } : m
+        m.id === messageId ? { ...m, text: m.text.replace('\n\n⏳ Sending funds to timelock contract via MetaMask...', '').replace(`\n\n⏳ Sending transaction fee (${Number(data.feeTotal).toFixed(6)} USDC) via MetaMask...`, '') } : m
       ));
 
       setMessages(prev => [...prev, {
         id: Date.now(),
         sender: 'ai',
-        text: `✅ Funds locked in GlobalPay Manager! Payment ID: ${contractPaymentId} — ${data.amount} ETH will be released to ${data.recipient} automatically at the scheduled time. No intermediary, no treasury.${feeTxHash ? `\n\n🧾 Transaction fee paid: ${Number(data.feeTotal).toFixed(6)} ETH` : ''}`,
+        text: `✅ Funds locked in GlobalPay Manager! Payment ID: ${contractPaymentId} — ${data.amount} USDC will be released to ${data.recipient} automatically at the scheduled time. No intermediary, no treasury.${feeTxHash ? `\n\n🧾 Transaction fee paid: ${Number(data.feeTotal).toFixed(6)} USDC` : ''}`,
         isSuccess: true
       }]);
 
@@ -580,7 +579,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
         m.id === messageId ? { ...m, isAction: false, text: m.text + '\n\n⏳ Sending cancel transaction to contract via MetaMask...' } : m
       ));
 
-      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532).toString(16);
+      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_ARC_CHAIN_ID || 5042002).toString(16);
 
       let currentChainId;
       try {
@@ -598,10 +597,10 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: chainIdHex,
-                rpcUrls: [import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org'],
-                chainName: import.meta.env.VITE_CHAIN_NAME || 'Base Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                blockExplorerUrls: [import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org']
+                rpcUrls: [import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io'],
+                chainName: import.meta.env.VITE_ARC_CHAIN_NAME || import.meta.env.VITE_CHAIN_NAME || 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                blockExplorerUrls: [import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app']
               }]
             });
           }
@@ -664,7 +663,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
       setMessages(prev => [...prev, {
         id: Date.now(),
         sender: 'ai',
-        text: `✅ Payment cancelled and refunded! ${data.amount} ETH has been returned to your wallet.`,
+        text: `✅ Payment cancelled and refunded! ${data.amount} USDC has been returned to your wallet.`,
         isSuccess: true
       }]);
 
@@ -832,7 +831,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
                     >
                       <FiZap size={14} /> {msg.authData?.cancelAction
                         ? 'Cancel & Refund'
-                        : (msg.authData?.feeTotal ? `Approve ${Number(msg.authData.totalDeduct).toFixed(6)} ETH` : 'Send to Timelock')}
+                        : (msg.authData?.feeTotal ? `Approve ${Number(msg.authData.totalDeduct).toFixed(6)} USDC` : 'Send to Timelock')}
                     </button>
                     <button
                       onClick={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isAction: false } : m))}
@@ -937,7 +936,7 @@ const AiRemittanceAgent = ({ user: initialUser, refreshData }) => {
                 type="text"
                 value={input}
                 onChange={handleInputChange}
-                placeholder="Type '/' or ask 'Send 10 ETH to @user_gl'..."
+                placeholder="Type '/' or ask 'Send 10 USDC to @user_gl'..."
                 className="w-full bg-zinc-900/50 border border-zinc-700/50 text-white text-sm rounded-2xl pl-12 pr-14 py-4 focus:outline-none focus:border-secondary/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600"
               />
               <button

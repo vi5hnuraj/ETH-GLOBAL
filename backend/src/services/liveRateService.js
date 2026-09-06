@@ -1,10 +1,8 @@
-import logger from '../utils/logger.js';
-
 let inMemoryRateCache = null;
 let inMemoryRateCacheTime = 0;
 
-let inMemoryEthPriceCache = null;
-let inMemoryEthPriceCacheTime = 0;
+let inMemoryBotPriceCache = null;
+let inMemoryBotPriceCacheTime = 0;
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -46,99 +44,31 @@ export const getLiveExchangeRates = async () => {
     return inMemoryRateCache;
   }
 
-  // Fallback exchange rates if external rate APIs are temporarily down
-  return {
-    USD: 1.0,
-    INR: 87.0,
-    EUR: 0.92,
-    GBP: 0.79,
-    AED: 3.67,
-    SGD: 1.34,
-    CAD: 1.38,
-    AUD: 1.55,
-    JPY: 154.0
-  };
+  throw new Error("FINANCIAL_ERROR: Live fiat exchange rates unavailable. Financial transaction rejected to prevent price slippage.");
 };
 
 /**
- * Fetches the live ETH price from Coinbase / CoinGecko public APIs.
+ * Returns USDC/USD price (1 USDC = 1 USD on Arc Testnet).
  */
-export const getLiveEthPrice = async () => {
-  if (inMemoryEthPriceCache && (Date.now() - inMemoryEthPriceCacheTime < CACHE_TTL_MS)) {
-    return inMemoryEthPriceCache;
-  }
-
-  try {
-    const res = await fetch('https://api.coinbase.com/v2/prices/ETH-USD/spot');
-    if (res.ok) {
-      const data = await res.json();
-      const price = Number(data?.data?.amount);
-      if (!isNaN(price) && price > 0) {
-        inMemoryEthPriceCache = price;
-        inMemoryEthPriceCacheTime = Date.now();
-        return price;
-      }
-    }
-  } catch (err) {
-    logger.warn("[LiveRateService] Coinbase ETH-USD API warning:", err.message);
-  }
-
-  try {
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-    if (res.ok) {
-      const data = await res.json();
-      const price = Number(data?.ethereum?.usd);
-      if (!isNaN(price) && price > 0) {
-        inMemoryEthPriceCache = price;
-        inMemoryEthPriceCacheTime = Date.now();
-        return price;
-      }
-    }
-  } catch (err) {
-    logger.warn("[LiveRateService] CoinGecko ETH-USD API warning:", err.message);
-  }
-
-  if (inMemoryEthPriceCache) {
-    return inMemoryEthPriceCache;
-  }
-
-  return 2600.0; // Standard fallback estimate
-};
-
-/**
- * USDC is 1.00 USD pegged.
- */
-export const getLiveUsdcPrice = async () => {
+export const getLiveBotPrice = async () => {
   return 1.0;
 };
 
 /**
- * Backward-compatible token price resolver.
+ * Converts a fiat amount in target currency to USDC amount using live rates
  */
-export const getLiveBotPrice = async () => {
-  return 1.0; // 1:1 USD for USDC on Base
-};
-
-/**
- * Converts a fiat amount in target currency to USDC / Crypto amount using live rates
- */
-export const convertFiatToUsdc = async (amount, currencyCode = 'INR') => {
+export const convertFiatToBot = async (amount, currencyCode = 'INR') => {
   const rates = await getLiveExchangeRates();
-  const tokenPrice = 1.0; // 1 USDC = 1 USD
+  const botPrice = 1.0;
 
-  const rate = rates[currencyCode.toUpperCase()] || rates['INR'] || 87.0;
+  const rate = rates[currencyCode.toUpperCase()] || rates['INR'] || 83.5;
   const usdValue = Number(amount) / rate;
-  const usdcAmount = usdValue / tokenPrice;
+  const botAmount = usdValue / botPrice;
 
   return {
     usdValue: parseFloat(usdValue.toFixed(4)),
-    usdcAmount: parseFloat(usdcAmount.toFixed(6)),
-    botAmount: parseFloat(usdcAmount.toFixed(6)), // Compatibility alias
-    amount: parseFloat(usdcAmount.toFixed(6)),
+    botAmount: parseFloat(botAmount.toFixed(6)),
     exchangeRate: rate,
-    tokenPrice: tokenPrice,
-    botPrice: tokenPrice // Compatibility alias
+    botPrice: 1.0
   };
 };
-
-export const convertFiatToBot = convertFiatToUsdc;

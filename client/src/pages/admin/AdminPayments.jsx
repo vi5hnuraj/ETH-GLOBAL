@@ -148,7 +148,7 @@ const AdminPayments = () => {
                       </td>
                       <td className="py-3 pr-4">
                         <span className="text-zinc-200 font-medium">
-                          {p.amount != null ? `${Number(p.amount).toFixed(4)} ${p.currency || 'ETH'}` : '—'}
+                          {p.amount != null ? `${Number(p.amount).toFixed(4)} ${p.currency || 'USDC'}` : '—'}
                         </span>
                         {p.amountUsd != null && (
                           <span className="text-xs text-zinc-500 ml-1">(${Number(p.amountUsd).toFixed(2)})</span>
@@ -198,7 +198,7 @@ const AdminPayments = () => {
           onClose={() => setConfirmRefund(null)}
           onConfirm={handleRefund}
           title="Refund Payment"
-          description={`Refund ${confirmRefund.amount != null ? `${Number(confirmRefund.amount).toFixed(4)} ${confirmRefund.currency || 'ETH'}` : 'this payment'}? The funds will be returned to the developer's wallet.`}
+          description={`Refund ${confirmRefund.amount != null ? `${Number(confirmRefund.amount).toFixed(4)} ${confirmRefund.currency || 'USDC'}` : 'this payment'}? The funds will be returned to the developer's wallet.`}
           confirmLabel="Refund Payment"
           confirmClassName="bg-amber-600 hover:bg-amber-500"
           busy={busy}
