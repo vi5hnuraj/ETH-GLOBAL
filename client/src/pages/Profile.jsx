@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js';
 import { FaUserCircle, FaEdit, FaCheckCircle, FaSignOutAlt, FaShieldAlt } from 'react-icons/fa';
-import { FiArrowUpRight, FiSend, FiCopy, FiCheck } from 'react-icons/fi';
+import { FiArrowUpRight, FiSend, FiCopy, FiCheck, FiExternalLink } from 'react-icons/fi';
 import { useExternalWallet } from '../hooks/useExternalWallet';
 import toast from 'react-hot-toast';
 import moment from 'moment';
@@ -11,7 +11,16 @@ import api, { getCachedUserDetail, refreshUserCache, invalidateUserCache } from 
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
+const formatAddr = (addr) => {
+  if (!addr || addr === "Not Generated" || addr === "Not Connected") return addr || "";
+  if (typeof addr === "string" && addr.startsWith("0x") && addr.length > 10) {
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  }
+  return addr;
+};
+
 const Profile = () => {
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const ext = useExternalWallet();
 
@@ -22,9 +31,10 @@ const Profile = () => {
   const [mob, setMob] = useState("..");
   const [dob, setDob] = useState("..");
   const [kyc, setKyc] = useState(false);
-  const [ethBalance, setBotBalance] = useState(0);   // internal vault ETH balance
-  const [extBalance, setExtBalance] = useState(0);   // external wallet ETH balance
-  const [botPrice, setBotPrice] = useState(null);    // live ETH/USD price
+  const [botBalance, setBotBalance] = useState(0);   // internal vault BOT balance
+  const [extBalance, setExtBalance] = useState(0);   // external wallet balance
+  const [liveExtBalance, setLiveExtBalance] = useState(0); // live on-chain balance
+  const [botPrice, setBotPrice] = useState(1.0);    // live price
   const [walletAddr, setWalletAddr] = useState("");
   const [externalWallet, setExternalWallet] = useState("");
   const [globalPayTag, setGlobalPayTag] = useState("");
@@ -53,23 +63,43 @@ const Profile = () => {
     }
   }, [ext.isConnected, ext.address]);
 
-  // Live RPC balance query for external wallet
+  // Live RPC balance query for both internal vault and external wallet on Arc Testnet
   useEffect(() => {
-    if (activeExtWallet && activeExtWallet.startsWith('0x') && activeExtWallet.length >= 40) {
-      import('ethers').then(async ({ ethers }) => {
+    import('ethers').then(async ({ ethers }) => {
+      const rpc = import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io';
+      const provider = new ethers.providers.JsonRpcProvider(rpc);
+
+      // Internal Vault on-chain balance
+      if (walletAddr && walletAddr.startsWith('0x') && walletAddr.length >= 40 && walletAddr !== '0x0000000000000000000000000000000000000000') {
         try {
-          const provider = new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org');
-          const rawBal = await provider.getBalance(activeExtWallet);
-          const botVal = parseFloat(ethers.utils.formatUnits(rawBal, 18));
-          setExtBalance(botVal);
+          const rawInt = await provider.getBalance(walletAddr);
+          const val = parseFloat(ethers.utils.formatUnits(rawInt, 18));
+          if (!isNaN(val)) setBotBalance(val);
         } catch (err) {
-          console.error("RPC balance fetch error:", err);
+          console.error("Internal wallet Arc balance fetch error:", err);
         }
-      }).catch(e => console.error(e));
-    } else {
-      setExtBalance(0);
-    }
-  }, [activeExtWallet]);
+      }
+
+      // External Wallet on-chain balance
+      if (activeExtWallet && activeExtWallet.startsWith('0x') && activeExtWallet.length >= 40) {
+        try {
+          const rawBal = await provider.getBalance(activeExtWallet);
+          const extVal = parseFloat(ethers.utils.formatUnits(rawBal, 18));
+          if (!isNaN(extVal)) {
+            setLiveExtBalance(extVal);
+            setExtBalance(extVal);
+          }
+        } catch (err) {
+          console.error("External wallet Arc balance fetch error:", err);
+          setLiveExtBalance(0);
+          setExtBalance(0);
+        }
+      } else {
+        setLiveExtBalance(0);
+        setExtBalance(0);
+      }
+    }).catch(e => console.error(e));
+  }, [walletAddr, activeExtWallet]);
 
   const copyToClipboard = (text, label) => {
     if (!text) return;
@@ -86,35 +116,47 @@ const Profile = () => {
   const loadProfile = async () => {
     if (!token) return;
     try {
-      // Always fetch fresh profile details directly from backend to avoid stale cache
+      // Fetch fresh profile directly from backend to avoid stale cache
       const res = await api.get('/auth/fetchdetail').catch(() => null);
       const d = res?.data || await getCachedUserDetail();
       if (!d) return;
       if (d._id || d.id) setUserId(String(d._id || d.id));
       setEmail(d.email || "..");
-      setName(d.username || d.name || d.email?.split('@')[0] || "User");
+      setName(d.username || d.email?.split('@')[0] || "User");
       setMob(d.mobile || "..");
       setDob(d.dob || "..");
       setKyc(d.kyc || false);
-      setWalletAddr(d.internalWalletAddress || d.internal_wallet_address || "Not Generated");
-      const savedExt = d.metamaskId || d.metamask || d.externalWallet || d.external_wallet || "";
+      const userInternal = d.internalWalletAddress || d.internal_wallet_address || "Not Generated";
+      setWalletAddr(userInternal);
+      const savedExt = d.metamaskId || d.metamask || d.externalWallet || "";
       if (savedExt && savedExt !== "Not Connected" && !isManuallyDisconnected) {
         setExternalWallet(savedExt);
       } else {
         setExternalWallet("");
       }
-      setGlobalPayTag(d.globalPayTag || d.global_pay_tag || "");
-      setPrimaryWallet(d.primaryReceivingWallet || d.primary_receiving_wallet || "internal");
+      setGlobalPayTag(d.globalPayTag || "");
+      setPrimaryWallet(d.primaryReceivingWallet || "internal");
+
+      // Check on-chain balance immediately
+      if (userInternal && userInternal.startsWith('0x') && userInternal.length >= 40 && userInternal !== '0x0000000000000000000000000000000000000000') {
+        import('ethers').then(async ({ ethers }) => {
+          try {
+            const rpc = import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io';
+            const provider = new ethers.providers.JsonRpcProvider(rpc);
+            const rawInt = await provider.getBalance(userInternal);
+            const val = parseFloat(ethers.utils.formatUnits(rawInt, 18));
+            if (!isNaN(val)) setBotBalance(val);
+          } catch (e) {
+            console.error("Live Arc balance fetch error on loadProfile:", e);
+          }
+        }).catch(() => {});
+      } else if (d.bankDetails) {
+        const intBal = Number(d.bankDetails.usdcBalance || d.bankDetails.internalBalance || 0);
+        setBotBalance(intBal);
+      }
+
       if (d.bankDetails) {
-        if (d.bankDetails.internalBalance !== undefined || d.bankDetails.usdcBalance !== undefined) {
-          setBotBalance(Number(d.bankDetails.internalBalance ?? d.bankDetails.usdcBalance));
-        }
-        if (d.bankDetails.externalBalance !== undefined) {
-          let ext = Number(d.bankDetails.externalBalance);
-          if (ext > 1e10) ext = ext / 1e18; // Normalize if raw wei
-          setExtBalance(ext);
-        }
-        setBotPrice(1.0);
+        setBotPrice(Number(d.bankDetails.botPrice) || 1.0);
       }
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -168,23 +210,18 @@ const Profile = () => {
   const fetchTransactions = async () => {
     if (!token) return;
     try {
-      // Fetch both internal and on-chain transactions
-      const [internalRes, onChainRes] = await Promise.all([
-        api.get("/money-transfer/external").catch(() => ({ data: [] })),
-        api.get("/money-transfer/onchain").catch(() => ({ data: [] }))
-      ]);
-      const internal = internalRes.data || [];
-      const onChain = onChainRes.data || [];
-      // Merge and deduplicate by tx hash
-      const allTx = [...internal];
-      onChain.forEach(tx => {
-        if (!allTx.find(t => t.tx_hash === tx.tx_hash)) {
-          allTx.push(tx);
+      const res = await api.get("/money-transfer/external").catch(() => ({ data: [] }));
+      const extList = res.data || [];
+      const txMap = new Map();
+      extList.forEach(tx => {
+        const k = (tx.txHash || tx.tx_hash || tx._id || tx.id || '').toLowerCase();
+        if (k && !txMap.has(k)) {
+          txMap.set(k, tx);
         }
       });
-      setTransactions(allTx);
+      setTransactions(Array.from(txMap.values()));
     } catch (err) {
-      console.error("Failed to fetch transactions:", err);
+      console.error("Failed to fetch external transactions:", err);
     }
   };
 
@@ -250,6 +287,13 @@ const Profile = () => {
 
   // Use external records, deduplicate by txHash to prevent showing the same transaction twice
   const allExternal = transactions.filter(t => {
+    const isSent = isSenderMeExt(t);
+    // Strict isolation: only show transaction if the current user's leg used the external Web3 wallet
+    const isMyLegExternal = isSent
+      ? (t.senderWalletType === 'external')
+      : (t.receivingWalletType === 'external');
+    if (!isMyLegExternal) return false;
+
     const isScheduleRow = (t.txType === 'scheduled_funding' || t.txType === 'scheduled_cancellation' || t.txType === 'scheduled_release')
       || t.paymentStage === 'pending_release' || t.paymentStage === 'cancelled';
     // Failed schedules still represent real on-chain events — surface them
@@ -257,9 +301,9 @@ const Profile = () => {
     if (t.status === 'FAILED' && !isScheduleRow) return false;
     if (t.status === 'PENDING' && !(typeof t.txHash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(t.txHash.trim()))) return false;
     // Hide pending-funded schedules from the receiver — only the sender sees "Funds Locked"
-    if (t.paymentStage === 'pending_release' && !isSenderMeExt(t)) return false;
+    if (t.paymentStage === 'pending_release' && !isSent) return false;
     // A cancelled/failed schedule never reaches the receiver — only surface it to the sender
-    if (t.txType === 'scheduled_cancellation' && !isSenderMeExt(t)) return false;
+    if (t.txType === 'scheduled_cancellation' && !isSent) return false;
     return true;
   });
   // Chart data for send/receive (external-only, excluding pending-funded and failed/pending-without-tx)
@@ -412,7 +456,7 @@ const Profile = () => {
                           {isGenerating ? "Generating..." : "Generate platform Wallet"}
                         </button>
                       ) : (
-                        <span className="text-zinc-500 text-[9px] block truncate font-mono">{walletAddr}</span>
+                        <span className="text-zinc-400 text-xs block font-mono" title={walletAddr}>{formatAddr(walletAddr)}</span>
                       )}
                     </div>
 
@@ -438,7 +482,7 @@ const Profile = () => {
                           </button>
                         )}
                       </div>
-                      <span className="text-zinc-500 text-[9px] block truncate font-mono">{externalWallet}</span>
+                      <span className="text-zinc-400 text-xs block font-mono" title={externalWallet}>{formatAddr(externalWallet) || 'Not Connected'}</span>
                     </div>
                   </div>
                 )}
@@ -504,14 +548,24 @@ const Profile = () => {
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-800/60">
                   <div>
-                    <span className="text-zinc-400 text-xs font-mono block truncate max-w-[170px]">
-                      {isExtConnected ? activeExtWallet : 'Not connected'}
+                    <span className="text-zinc-300 text-xs font-mono block" title={activeExtWallet}>
+                      {isExtConnected ? formatAddr(activeExtWallet) : 'Not connected'}
                     </span>
                     {isExtConnected ? (
-                      <button onClick={() => copyToClipboard(activeExtWallet, 'extwallet')} className="text-[10px] text-cyan-400 hover:text-cyan-300 transition-all flex items-center gap-1 mt-1">
-                        {copied === 'extwallet' ? <FiCheck size={10} className="text-emerald-500" /> : <FiCopy size={10} />}
-                        {copied === 'extwallet' ? 'Copied' : 'Copy Address'}
-                      </button>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <button onClick={() => copyToClipboard(activeExtWallet, 'extwallet')} className="text-[10px] text-cyan-400 hover:text-cyan-300 transition-all flex items-center gap-1">
+                          {copied === 'extwallet' ? <FiCheck size={10} className="text-emerald-500" /> : <FiCopy size={10} />}
+                          {copied === 'extwallet' ? 'Copied' : 'Copy Address'}
+                        </button>
+                        <a
+                          href={`${import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app'}/address/${activeExtWallet}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] text-zinc-400 hover:text-cyan-400 transition-all flex items-center gap-1"
+                        >
+                          <FiExternalLink size={10} /> Explorer
+                        </a>
+                      </div>
                     ) : (
                       <div className="mt-1">
                         <button
@@ -526,8 +580,13 @@ const Profile = () => {
                   <div className="text-right">
                     <p className="text-cyan-400 text-[9px] font-black uppercase tracking-widest">External Balance</p>
                     <h3 className="text-xl font-black text-white tracking-tighter mt-0.5">
-                      {(isExtConnected ? extBalance : 0).toFixed(4)} ETH
+                      {(isExtConnected ? liveExtBalance : 0).toFixed(4)} USDC
                     </h3>
+                    {isExtConnected && liveExtBalance > 0 && (
+                      <span className="block text-xs text-zinc-400 font-medium mt-0.5">
+                        ≈ ${(liveExtBalance * (botPrice > 0 ? botPrice : 1)).toFixed(2)} USD
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -539,16 +598,16 @@ const Profile = () => {
                     <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20 text-amber-400 text-sm">⚡</div>
                     <div>
                       <p className="text-white font-bold text-sm">Internal Vault</p>
-                      <p className="text-amber-300 text-[10px]">USDC · Base Sepolia</p>
+                      <p className="text-amber-300 text-[10px]">USDC Native Gas · Arc Testnet</p>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-amber-400 text-[9px] font-black uppercase tracking-widest">Vault Balance</p>
                   <h3 className="text-2xl font-black text-white tracking-tighter mt-0.5">
-                    {ethBalance.toFixed(2)} USDC
+                    {botBalance > 0 ? botBalance.toFixed(2) : '0.00'} USDC
                     <span className="block text-xs text-zinc-400 font-medium mt-0.5">
-                      ≈ ${(ethBalance * 1.0).toFixed(2)} USD
+                      ≈ ${(botBalance * (botPrice > 0 ? botPrice : 1)).toFixed(2)} USD
                     </span>
                   </h3>
                 </div>
@@ -569,7 +628,7 @@ const Profile = () => {
                       </button>
                     ) : (
                       <>
-                        <span className="text-zinc-300 text-xs font-mono truncate max-w-[160px]">{walletAddr}</span>
+                        <span className="text-zinc-300 text-xs font-mono" title={walletAddr}>{formatAddr(walletAddr)}</span>
                         <button onClick={() => copyToClipboard(walletAddr, 'wallet')} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-600 hover:text-amber-500 transition-all">
                           {copied === 'wallet' ? <FiCheck size={12} className="text-emerald-500" /> : <FiCopy size={12} />}
                         </button>
@@ -635,12 +694,12 @@ const Profile = () => {
                 displayExternalPayments.map((p, i) => {
                   const isSentByMe = isSenderMeExt(p);
                   const txType = p.txType || 'direct';
-                  const explorerUrl = import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || "https://sepolia.basescan.org";
+                  const explorerUrl = import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || "https://testnet.arcscan.app";
                   const hasValidTxHash = typeof p.txHash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(p.txHash.trim());
                   const explorerLink = hasValidTxHash ? `${explorerUrl}/tx/${p.txHash.trim()}` : explorerUrl;
                   const targetTag = p.toUPI || p.receiverUPI || p.destinationAddress || 'Recipient';
                   const senderTag = p.sender?.globalPayTag || p.senderUPI || 'Sender';
-                  const ethAmt = Number(p.botAmountSnapshot || p.botAmount || p.amount || 0);
+                  const botAmt = Number(p.botAmountSnapshot || p.botAmount || p.amount || 0);
                   const displayDate = txType === 'scheduled_release'
                     ? (p.releasedAt || p.timestamp)
                     : (p.timestamp || p.date || p.createdAt);
@@ -777,10 +836,10 @@ const Profile = () => {
                                 href={explorerLink}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase border border-amber-500/30 text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 transition-colors flex items-center gap-1 shrink-0"
+                                className="px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase border border-cyan-500/30 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors flex items-center gap-1 shrink-0"
                               >
-                                <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse"></span>
-                                Basescan ↗
+                                <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse"></span>
+                                ArcScan ↗
                               </a>
                             )}
                           </div>
@@ -792,17 +851,17 @@ const Profile = () => {
                             )}
                           </div>
 
-                          {txType === 'scheduled_funding' && (
+                          {(txType === 'scheduled_funding' || txType === 'scheduled_release') && (
                             <>
-                              {p.release_at && (
+                              {(p.scheduledAt || p.release_at) && (
                                 <div className="flex items-center gap-2 text-[9px] mt-0.5">
-                                  <span className="text-zinc-500">Release:</span>
+                                  <span className="text-zinc-500">Scheduled for:</span>
                                   <span className="text-zinc-300 font-bold">
-                                    {moment(p.release_at).format('DD MMM, hh:mm A')}
+                                    {moment(p.scheduledAt || Number(p.release_at) * 1000).format('DD MMM, hh:mm A')}
                                   </span>
                                 </div>
                               )}
-                              {p.receiverWalletAddress && (
+                              {txType === 'scheduled_funding' && p.receiverWalletAddress && (
                                 <div className="flex items-center gap-2 text-[9px] mt-0.5">
                                   <span className="text-zinc-500">Wallet:</span>
                                   <span className="text-zinc-400 font-mono truncate max-w-[160px]">
@@ -817,7 +876,7 @@ const Profile = () => {
 
                       <div className="text-right shrink-0 ml-2">
                         <p className={`text-sm font-black ${isSentByMe || txType === 'scheduled_funding' ? 'text-white' : 'text-emerald-400'}`}>
-                          {amtPrefix}{ethAmt.toFixed(2)} USDC
+                          {amtPrefix}{botAmt.toFixed(2)} USDC
                         </p>
                         {txType === 'scheduled_funding' && (
                           <a

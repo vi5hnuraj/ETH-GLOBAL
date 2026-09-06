@@ -71,7 +71,7 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
     }
 
     try {
-      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532).toString(16);
+      const chainIdHex = '0x' + Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_ARC_CHAIN_ID || 5042002).toString(16);
       let currentChainId;
       try {
         currentChainId = await mmProvider.request({ method: 'eth_chainId' });
@@ -86,10 +86,10 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: chainIdHex,
-                rpcUrls: [import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org'],
-                chainName: import.meta.env.VITE_CHAIN_NAME || 'Base Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                blockExplorerUrls: [import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org']
+                rpcUrls: [import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io'],
+                chainName: import.meta.env.VITE_ARC_CHAIN_NAME || import.meta.env.VITE_CHAIN_NAME || 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                blockExplorerUrls: [import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app']
               }]
             });
           }
@@ -99,7 +99,7 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
       const accounts = await mmProvider.request({ method: 'eth_requestAccounts' });
       const fromAddr = accounts[0];
 
-      const contractAddress = import.meta.env.VITE_GLOBAL_PAY_MANAGER_ADDRESS || '0x6F3B1DC09A8C968F0B829276570bCF10AB9858c1';
+      const contractAddress = import.meta.env.VITE_GLOBAL_PAY_MANAGER_ADDRESS || '0x775Ab463A19E51072C61bAe94A0931E00F7caa42';
 
       const cancelIface = new ethers.utils.Interface([
         'function cancel(bytes32 id)',
@@ -173,6 +173,12 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
                 if (transaction.status === 'FAILED') return;
                 if (transaction.status === 'PENDING' && !hasValidTxHash(transaction)) return;
                 const isSent = isSenderMe(transaction);
+                // Strict isolation: only show transaction if the current user's leg used the internal vault
+                const isMyLegInternal = isSent
+                  ? (transaction.senderWalletType === 'internal' || !transaction.senderWalletType)
+                  : (transaction.receivingWalletType === 'internal' || !transaction.receivingWalletType);
+                if (!isMyLegInternal) return;
+
                 // A funded-but-not-yet-released schedule is only visible to the
                 // sender ("Funds Locked"); the receiver sees it once it releases.
                 if (transaction.paymentStage === 'pending_release' && !isSent) return;
@@ -270,9 +276,18 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
                           )}
                         </div>
                         <p className="text-zinc-500 text-xs truncate mt-0.5">{subtitle}</p>
-                        <div className="flex items-center gap-2 text-zinc-600 text-[10px] mt-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-zinc-600 text-[10px] mt-1">
                           <span>{moment(txType === 'scheduled_release' ? (t.releasedAt || t.timestamp) : t.timestamp).format('DD MMM • hh:mm A')}</span>
-                          {txType === 'scheduled_release' && <span className="text-zinc-600">· Scheduled</span>}
+                          {txType === 'scheduled_release' && t.scheduledAt && (
+                            <span className="text-amber-500/80">
+                              · Scheduled for {moment(t.scheduledAt).format('DD MMM, hh:mm A')}
+                            </span>
+                          )}
+                          {txType === 'scheduled_funding' && t.scheduledAt && (
+                            <span className="text-amber-500/80">
+                              · Scheduled for {moment(t.scheduledAt).format('DD MMM, hh:mm A')}
+                            </span>
+                          )}
                           {txType === 'ai' && <span className="text-zinc-600">· AI Agent</span>}
                           {txType === 'qr' && <span className="text-zinc-600">· QR</span>}
                           {txType === 'request' && <span className="text-zinc-600">· Request</span>}
@@ -292,16 +307,16 @@ const TransactionHistory = ({ transactions, userData, onSuccess }) => {
                       )}
                       <div className="text-right">
                         <p className={`text-lg font-bold tracking-tight ${txType === 'scheduled_funding' ? 'text-zinc-400' : isSent ? 'text-white' : 'text-emerald-500'}`}>
-                          {txType === 'scheduled_funding' ? '' : isSent ? '-' : '+'}{ethAmt.toFixed(4)} ETH
+                          {txType === 'scheduled_funding' ? '' : isSent ? '-' : '+'}{ethAmt.toFixed(2)} USDC
                         </p>
                         {hasValidTxHash(t) && (
                           <a
-                            href={`${import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org'}/tx/${t.txHash.trim()}`}
+                            href={`${import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app'}/tx/${t.txHash.trim()}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[9px] font-medium text-cyan-400/80 hover:text-cyan-300 transition-colors mt-0.5"
+                            className="inline-flex items-center gap-1 text-[9px] font-medium text-cyan-400 hover:text-cyan-300 transition-colors mt-0.5"
                           >
-                            Basescan ↗
+                            ArcScan ↗
                           </a>
                         )}
                         {(t.status === 'CANCELLED' || t.status === 'FAILED') && (

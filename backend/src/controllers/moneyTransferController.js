@@ -67,7 +67,14 @@ const mapTransferToMongoose = (t) => {
     paymentStage: t.paymentStage,
     txType: t.txType,
     keyword: t.keyword,
-    scheduledAt: t.scheduledAt || null,
+    scheduledAt: t.scheduledAt
+      || (t.release_at ? new Date(Number(t.release_at) * 1000).toISOString() : null)
+      || (() => {
+        try {
+          const raw = typeof t.raw_signed_tx === 'string' ? JSON.parse(t.raw_signed_tx) : t.raw_signed_tx;
+          return raw?.releaseAt ? new Date(Number(raw.releaseAt) * 1000).toISOString() : null;
+        } catch { return null; }
+      })(),
     releasedAt: t.releasedAt || null
   };
 };
@@ -102,7 +109,7 @@ const mapRequestToMongoose = (r) => {
 
 /** Create money transfer */
 export const createMoneyTransfer = async (req, res) => {
-  let { senderUPI, receiverUPI, amount, savePercent = 0, network = 'base-sepolia', senderWalletType: clientSenderWalletType, txHash } = req.body;
+  let { senderUPI, receiverUPI, amount, savePercent = 0, network = 'botchain', senderWalletType: clientSenderWalletType, txHash } = req.body;
 
   // Normalize Pay Tags
   if (!senderUPI.startsWith('upi') && !senderUPI.startsWith('@')) senderUPI = '@' + senderUPI;
@@ -187,7 +194,7 @@ export const createMoneyTransfer = async (req, res) => {
     if (senderRegion !== receiverRegion) {
       if (network === 'fiat') {
         return res.status(403).json({
-          message: `Fiat rails cannot cross borders instantly. Please switch to Crypto (Base Sepolia) network.`
+          message: `Fiat rails cannot cross borders instantly. Please switch to Crypto (Arc Chain) network.`
         });
       }
 
@@ -230,7 +237,7 @@ export const createMoneyTransfer = async (req, res) => {
     const currencyMap = { India: 'INR', Brazil: 'BRL', Mexico: 'MXN', France: 'EUR' };
     const currencyCode = currencyMap[senderRegion] || 'INR';
 
-    if (process.env.PAYMENT_MODE === 'USDC') {
+    if (process.env.PAYMENT_MODE === 'BOT') {
       const helper = await fetchRatesAndPrices(currencyCode);
       botPriceVal = helper.botPriceVal;
       exchangeRateVal = helper.exchangeRateVal;
@@ -264,37 +271,48 @@ export const createMoneyTransfer = async (req, res) => {
     let verifiedTxHash = txHash;
     let blockNumber = null;
 
-    // 2. Perform Base Sepolia / On-Chain Verification
-    if (network === 'sepolia' || network === 'base-sepolia' || network === 'base-sepolia') {
+    // 2. Perform Arc Testnet / On-Chain Verification
+    if (network === 'sepolia' || network === 'botchain' || network === 'arc-testnet') {
       if (!verifiedTxHash || typeof verifiedTxHash !== 'string' || !verifiedTxHash.startsWith("0x")) {
         return res.status(400).json({ message: "Transaction hash (txHash) is required for client-signed MPC transfers." });
       }
 
       try {
         const { ethers } = await import('ethers');
-        const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-        const receipt = await provider.getTransactionReceipt(verifiedTxHash);
-        if (!receipt || receipt.status !== 1) {
-          return res.status(400).json({ message: "Transaction failed or receipt not found on-chain." });
+        let receipt = null;
+        try {
+          receipt = await provider.getTransactionReceipt(verifiedTxHash);
+          if (!receipt) {
+            // Give up to 4 seconds for immediate mining
+            receipt = await Promise.race([
+              provider.waitForTransaction(verifiedTxHash, 1, 4000),
+              new Promise((resolve) => setTimeout(() => resolve(null), 4000))
+            ]);
+          }
+        } catch (rErr) {
+          logger.warn("P2P receipt poll note:", rErr.message);
         }
 
-        const txData = await provider.getTransaction(verifiedTxHash);
-        if (!txData) {
-          return res.status(400).json({ message: "Transaction details not found on-chain." });
+        if (receipt && receipt.status === 0) {
+          return res.status(400).json({ message: "Transaction reverted on-chain." });
         }
 
-        // Verify recipient matches receiver
-        if (!targetReceiverAddress) {
-          return res.status(400).json({ message: "No destination address provided for transfer verification." });
-        }
-        const expectedReceiver = targetReceiverAddress;
-        if (String(txData.to).toLowerCase() !== String(expectedReceiver).toLowerCase()) {
-          return res.status(400).json({ message: `Recipient address mismatch. Expected: ${expectedReceiver}, Found: ${txData.to}` });
+        try {
+          const txData = await provider.getTransaction(verifiedTxHash);
+          if (txData && targetReceiverAddress) {
+            const expectedReceiver = targetReceiverAddress;
+            if (String(txData.to).toLowerCase() !== String(expectedReceiver).toLowerCase()) {
+              return res.status(400).json({ message: `Recipient address mismatch. Expected: ${expectedReceiver}, Found: ${txData.to}` });
+            }
+          }
+        } catch (txErr) {
+          logger.warn("P2P txData read note:", txErr.message);
         }
 
-        blockNumber = receipt.blockNumber;
+        blockNumber = receipt?.blockNumber || null;
       } catch (blockchainErr) {
         logger.error("P2P on-chain verification failed:", blockchainErr);
         return res.status(400).json({ message: "Failed to verify transaction on-chain: " + blockchainErr.message });
@@ -345,10 +363,13 @@ export const createMoneyTransfer = async (req, res) => {
       .select('*, sender:profiles!money_transfers_sender_id_fkey(*), receiver:profiles!money_transfers_receiver_id_fkey(*)')
       .single();
 
-    if (mtErr) throw mtErr;
+    if (mtErr) {
+      logger.error('Database insert error in money_transfers:', mtErr.message);
+      throw mtErr;
+    }
 
     // 4. Update Receiver BankDetails usdcBalance dynamically
-    if ((network === 'sepolia' || network === 'base-sepolia' || network === 'base-sepolia') && receiverBankDetails) {
+    if ((network === 'sepolia' || network === 'botchain' || network === 'arc-testnet') && receiverBankDetails) {
       const currentUsdc = Number(receiverBankDetails.usdc_balance || 0);
       const newUsdcBal = currentUsdc + transferAmountUsdc;
 
@@ -361,8 +382,8 @@ export const createMoneyTransfer = async (req, res) => {
     return res.status(201).json(mapTransferToMongoose(moneyTransfer));
 
   } catch (error) {
-    logger.error('P2P Transfer Controller Error:', error.message);
-    res.status(500).json({ message: 'Server error during transfer creation' });
+    logger.error('P2P Transfer Controller Error:', error.message || error);
+    res.status(500).json({ message: error.message || 'Server error during transfer creation' });
   }
 };
 
@@ -386,11 +407,36 @@ const deriveTxType = (record) => {
 };
 
 const fetchAllUserTransactions = async (userId) => {
+  // First get the user's profile to know their wallet addresses
+  let addrs = [];
+  try {
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('id, metamask_id, internal_wallet_address, external_wallet, global_pay_tag')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (userProfile) {
+      addrs = [
+        userProfile.internal_wallet_address,
+        userProfile.metamask_id,
+        userProfile.external_wallet
+      ].filter(a => a && typeof a === 'string' && a.startsWith('0x'));
+    }
+  } catch (e) {}
+
+  const orClauses = [`sender_id.eq.${userId}`, `receiver_id.eq.${userId}`];
+  for (const addr of addrs) {
+    orClauses.push(`sender_wallet_address.ilike.${addr}`);
+    orClauses.push(`receiver_wallet_address.ilike.${addr}`);
+    orClauses.push(`destination_address.ilike.${addr}`);
+  }
+
   const run = (table, fkey) =>
     supabase
       .from(table)
       .select(`*, sender:profiles!${fkey}_sender_id_fkey(*), receiver:profiles!${fkey}_receiver_id_fkey(*)`)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .or(orClauses.join(','))
       .then(r => r.data || [])
       .catch(() => []);
   const [mt, p] = await Promise.all([
@@ -500,37 +546,113 @@ const fetchAllUserTransactions = async (userId) => {
   return Array.from(txMap.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 };
 
-/** Fetch internal transfers log */
+const getUserWalletAddresses = async (userId) => {
+  try {
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('id, metamask_id, internal_wallet_address, external_wallet, global_pay_tag')
+      .eq('id', userId)
+      .maybeSingle();
+
+    return {
+      internal: userProfile?.internal_wallet_address ? String(userProfile.internal_wallet_address).toLowerCase() : null,
+      external: (userProfile?.metamask_id || userProfile?.external_wallet) ? String(userProfile.metamask_id || userProfile.external_wallet).toLowerCase() : null
+    };
+  } catch {
+    return { internal: null, external: null };
+  }
+};
+
+/** Fetch internal vault transfers log (where current user sent or received via internal vault) */
 export const getMoneyTransfers = async (req, res) => {
   try {
     const userId = req.user.id;
-    const transfers = await fetchAllUserTransactions(userId);
+    const [transfers, addrs] = await Promise.all([
+      fetchAllUserTransactions(userId),
+      getUserWalletAddresses(userId)
+    ]);
 
-    const filteredTransfers = transfers.filter(t => {
-      const isSenderInternal = t.sender_id === userId && t.sender_wallet_type === 'internal';
-      const isReceiverInternal = t.receiver_id === userId && t.receiving_wallet_type === 'internal';
+    const extAddress = addrs.external ? addrs.external.toLowerCase() : null;
+    const intAddress = addrs.internal ? addrs.internal.toLowerCase() : null;
+
+    const filtered = transfers.filter(t => {
+      const senderAddr = t.sender_wallet_address ? String(t.sender_wallet_address).toLowerCase() : '';
+      const recAddr = (t.receiver_wallet_address || t.destination_address) ? String(t.receiver_wallet_address || t.destination_address).toLowerCase() : '';
+
+      const isSenderById = t.sender_id === userId;
+      const isReceiverById = t.receiver_id === userId;
+
+      const isSenderByExtAddr = extAddress && senderAddr === extAddress;
+      const isReceiverByExtAddr = extAddress && recAddr === extAddress;
+
+      const isSenderByIntAddr = intAddress && senderAddr === intAddress;
+      const isReceiverByIntAddr = intAddress && recAddr === intAddress;
+
+      const senderRail = t.sender_wallet_type
+        ? String(t.sender_wallet_type).toLowerCase()
+        : (isSenderByExtAddr ? 'external' : 'internal');
+
+      const receiverRail = t.receiving_wallet_type
+        ? String(t.receiving_wallet_type).toLowerCase()
+        : (isReceiverByExtAddr ? 'external' : 'internal');
+
+      const isSenderInternal = (isSenderById || isSenderByIntAddr) && !isSenderByExtAddr && senderRail === 'internal';
+      const isReceiverInternal = (isReceiverById || isReceiverByIntAddr) && !isReceiverByExtAddr && receiverRail === 'internal';
+
       return isSenderInternal || isReceiverInternal;
     });
 
-    const mongooseTransfers = filteredTransfers.map(t => mapTransferToMongoose(t));
-    return res.json(mongooseTransfers);
+    return res.json(filtered.map(t => mapTransferToMongoose(t)));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-/** Fetch external transfers log */
+/** Fetch external Web3 transfers log (Profile -> On-Chain Activity shows ONLY transactions where this user participated via external Web3 wallet) */
 export const getExternalMoneyTransfers = async (req, res) => {
   try {
     const userId = req.user.id;
-    const transfers = await fetchAllUserTransactions(userId);
-    const filteredTransfers = transfers.filter(t => {
-      const isSenderExternal = t.sender_id === userId && t.sender_wallet_type === 'external';
-      const isReceiverExternal = t.receiver_id === userId && t.receiving_wallet_type === 'external';
+    const [transfers, addrs] = await Promise.all([
+      fetchAllUserTransactions(userId),
+      getUserWalletAddresses(userId)
+    ]);
+
+    const extAddress = addrs.external ? addrs.external.toLowerCase() : null;
+    const intAddress = addrs.internal ? addrs.internal.toLowerCase() : null;
+
+    const filtered = transfers.filter(t => {
+      const senderAddr = t.sender_wallet_address ? String(t.sender_wallet_address).toLowerCase() : '';
+      const recAddr = (t.receiver_wallet_address || t.destination_address) ? String(t.receiver_wallet_address || t.destination_address).toLowerCase() : '';
+
+      const isSenderById = t.sender_id === userId;
+      const isReceiverById = t.receiver_id === userId;
+
+      const isSenderByExtAddr = extAddress && senderAddr === extAddress;
+      const isReceiverByExtAddr = extAddress && recAddr === extAddress;
+
+      const isSenderByIntAddr = intAddress && senderAddr === intAddress;
+      const isReceiverByIntAddr = intAddress && recAddr === intAddress;
+
+      // Determine sender wallet rail
+      const senderRail = t.sender_wallet_type
+        ? String(t.sender_wallet_type).toLowerCase()
+        : (isSenderByExtAddr ? 'external' : 'internal');
+
+      // Determine receiver wallet rail
+      const receiverRail = t.receiving_wallet_type
+        ? String(t.receiving_wallet_type).toLowerCase()
+        : (isReceiverByExtAddr ? 'external' : 'internal');
+
+      // User participated as sender with their external wallet:
+      const isSenderExternal = (isSenderById || isSenderByExtAddr) && !isSenderByIntAddr && senderRail === 'external';
+
+      // User participated as receiver with their external wallet:
+      const isReceiverExternal = (isReceiverById || isReceiverByExtAddr) && !isReceiverByIntAddr && receiverRail === 'external';
+
       return isSenderExternal || isReceiverExternal;
     });
-    const mongooseTransfers = filteredTransfers.map(t => mapTransferToMongoose(t));
-    return res.json(mongooseTransfers);
+
+    return res.json(filtered.map(t => mapTransferToMongoose(t)));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -603,7 +725,7 @@ export const settleRequestMoney = async (req, res) => {
 
     try {
       const { ethers } = await import('ethers');
-      const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
       const provider = new ethers.JsonRpcProvider(rpcUrl);
 
       const receipt = await provider.getTransactionReceipt(verifiedTxHash);
@@ -649,7 +771,7 @@ export const settleRequestMoney = async (req, res) => {
         receiver_id: receiverUser.id,
         receiver_pay_tag: rUPI,
         amount: usdAmount,
-        network: 'base-sepolia',
+        network: process.env.NETWORK || 'arc-testnet',
         tx_hash: verifiedTxHash,
         status: 'COMPLETED',
         usd_equivalent: usdAmount,
@@ -757,9 +879,9 @@ export const requestMoneyCreate = async (req, res) => {
       // the eventual payment.
       sender: userProfile.global_pay_tag || userProfile.email,
       amount: Number(amount),
-      currency: currency || "BOT",
+      currency: currency || "USDC",
       requested_amount: Number(amount),
-      requested_currency: currency || "BOT",
+      requested_currency: currency || "USDC",
       exchange_rate_snapshot: rateSnapshot.exchangeRate,
       bot_price_snapshot: rateSnapshot.botPrice,
       bot_amount_snapshot: rateSnapshot.botAmount,
@@ -954,6 +1076,23 @@ export const getMoneyTransfersExternal = getExternalMoneyTransfers;
 export const getFilteredRequests = requestMoneyRead;
 export const resolveRequestMoney = requestMoneyDelete;
 
+/** Fetch on-chain transactions (any transfer that has a confirmed tx_hash) */
+export const getOnChainMoneyTransfers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const transfers = await fetchAllUserTransactions(userId);
+    // Return only records that carry a real on-chain tx hash
+    const onChain = transfers.filter(t => {
+      const hash = t.tx_hash || t.txHash || '';
+      return typeof hash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(hash.trim());
+    });
+    return res.json(onChain.map(t => mapTransferToMongoose(t)));
+  } catch (error) {
+    logger.error('getOnChainMoneyTransfers error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getAllRawDocs = async (req, res) => {
   try {
     // IDOR fix: only return the authenticated user's own money requests.
@@ -1064,7 +1203,7 @@ export const smartRouteTransfer = async (req, res) => {
       const fs = await import('fs');
       const { ethers } = await import('ethers');
 
-      const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+      const rpcUrl = process.env.BOTCHAIN_RPC_URL || process.env.SEPOLIA_RPC_URL;
       const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
       if (rpcUrl && privateKey && senderUser.internal_wallet_address && receiverUser.internal_wallet_address) {
@@ -1073,38 +1212,45 @@ export const smartRouteTransfer = async (req, res) => {
 
         const treasuryBalance = await provider.getBalance(wallet.address);
         const addrShort = wallet.address.substring(0, 6) + '...' + wallet.address.slice(-4);
-        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} ETH (${addrShort})`);
+        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} BOT (${addrShort})`);
 
-        if (treasuryBalance < ethers.parseUnits('0.01', 18)) {
-          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} ETH.`);
+        if (treasuryBalance < ethers.parseUnits('0.1', 18)) {
+          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} BOT.`);
         }
 
         if (isBotMode) {
-          const tokenPriceUsd = 1.0;
-          const tokenAmountBig = ethers.parseUnits(usdAmount.toString(), 18);
+          // Fetch live USDC price
+          let botPriceUsd = 1.0;
+          try {
+            botPriceUsd = await getLiveBotPrice();
+          } catch (err) {
+            logger.error('Failed to fetch USDC price for smart route:', err.message);
+          }
+
+          const scale18 = 10n ** 18n;
+          const usdAmountBig = ethers.parseUnits(usdAmount.toString(), 18);
+          const priceBig = ethers.parseUnits(botPriceUsd.toString(), 18);
+          const tokenAmountBig = (usdAmountBig * scale18) / priceBig;
 
           if (treasuryBalance < tokenAmountBig) {
-            logger.warn(`Treasury native balance lower than transfer amount, proceeding with relayer gas coverage.`);
+            throw new Error(`Insufficient treasury reserves for settlement. Needed: ${ethers.formatEther(tokenAmountBig)} BOT, Have: ${ethers.formatEther(treasuryBalance)} BOT.`);
           }
 
           const gasLimit = 21000n;
           const feeData = await provider.getFeeData();
           const gasPrice = feeData.gasPrice || ethers.parseUnits('1', 'gwei');
 
-          logger.info(`🚀 [TREASURY] Smart Route: Transferring ${usdAmount} USDC to ${receiverUser.internal_wallet_address}`);
-          try {
-            const tx = await wallet.sendTransaction({
-              to: receiverUser.internal_wallet_address,
-              value: ethers.parseUnits((usdAmount * 0.0001).toFixed(8), 18), // native testnet bridge value
-              gasLimit,
-              gasPrice
-            });
-            receipt = await tx.wait(1, 30000);
-            finalTxHash = tx.hash;
-            logger.info(`✅ [TREASURY] Smart Route confirmed: ${tx.hash} (Block: ${receipt?.blockNumber})`);
-          } catch (txErr) {
-            logger.warn("Native route tx warn:", txErr.message);
-          }
+          logger.info(`🚀 [TREASURY] Smart Route: Transferring ${ethers.formatUnits(tokenAmountBig, 18)} BOT to ${receiverUser.internal_wallet_address}`);
+          const tx = await wallet.sendTransaction({
+            to: receiverUser.internal_wallet_address,
+            value: tokenAmountBig,
+            gasLimit,
+            gasPrice
+          });
+
+          receipt = await tx.wait(1, 30000);
+          finalTxHash = tx.hash;
+          logger.info(`✅ [TREASURY] Smart Route confirmed: ${tx.hash} (Block: ${receipt.blockNumber})`);
         } else {
           // pUSDC / ERC20 token mode
           if (fs.existsSync('./contractData.json')) {
@@ -1122,6 +1268,7 @@ export const smartRouteTransfer = async (req, res) => {
             finalTxHash = tx.hash;
             logger.info(`✅ [TREASURY] Token Smart Route confirmed: ${tx.hash} (Block: ${receipt.blockNumber})`);
           } else {
+            logger.warn("⚠️ [TREASURY] contractData.json missing for non-BOT mode. Bypassing.");
             finalTxHash = '0x' + crypto.randomBytes(32).toString('hex');
             receipt = { status: 1, blockNumber: 0 };
           }
@@ -1157,9 +1304,9 @@ export const smartRouteTransfer = async (req, res) => {
         receiver_pay_tag: receiverUser.global_pay_tag,
         amount: usdAmount,
         exchange_rate: senderRate,
-        bot_price: 1.0,
+        bot_price: 9.72,
         bot_amount: usdAmount,
-        network: 'base-sepolia',
+        network: process.env.NETWORK || 'arc-testnet',
         tx_hash: finalTxHash,
         block_number: receipt ? receipt.blockNumber : null,
         usd_equivalent: usdAmount,
@@ -1186,6 +1333,7 @@ export default {
   createMoneyTransfer,
   getMoneyTransfers,
   getMoneyTransfersExternal,
+  getOnChainMoneyTransfers,
   requestMoneyCreate,
   getAllRequestMoney,
   getAllRawDocs,

@@ -30,7 +30,7 @@ function getContractData() {
   const filePath = path.resolve('globalPayData.json');
   if (!fs.existsSync(filePath)) {
     return {
-      address: process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x6F3B1DC09A8C968F0B829276570bCF10AB9858c1",
+      address: process.env.GLOBAL_PAY_MANAGER_ADDRESS || "0x775Ab463A19E51072C61bAe94A0931E00F7caa42",
       abi: [
         {
           "inputs": [{"internalType": "bytes32","name": "id","type": "bytes32"}],
@@ -76,7 +76,7 @@ const createPaymentsRecord = async (payment, txHash) => {
       receiver_id: payment.receiver_id,
       amount: payment.amount,
       bot_amount_snapshot: payment.bot_amount || payment.amount,
-      coin: 'BOT',
+      coin: 'USDC',
       tx_hash: txHash || payment.tx_hash,
       keyword: 'Scheduled Payment (Released)',
       sender_wallet_type: payment.sender_wallet_type || 'external',
@@ -206,7 +206,7 @@ const backfillMissingPayments = async () => {
           receiver_id: record.receiver_id,
           amount: record.amount,
           bot_amount_snapshot: record.bot_amount || record.amount,
-          coin: 'BOT',
+          coin: 'USDC',
           tx_hash: releaseTxHash,
           keyword: 'Scheduled Payment (Released)',
           sender_wallet_type: record.sender_wallet_type || 'external',
