@@ -38,7 +38,7 @@ async function deploy() {
 
     console.log("Compiled successfully!");
 
-    const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+    const rpcUrl = process.env.RPC_URL || process.env.ARC_RPC_URL || "https://rpc.testnet.arc.io";
     const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
     if (!rpcUrl || !privateKey) {

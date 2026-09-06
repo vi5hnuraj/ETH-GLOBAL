@@ -5,7 +5,7 @@
  *
  * Network/Chain ID policy:
  *
- *   NETWORK=testnet  + CHAIN_ID=84532 (Base Sepolia)  → allowed
+ *   NETWORK=arc-testnet + CHAIN_ID=5042002 (Arc Testnet)  → allowed
  *   NETWORK=mainnet  + CHAIN_ID=8453  (Base Mainnet)  → allowed (wallet creation/lookup only)
  *   any mismatch                                       → hard rejection at call time
  *
@@ -28,7 +28,7 @@ import crypto from 'node:crypto';
 const MPC_SERVICE_TOKEN = process.env.MPC_SERVICE_TOKEN || '';
 
 const isProduction = () => (process.env.NODE_ENV || '').toLowerCase() === 'production';
-const timeoutMs = () => Math.max(1000, Number(process.env.MPC_RPC_TIMEOUT_MS || 8000));
+const timeoutMs = () => Math.max(1000, Number(process.env.MPC_RPC_TIMEOUT_MS || 60000));
 
 const failedNodes = new Map(); // nodeUrl -> timestamp of last failure
 
@@ -159,7 +159,7 @@ export const requestMpc = async (url, { method = 'GET', body, headers: extraHead
   throw new Error(`All configured MPC endpoints failed. Last error: ${lastError ? lastError.message : 'no hosts available'}`);
 };
 
-const NETWORK_CHAIN_MAP = { testnet: 84532, mainnet: 8453, sepolia: 84532, 'base-sepolia': 84532 };
+const NETWORK_CHAIN_MAP = { 'arc-testnet': 5042002, testnet: 5042002, mainnet: 5042001, 'arc-mainnet': 5042001 };
 
 /**
  * Resolve and validate the configured chain ID.
@@ -167,8 +167,9 @@ const NETWORK_CHAIN_MAP = { testnet: 84532, mainnet: 8453, sepolia: 84532, 'base
 export const resolveChainId = () => {
   const configuredChainId = Number(
     process.env.CHAIN_ID ||
+    process.env.ARC_CHAIN_ID ||
     process.env.BASE_CHAIN_ID ||
-    84532
+    5042002
   );
   return configuredChainId;
 };
@@ -177,7 +178,7 @@ export const resolveChainId = () => {
  * Additional safety gate for transaction broadcasting.
  */
 export const assertBroadcastAllowed = (chainId) => {
-  if (chainId === 8453 || chainId === 677) {
+  if (chainId === 5042001) {
     const enabled = (process.env.MAINNET_BROADCAST_ENABLED || 'false').toLowerCase();
     if (enabled !== 'true') {
       throw new Error(
@@ -190,7 +191,7 @@ export const assertBroadcastAllowed = (chainId) => {
 };
 
 /**
- * Mainnet (chain 677) approval token for the MPC provider. Guarded by
+ * Mainnet (chain 5042001) approval token for the MPC provider. Guarded by
  * assertBroadcastAllowed, so arriving here means the operator has armed
  * broadcasting AND supplied a token. Reads from the environment only.
  */

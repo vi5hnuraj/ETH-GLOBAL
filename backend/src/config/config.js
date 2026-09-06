@@ -6,13 +6,12 @@ dotenv.config();
 // ✅ SECURITY: No hardcoded fallback secrets — all must come from environment
 export const JWT_SECRET = process.env.JWT_SECRET;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-export const RPC_URL = process.env.RPC_URL || process.env.BASE_RPC_URL || 'https://sepolia.base.org';
-export const EXPLORER_URL = process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || 'https://sepolia.basescan.org/';
-export const CHAIN_ID = Number(process.env.CHAIN_ID || process.env.BASE_CHAIN_ID || 84532);
-export const CHAIN_NAME = process.env.CHAIN_NAME || 'Base Sepolia';
-export const USDC_CONTRACT_ADDRESS = process.env.USDC_CONTRACT_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+export const ARC_CHAIN_ID = Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || 5042002);
+export const ARC_RPC_URL = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || 'https://rpc.testnet.arc.io';
+export const ARC_EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || process.env.BOTCHAIN_EXPLORER_URL || 'https://testnet.arcscan.app/';
+export const BOTCHAIN_RPC_URL = ARC_RPC_URL;
+export const BOTCHAIN_EXPLORER_URL = ARC_EXPLORER_URL;
 export const TREASURY_PRIVATE_KEY = process.env.TREASURY_PRIVATE_KEY;
-
 
 // Platform identity — used when the request carries no explicit developer id.
 export const DEFAULT_DEVELOPER_ID = process.env.DEFAULT_DEVELOPER_ID || 'dev_local';
@@ -73,7 +72,7 @@ export const REVENUE_ATTRIBUTION = {
 export const PLATFORM_FEES = {
   marketplace: 5,     // 5% fee on AI service marketplace purchases
   agentStore: 7,      // 7% fee on agent store installs/purchases
-  minFeeWei: '100000000000000'  // 0.0001 ETH in wei
+  minFeeWei: '100000000000000'  // 0.0001 BOT in wei (100000000000000)
 };
 
 // Treasury wallet address — derived lazily from TREASURY_PRIVATE_KEY.

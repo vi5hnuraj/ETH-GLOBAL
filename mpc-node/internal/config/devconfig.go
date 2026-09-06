@@ -117,17 +117,14 @@ func LoadDev(nodeID string) (*DevConfig, error) {
 	}
 	allowMainnet := getEnvOr("MPC_ALLOW_MAINNET", "false") == "true"
 
-	if cid != 968 && !(allowMainnet && cid == 677) {
-		return nil, fmt.Errorf("LoadDev: LOCAL DEVELOPMENT ONLY allows testnet chain id 968 (got %d); set MPC_ALLOW_MAINNET=true to use chain 677", cid)
+	if cid != 968 && cid != 5042002 && cid != 84532 && !(allowMainnet && cid == 677) {
+		return nil, fmt.Errorf("LoadDev: LOCAL DEVELOPMENT ONLY allows testnet chain ids (got %d); set MPC_ALLOW_MAINNET=true to use chain 677", cid)
 	}
-	if net != "testnet" && !(allowMainnet && net == "mainnet") {
+	if net != "testnet" && net != "arc-testnet" && !(allowMainnet && net == "mainnet") {
 		return nil, fmt.Errorf("LoadDev: LOCAL DEVELOPMENT ONLY; NETWORK must be testnet (or mainnet with MPC_ALLOW_MAINNET=true)")
 	}
 
-	allowedChains := []string{"968"}
-	if allowMainnet {
-		allowedChains = []string{"968", "677"}
-	}
+	allowedChains := []string{"968", "677", "5042002", "84532"}
 
 	ttl, _ := time.ParseDuration(getEnvOr("MPC_REQUEST_TTL_SECONDS", "60s"))
 	pt, _ := time.ParseDuration(getEnvOr("MPC_PROTOCOL_TIMEOUT_MS", "15000ms"))
@@ -165,7 +162,7 @@ func LoadDev(nodeID string) (*DevConfig, error) {
 		DataDir:                 dataDir,
 		ChainID:                 cid,
 		Network:                 net,
-		RPCURL:                  getEnvOr("BOT_RPC_URL", "https://rpc.bohr.life"),
+		RPCURL:                  getEnvOr("ARC_RPC_URL", getEnvOr("RPC_URL", getEnvOr("BOT_RPC_URL", "https://rpc.testnet.arc.io"))),
 		AllowedChainIDs:         allowedChains,
 		SigningPaused:           getEnvOr("MPC_SIGNING_PAUSED", "true") == "true",
 		MainnetBroadcastEnabled: getEnvOr("MAINNET_BROADCAST_ENABLED", "false") == "true",

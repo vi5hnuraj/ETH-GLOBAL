@@ -1,10 +1,10 @@
 import { ethers } from 'ethers';
-import { appkit } from './appkit.js';
+import { appkit, arcTestnet } from './appkit.js';
 
-const ETH_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532);
-const ETH_RPC = import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org';
-const ETH_EXPLORER = import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org/';
-const ETH_CHAIN_NAME = import.meta.env.VITE_CHAIN_NAME || 'Base Sepolia';
+const ARC_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID || import.meta.env.VITE_CHAIN_ID || 5042002);
+const ARC_RPC = import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io';
+const ARC_EXPLORER = import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app';
+const ARC_CHAIN_NAME = import.meta.env.VITE_CHAIN_NAME || 'Arc Testnet';
 
 // Resolve the currently-connected browser wallet's EIP-1193 provider from the
 // AppKit singleton at call time. Unlike a React hook value, this is never a
@@ -27,24 +27,24 @@ export const waitForExternalProvider = async (maxAttempts = 25) => {
   return null;
 };
 
-// Ensure the connected browser wallet operates on Base Sepolia (84532). Uses the
-// raw EIP-1193 request() API directly (reliable across MetaMask/OKX/WC).
-// Returns true when the wallet was already on Base Sepolia, false after a switch.
-const ensureETHChain = async (rawProvider) => {
+// Ensure the connected browser wallet operates on Arc Testnet (5042002). Uses the
+// raw EIP-1193 request() API directly (reliable across MetaMask/OKX/WC/Rabby).
+// Returns true when the wallet was already on Arc Testnet, false after a switch.
+export const ensureArcChain = async (rawProvider) => {
   try {
     const rawChainId = await rawProvider.request({ method: 'eth_chainId' });
-    if (parseInt(String(rawChainId), 16) === ETH_CHAIN_ID) return true;
+    if (parseInt(String(rawChainId), 16) === ARC_CHAIN_ID) return true;
   } catch {
     // Chain id unavailable — proceed to switch below.
   }
 
-  const hexId = `0x${ETH_CHAIN_ID.toString(16)}`;
+  const hexId = `0x${ARC_CHAIN_ID.toString(16)}`;
   const addParams = {
     chainId: hexId,
-    chainName: ETH_CHAIN_NAME,
-    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-    rpcUrls: [ETH_RPC],
-    blockExplorerUrls: [ETH_EXPLORER],
+    chainName: ARC_CHAIN_NAME,
+    nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+    rpcUrls: [ARC_RPC],
+    blockExplorerUrls: [ARC_EXPLORER],
   };
 
   try {
@@ -62,17 +62,16 @@ const ensureETHChain = async (rawProvider) => {
   return false;
 };
 
-// Send a native ETH transfer from the connected browser wallet (MetaMask /
-// OKX / WalletConnect via AppKit). `rawProvider` is the EIP-1193 provider
-// exposed by AppKit — it is NOT an ethers provider, so we wrap it with
-// ethers Web3Provider only AFTER the chain is correct (ethers v5 caches the
-// detected network on the wrapper, so a stale wrapper would throw).
+export const ensureBOTChain = ensureArcChain; // Backwards compatibility alias
+
+// Send a native USDC transfer from the connected browser wallet (MetaMask /
+// Rabby / Coinbase / WalletConnect via AppKit). On Arc, USDC is the native gas token.
 export const sendExternalTransfer = async (rawProvider, { to, valueWei, gasLimit }) => {
   if (!rawProvider) {
-    throw new Error('External wallet not connected. Connect your MetaMask / OKX wallet first.');
+    throw new Error('External wallet not connected. Connect your MetaMask / Arc wallet first.');
   }
 
-  await ensureETHChain(rawProvider);
+  await ensureArcChain(rawProvider);
 
   const provider = new ethers.providers.Web3Provider(rawProvider);
   const signer = provider.getSigner();
@@ -86,7 +85,7 @@ export const sendExternalTransfer = async (rawProvider, { to, valueWei, gasLimit
     const got = ethers.utils.formatUnits(balance, 18);
     const need = ethers.utils.formatUnits(valueWei.add(gasWei), 18);
     throw new Error(
-      `Insufficient external wallet balance (${got} ETH). You need ${need} ETH including transaction fee.`
+      `Insufficient Arc wallet balance (${got} USDC). You need ${need} USDC including native gas fee.`
     );
   }
 
@@ -97,7 +96,7 @@ export const sendExternalTransfer = async (rawProvider, { to, valueWei, gasLimit
 // "linked wallet" identity check before sending.
 export const getExternalSigner = async (rawProvider) => {
   if (!rawProvider) return null;
-  await ensureETHChain(rawProvider);
+  await ensureArcChain(rawProvider);
   const provider = new ethers.providers.Web3Provider(rawProvider);
   return provider.getSigner();
 };

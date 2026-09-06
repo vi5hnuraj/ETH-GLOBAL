@@ -17,7 +17,7 @@ const run = async () => {
     // Test 1: Config & Env Variables
     // ----------------------------------------------------
     printSection("1. Configuration & Env Variables Check");
-    const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || 'https://sepolia.base.org';
+    const rpcUrl = process.env.RPC_URL || process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.io';
     const privateKey = process.env.TREASURY_PRIVATE_KEY;
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 
@@ -36,7 +36,7 @@ const run = async () => {
     // ----------------------------------------------------
     // Test 2: RPC Connectivity
     // ----------------------------------------------------
-    printSection("2. Base Sepolia RPC Connection");
+    printSection("2. Arc Testnet RPC Connection");
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const network = await provider.getNetwork();
     console.log("✔️ Connected successfully!");
@@ -55,10 +55,10 @@ const run = async () => {
     
     const balance = await provider.getBalance(wallet.address);
     const balanceInEth = ethers.formatEther(balance);
-    console.log(`✔️ Native Balance: ${balanceInEth} BOT`);
+    console.log(`✔️ Native Balance: ${balanceInEth} USDC`);
 
     if (balance === 0n) {
-      console.warn("⚠️ WARNING: Treasury wallet has 0 BOT. Write/deploy transactions will fail.");
+      console.warn("⚠️ WARNING: Treasury wallet has 0 USDC. Write/deploy transactions will fail.");
     }
 
     // ----------------------------------------------------
@@ -82,18 +82,18 @@ const run = async () => {
         console.log(`✔️ Token Decimals: ${decimals.toString()}`);
 
         if (Number(decimals) !== 18) {
-          throw new Error("Token decimals must be 18 for BOT Chain integration.");
+          throw new Error("Token decimals must be 18 for Arc Chain integration.");
         }
       } else {
         if (process.env.PAYMENT_MODE === 'BOT') {
-          console.log("✔️ contractData.json missing (Optional in Native BOT Mode).");
+          console.log("✔️ contractData.json missing (Optional in Native USDC Mode).");
         } else {
           throw new Error("contractData.json not found. Run node deployLedger.js first.");
         }
       }
     } catch (contractErr) {
       if (process.env.PAYMENT_MODE === 'BOT') {
-        console.log("⚠️ Contract Check Failed (Ignored in Native BOT Mode):", contractErr.message);
+        console.log("⚠️ Contract Check Failed (Ignored in Native USDC Mode):", contractErr.message);
       } else {
         throw contractErr;
       }
@@ -145,20 +145,20 @@ const run = async () => {
         const tokenAmountBig = (usdAmountBig * scale18) / priceBig;
 
         const simulatedBot = parseFloat(ethers.formatUnits(tokenAmountBig, 18));
-        console.log(`✔️ Math Output: ₹100 deposit => ${simulatedBot.toFixed(8)} BOT`);
+        console.log(`✔️ Math Output: ₹100 deposit => ${simulatedBot.toFixed(8)} USDC`);
       } catch (calcErr) {
         throw new Error(`Conversion checks failed: ${calcErr.message}`);
       }
     } else {
-      console.log("✔️ Skipped conversion tests: PAYMENT_MODE is not BOT.");
+      console.log("✔️ Skipped conversion tests: PAYMENT_MODE is not USDC.");
     }
 
     // ----------------------------------------------------
     // Test 6: Blockchain Read & Write Verification
     // ----------------------------------------------------
-    printSection(process.env.PAYMENT_MODE === 'BOT' ? "6. Native BOT Read & Write Interaction" : "6. Smart Contract Read & Write Interaction");
+    printSection(process.env.PAYMENT_MODE === 'BOT' ? "6. Native USDC Read & Write Interaction" : "6. Smart Contract Read & Write Interaction");
     if (balance === 0n) {
-      console.log("⚠️ Skipped write tests: Insufficient Gas (0 BOT balance).");
+      console.log("⚠️ Skipped write tests: Insufficient Gas (0 USDC balance).");
     } else {
       if (process.env.PAYMENT_MODE === 'BOT') {
         const dummyWallet1 = ethers.Wallet.createRandom().connect(provider);
@@ -168,12 +168,12 @@ const run = async () => {
         console.log("🧪 6.1 Checking initial balances...");
         const balBefore1 = await provider.getBalance(dummyAddress1);
         const balBefore2 = await provider.getBalance(dummyAddress2);
-        console.log(`   Dummy 1: ${ethers.formatUnits(balBefore1, 18)} BOT`);
-        console.log(`   Dummy 2: ${ethers.formatUnits(balBefore2, 18)} BOT`);
+        console.log(`   Dummy 1: ${ethers.formatUnits(balBefore1, 18)} USDC`);
+        console.log(`   Dummy 2: ${ethers.formatUnits(balBefore2, 18)} USDC`);
 
         const testAmount = ethers.parseUnits("0.05", 18);
 
-        console.log("\n🧪 6.2 Depositing (Sending native BOT) 0.05 BOT to Dummy 1...");
+        console.log("\n🧪 6.2 Depositing (Sending native USDC) 0.05 USDC to Dummy 1...");
         const depTx = await wallet.sendTransaction({
           to: dummyAddress1,
           value: testAmount
@@ -182,7 +182,7 @@ const run = async () => {
         await depTx.wait();
         console.log("✔️ Deposit transaction confirmed!");
 
-        console.log("\n🧪 6.3 Executing Transfer of 0.02 BOT from Dummy 1 to Dummy 2...");
+        console.log("\n🧪 6.3 Executing Transfer of 0.02 USDC from Dummy 1 to Dummy 2...");
         const transferAmount = ethers.parseUnits("0.02", 18);
         const transTx = await dummyWallet1.sendTransaction({
           to: dummyAddress2,
@@ -192,7 +192,7 @@ const run = async () => {
         await transTx.wait();
         console.log("✔️ Transfer transaction confirmed!");
 
-        console.log("\n🧪 6.4 Withdrawing (Sending native BOT) remaining balance from Dummy 1 back to Treasury...");
+        console.log("\n🧪 6.4 Withdrawing (Sending native USDC) remaining balance from Dummy 1 back to Treasury...");
         const balCurrent1 = await provider.getBalance(dummyAddress1);
         const feeData = await provider.getFeeData();
         const gasPrice = feeData.gasPrice || ethers.parseUnits("1.5", "gwei");
@@ -216,8 +216,8 @@ const run = async () => {
         console.log("\n🧪 6.5 Checking final balances...");
         const balAfter1 = await provider.getBalance(dummyAddress1);
         const balAfter2 = await provider.getBalance(dummyAddress2);
-        console.log(`   Dummy 1 (should be ~0): ${ethers.formatUnits(balAfter1, 18)} BOT`);
-        console.log(`   Dummy 2 (should have +0.02): ${ethers.formatUnits(balAfter2, 18)} BOT`);
+        console.log(`   Dummy 1 (should be ~0): ${ethers.formatUnits(balAfter1, 18)} USDC`);
+        console.log(`   Dummy 2 (should have +0.02): ${ethers.formatUnits(balAfter2, 18)} USDC`);
 
         if (balAfter2 < balBefore2 + transferAmount) {
           throw new Error("Final Dummy 2 balance is lower than expected.");

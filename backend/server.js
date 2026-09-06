@@ -16,6 +16,7 @@ import developerRoutes from './src/routes/developer.js'; // ✅ Developer Platfo
 import platformRoutes from './src/routes/platform.js'; // ✅ Operational platform endpoints
 import adminRoutes from './src/routes/admin.js'; // ✅ Admin Console API
 import serviceGatewayRoutes from './src/routes/serviceGateway.js'; // ✅ Service Gateway (invoke, access, metering)
+import arcRoutes from './src/routes/arc.js'; // ✅ Arc L1 & Circle Developer Tools
 
 import rateLimit from 'express-rate-limit';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -76,7 +77,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://sepolia.base.org", "https://sepolia.basescan.org", "https://base-sepolia-rpc.publicnode.com", "https://api.coinbase.com", "https://api.coingecko.com"],
+      connectSrc: ["'self'", "https://rpc.testnet.arc.io", "https://rpc.blockdaemon.testnet.arc.io", "https://rpc.drpc.testnet.arc.io", "https://rpc.quicknode.testnet.arc.io", "https://testnet.arcscan.app", "https://faucet.circle.com", "https://api.coinbase.com", "https://api.coingecko.com"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"]
     }
@@ -185,6 +186,7 @@ app.use('/api/developers', developerRoutes); // ✅ Developer Platform (dashboar
 app.use('/api/platform', platformRoutes); // ✅ Operational endpoints (health/flags/environment)
 app.use('/api/admin', adminRoutes); // ✅ Admin Console (super_admin only)
 app.use('/api/services', serviceGatewayRoutes); // ✅ Service Gateway (invoke, access, health, metering)
+app.use('/api/arc', arcRoutes); // ✅ Arc L1 Network & Circle Agent Stack API
 
 // ✅ API versioning — /api/v1 and /api/v2 alias the same routers so clients can
 // pin an explicit version while the legacy /api/* paths keep working unchanged.

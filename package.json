@@ -1,7 +1,7 @@
 {
   "name": "globalpay",
   "version": "1.0.0",
-  "description": "GlobalPay — Cross-border crypto payment platform on Base Sepolia (USDC)",
+  "description": "GlobalPay — Cross-border crypto payment platform on Arc (USDC)",
   "private": true,
   "scripts": {
     "start": "bash start.sh",

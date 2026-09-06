@@ -5,8 +5,11 @@ import api, { getCachedUserDetailSync, USER_CACHE_STALE_MS, refreshUserCache } f
 let activeWallet = null;
 
 export const mpcChain = {
-  chainId: Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532),
-  rpcUrl: import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || "https://sepolia.base.org"
+  chainId: Number(import.meta.env.VITE_ARC_CHAIN_ID || import.meta.env.VITE_CHAIN_ID || 5042002),
+  rpcUrl: import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || "https://rpc.testnet.arc.io",
+  explorerUrl: import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || "https://testnet.arcscan.app",
+  name: "Arc Testnet",
+  symbol: "USDC"
 };
 
 /**
@@ -95,6 +98,10 @@ export const sendTransaction = async (txOpts) => {
   const res = await api.post('/auth/mpc-send', {
     to: txOpts.to,
     value: txOpts.value?.toString() || '0'
+  }, {
+    // MPC signing + broadcast on Arc Testnet can take well over 20s;
+    // override the global Axios timeout for this specific call.
+    timeout: 90000
   });
   return {
     hash: res.data.txHash,
@@ -189,13 +196,13 @@ export const useAddress = () => {
 };
 
 export const useBalance = (tokenAddress) => {
-  const [data, setData] = useState({ displayValue: "0", symbol: "ETH" });
+  const [data, setData] = useState({ displayValue: "0", symbol: "USDC" });
   const [isLoading, setIsLoading] = useState(true);
   const address = useAddress();
 
   useEffect(() => {
     if (!address) {
-      setData({ displayValue: "0", symbol: "ETH" });
+      setData({ displayValue: "0", symbol: "USDC" });
       setIsLoading(false);
       return;
     }
@@ -207,7 +214,7 @@ export const useBalance = (tokenAddress) => {
           const bal = await provider.getBalance(address);
           setData({
             displayValue: ethers.utils.formatEther(bal),
-            symbol: "ETH"
+            symbol: "USDC"
           });
         } else {
           const abi = ["function balanceOf(address) view returns (uint256)"];

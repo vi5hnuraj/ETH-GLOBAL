@@ -1,21 +1,24 @@
 /**
- * ChainRpcService — resilient Base Testnet (Base Sepolia) JSON-RPC access.
+ * ChainRpcService — resilient BOT Chain JSON-RPC access.
  *
  * Provides:
- *  - Multiple RPC fallback URLs (RPC_URLS, BASE_RPC_URLS, or RPC_URL).
+ *  - Multiple RPC fallback URLs (BOTCHAIN_RPC_URLS="a,b,c" or BOTCHAIN_RPC_URL).
  *  - Per-request timeout (RPC_TIMEOUT_MS, default 10s) via AbortController.
  *  - Exponential retries across the URL list.
- *  - A per-URL circuit breaker.
- *  - A drop-in ethers JsonRpcProvider subclass (getProvider()).
+ *  - A per-URL circuit breaker (opens after RPC_MAX_FAILURES consecutive
+ *    failures for RPC_COOLDOWN_MS, so a dead endpoint stops being hammered).
+ *  - A drop-in ethers JsonRpcProvider subclass (getProvider()) so every
+ *    signing/reading call site gets the same resilience for free.
  */
 
 import { ethers } from 'ethers';
 
-const DEFAULT_RPC = 'https://sepolia.base.org';
+const DEFAULT_RPC = 'https://rpc.testnet.arc.io';
 const FALLBACK_RPCS = [
-  'https://sepolia.base.org',
-  'https://base-sepolia-rpc.publicnode.com',
-  'https://1rpc.io/base-sepolia'
+  'https://rpc.testnet.arc.io',
+  'https://rpc.blockdaemon.testnet.arc.io',
+  'https://rpc.drpc.testnet.arc.io',
+  'https://rpc.quicknode.testnet.arc.io'
 ];
 const REQUEST_TIMEOUT_MS = Number(process.env.RPC_TIMEOUT_MS || 10000);
 const MAX_FAILURES = Number(process.env.RPC_MAX_FAILURES || 3);
@@ -24,7 +27,7 @@ const RETRIES = Number(process.env.RPC_RETRIES || 2);
 const BACKOFF_MS = Number(process.env.RPC_BACKOFF_MS || 250);
 
 export const getRpcUrls = () => {
-  const fromEnv = process.env.RPC_URLS || process.env.BASE_RPC_URL || process.env.RPC_URL;
+  const fromEnv = process.env.ARC_RPC_URLS || process.env.ARC_RPC_URL || process.env.BOTCHAIN_RPC_URLS || process.env.BOTCHAIN_RPC_URL || process.env.RPC_URLS || process.env.RPC_URL;
   const urls = fromEnv
     ? fromEnv.split(',').map((u) => u.trim()).filter(Boolean)
     : [];
@@ -89,15 +92,15 @@ export const callRpc = async (method, params) => {
     }
     if (attempt < RETRIES) await new Promise((r) => setTimeout(r, BACKOFF_MS * (attempt + 1)));
   }
-  const err = new Error(`All Base Sepolia RPC endpoints are unavailable. Last error: ${lastErr?.message}`);
+  const err = new Error(`All BOT Chain RPC endpoints are unavailable. Last error: ${lastErr?.message}`);
   err.code = 'RPC_UNAVAILABLE';
   throw err;
 };
 
-const BASE_NETWORK = () => {
+const ARC_NETWORK = () => {
   try {
-    const chainId = Number(process.env.CHAIN_ID || process.env.BASE_CHAIN_ID || 84532);
-    return new ethers.Network('base-sepolia', chainId);
+    const chainId = Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || process.env.BOTCHAIN_CHAIN_ID || 5042002);
+    return new ethers.Network('arc-testnet', chainId);
   } catch {
     return undefined;
   }
@@ -109,7 +112,7 @@ const BASE_NETWORK = () => {
 export class ResilientJsonRpcProvider extends ethers.JsonRpcProvider {
   constructor(url) {
     super(url || getRpcUrls()[0], undefined, {
-      staticNetwork: BASE_NETWORK() || true,
+      staticNetwork: ARC_NETWORK() || true,
       batchMaxCount: 1
     });
   }

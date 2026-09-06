@@ -20,8 +20,8 @@ func (n *Node) signingGate(chainID uint64, mainnetApproval string) error {
 		return errors.New("engine: SIGNING PAUSED by control plane; no protocol sessions may start")
 	}
 
-	if chainID != 968 && chainID != 677 {
-		return errors.New("engine: non-BOT chain ids are never accepted")
+	if chainID != 968 && chainID != 677 && chainID != 5042002 && chainID != 84532 {
+		return errors.New("engine: unsupported chain id")
 	}
 
 	allowed := false
