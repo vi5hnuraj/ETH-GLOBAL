@@ -212,7 +212,7 @@ export const toolDefinitions = [
     parameters: {
       type: "object",
       properties: {
-        sourceChain: { type: "string", description: "Source chain (e.g., 'base-sepolia', 'ethereum')" },
+        sourceChain: { type: "string", description: "Source chain (e.g., 'ethereum', 'base')" },
         amountUsdc: { type: "number", description: "Amount of USDC to bridge" }
       },
       required: ["sourceChain", "amountUsdc"]
@@ -385,7 +385,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
 
       try {
         const { ethers } = await import('ethers');
-        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
+        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || "https://rpc.testnet.arc.io";
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         if (userObj?.internal_wallet_address) {
@@ -524,7 +524,7 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         };
       }
 
-      const explorerUrl = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || process.env.BOTCHAIN_EXPLORER_URL || "https://testnet.arcscan.app";
+      const explorerUrl = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || "https://testnet.arcscan.app";
       // The chat bubble renders links itself but does not parse Markdown
       // emphasis. Keep transaction history as clean plain text so users do
       // not see literal ** and * markers.

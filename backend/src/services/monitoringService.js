@@ -1,7 +1,7 @@
 /**
  * MonitoringService — live health/status for the Developer Platform.
  *
- * Every value is measured at request time: DB round-trip latency, BOT Chain
+ * Every value is measured at request time: DB round-trip latency, Arc
  * RPC liveness + latest block, in-process worker status, and latency/error
  * percentiles computed from real api_usage_logs rows.
  */
@@ -12,7 +12,7 @@ import { getWalletService } from '../wallets/walletService.js';
 import { ethers } from 'ethers';
 import { getMpcRuntimeStatus } from '../mpc/mpcRuntime.js';
 
-const RPC_URL = process.env.RPC_URL || process.env.BASE_RPC_URL || 'https://sepolia.base.org';
+const RPC_URL = process.env.ARC_RPC_URL || process.env.RPC_URL || 'https://rpc.testnet.arc.io';
 
 const percentiles = (sorted, ps) => {
   const out = {};
@@ -52,11 +52,11 @@ const checkRpc = async () => {
       status: blockNumber !== null ? 'ok' : 'error',
       latencyMs: Date.now() - started,
       blockNumber,
-      network: 'Base Sepolia',
-      chainId: Number(process.env.CHAIN_ID || process.env.BASE_CHAIN_ID || 84532)
+      network: 'Arc Chain',
+      chainId: Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || 5042002)
     };
   } catch {
-    return { status: 'error', latencyMs: Date.now() - started, blockNumber: null, network: 'Base Sepolia' };
+    return { status: 'error', latencyMs: Date.now() - started, blockNumber: null, network: 'Arc Chain' };
   }
 };
 

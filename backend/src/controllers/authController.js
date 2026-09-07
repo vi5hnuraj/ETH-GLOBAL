@@ -345,65 +345,52 @@ export const fetchDetail = async (req, res) => {
       .eq('user_id', profile.id)
       .maybeSingle();
 
-    // Fetch BOT on-chain balances dynamically via RPC
+    // Fetch live on-chain USDC balance for accurate real-time display
     let internalBotBalance = bankDetailsRecord?.usdc_balance ? Number(bankDetailsRecord.usdc_balance) : 0;
-    let externalBotBalance = 0;
+    let externalBotBalance = bankDetailsRecord?.external_balance ? Number(bankDetailsRecord.external_balance) : 0;
 
     try {
       const { ethers } = await import('ethers');
       const { getProvider } = await import('../services/chainRpcService.js');
       const provider = getProvider();
 
-      const promises = [];
-      const usdcAddress = process.env.USDC_CONTRACT_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-      const erc20Abi = ['function balanceOf(address) view returns (uint256)'];
-
       if (profile.internal_wallet_address && ethers.isAddress(profile.internal_wallet_address)) {
-        promises.push(
-          (async () => {
-            try {
-              const usdcContract = new ethers.Contract(usdcAddress, erc20Abi, provider);
-              const bal = await usdcContract.balanceOf(profile.internal_wallet_address);
-              internalBotBalance = parseFloat(ethers.formatUnits(bal, 6));
-            } catch {
-              const rawInt = await provider.getBalance(profile.internal_wallet_address);
-              internalBotBalance = parseFloat(ethers.formatUnits(rawInt, 18));
-            }
-          })()
-        );
+        const rawInt = await provider.getBalance(profile.internal_wallet_address);
+        const onChainBal = parseFloat(ethers.formatUnits(rawInt, 18));
+        internalBotBalance = onChainBal;
+
+        // Sync bank_details cache
+        if (bankDetailsRecord?.id && Math.abs((bankDetailsRecord.usdc_balance || 0) - onChainBal) > 0.0001) {
+          supabase.from('bank_details').update({ usdc_balance: onChainBal }).eq('id', bankDetailsRecord.id).catch(() => {});
+        }
       }
 
       const extAddr = profile.metamask_id || profile.external_wallet;
       if (extAddr && ethers.isAddress(extAddr)) {
-        promises.push(
-          (async () => {
-            try {
-              const rawExt = await provider.getBalance(extAddr);
-              externalBotBalance = parseFloat(ethers.formatUnits(rawExt, 18));
-            } catch (e) {
-              externalBotBalance = 0;
-            }
-          })()
-        );
-      }
+        const rawExt = await provider.getBalance(extAddr);
+        const onChainExtBal = parseFloat(ethers.formatUnits(rawExt, 18));
+        externalBotBalance = onChainExtBal;
 
-      await Promise.all(promises);
+        if (bankDetailsRecord?.id && Math.abs((bankDetailsRecord.external_balance || 0) - onChainExtBal) > 0.0001) {
+          supabase.from('bank_details').update({ external_balance: onChainExtBal }).eq('id', bankDetailsRecord.id).catch(() => {});
+        }
+      }
     } catch (rpcErr) {
-      logger.error("RPC balance fetch warning:", rpcErr.message);
+      logger.warn("[FETCHDETAIL] RPC balance verification note:", rpcErr.message);
     }
 
     const isExternal = profile.primary_receiving_wallet === "external" && profile.metamask_id;
     const receiverWalletAddress = isExternal ? profile.metamask_id : profile.internal_wallet_address;
     const receivingWalletType = isExternal ? "External Wallet" : "Internal Wallet";
 
-    // Live BOT market price (not a hardcoded default) so every consumer —
+    // Live USDC price (fixed at the Arc native-gas peg) so every consumer —
     // RequestForm estimate, invoice snapshots, Pay conversion, bank card —
     // agrees on the same rate. Falls back to null when the feed is down.
     let liveBotPriceVal = null;
     try {
       liveBotPriceVal = await getLiveBotPrice();
     } catch (livePriceErr) {
-      logger.warn("fetchDetail live BOT price unavailable:", livePriceErr.message);
+      logger.warn("fetchDetail live USDC price unavailable:", livePriceErr.message);
     }
 
     const mergedBankDetails = {
@@ -417,7 +404,8 @@ export const fetchDetail = async (req, res) => {
       usdcBalance: internalBotBalance,
       internalBalance: internalBotBalance,
       externalBalance: externalBotBalance,
-      botPrice: liveBotPriceVal,
+      externalWalletAddress: profile.metamask_id || profile.external_wallet || "",
+      botPrice: liveBotPriceVal || 1,
       createdAt: bankDetailsRecord?.created_at,
       updatedAt: bankDetailsRecord?.updated_at
     };
@@ -850,7 +838,7 @@ export const mpcSign = async (req, res) => {
     const response = await requestMpc(url, {
       method: 'POST',
       body: {
-        chainId: txPayload.chainId ? Number(txPayload.chainId) : Number(process.env.CHAIN_ID || process.env.BASE_CHAIN_ID || 84532),
+        chainId: txPayload.chainId ? Number(txPayload.chainId) : Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || 5042002),
         nonce: Number(txPayload.nonce || 0),
         to: txPayload.to,
         value: String(txPayload.value || '0'),
@@ -948,7 +936,7 @@ export const mpcSend = async (req, res) => {
       const required = valueWei + gasWei;
       if (BigInt(balance.wei) < required) {
         return res.status(400).json({
-          message: `Insufficient balance for amount + network fee. Available: ${ethers.formatEther(BigInt(balance.wei))} BOT, required: ${ethers.formatEther(required)} BOT.`
+          message: `Insufficient balance for amount + network fee. Available: ${ethers.formatEther(BigInt(balance.wei))} USDC, required: ${ethers.formatEther(required)} USDC.`
         });
       }
     } catch (balanceErr) {
@@ -971,7 +959,7 @@ export const mpcSend = async (req, res) => {
       from: profile.internal_wallet_address,
       to,
       amount: ethers.formatEther(valueWei),
-      network: 'BOT Chain'
+      network: process.env.CHAIN_NAME || 'Arc Testnet'
     });
   } catch (error) {
     logger.error('mpcSend error:', error.message);

@@ -45,7 +45,7 @@ const mapPaymentToMongoose = (p) => {
   };
 };
 
-// Write a new payment with Base Sepolia On-Chain Verification
+// Write a new payment with Arc on-chain verification
 export const paymentsWrite = async (req, res) => {
   try {
     const {
@@ -176,23 +176,29 @@ export const paymentsWrite = async (req, res) => {
       } catch (e) { }
     }
 
-    // Fourth attempt: resolve by destination wallet address (QR payments embed the wallet)
-    if (!receiverUser && destinationAddress && String(destinationAddress).startsWith('0x')) {
-      try {
-        const { data: addrUser } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(`metamask_id.eq.${destinationAddress},internal_wallet_address.eq.${destinationAddress}`)
-          .maybeSingle();
-        receiverUser = addrUser;
-      } catch (e) { }
+    // Fourth attempt: resolve by destination or target wallet address (QR payments embed the wallet)
+    if (!receiverUser) {
+      const candidateAddrs = [destinationAddress, to, req.body.receiverWalletAddress].filter(
+        a => a && typeof a === 'string' && a.startsWith('0x')
+      );
+      for (const addr of candidateAddrs) {
+        if (receiverUser) break;
+        try {
+          const { data: addrUser } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`metamask_id.ilike.${addr},internal_wallet_address.ilike.${addr},external_wallet.ilike.${addr}`)
+            .maybeSingle();
+          if (addrUser) receiverUser = addrUser;
+        } catch (e) { }
+      }
     }
 
     if (receiverUser && sender === receiverUser.id) {
       return res.status(400).json({ message: "You cannot pay yourself." });
     }
 
-    // 2. Ensure a valid Base Sepolia 0x... TxHash is verified
+    // 2. Ensure a valid Arc 0x... transaction hash is verified
     let finalTxHash = txHash;
 
     if (!finalTxHash || typeof finalTxHash !== 'string' || !finalTxHash.startsWith("0x")) {
@@ -253,12 +259,15 @@ export const paymentsWrite = async (req, res) => {
     // Verify on-chain transfer logs (poll for mining — a freshly broadcast
     // client-signed tx may not have a receipt for several seconds, and aborting
     // here would drop the transaction from the Activity Log entirely).
+    let onChainVerified = false;
     try {
       const { ethers } = await import('ethers');
-      const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || "https://rpc.testnet.arc.io";
       const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-      const MAX_ATTEMPTS = 20;
+      // Quick poll: try up to 6 × 1.5s = 9s. If the tx is slow to propagate,
+      // we still record it to the DB (non-blocking) so it appears in history.
+      const MAX_ATTEMPTS = 6;
       const RETRY_DELAY_MS = 1500;
       let receipt = null;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -271,35 +280,36 @@ export const paymentsWrite = async (req, res) => {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       }
 
-      if (!receipt || receipt.status !== 1) {
-        return res.status(400).json({
-          message: receipt && receipt.status !== 1
-            ? "Transaction failed on-chain (reverted)."
-            : "Transaction receipt not found on-chain yet. If you just approved this payment, the transaction may still be mining — please wait a moment and view your Activity Log, or retry after it confirms."
-        });
+      if (receipt && receipt.status === 0) {
+        // Explicitly reverted — hard reject
+        return res.status(400).json({ message: "Transaction failed on-chain (reverted)." });
       }
 
-      const txData = await provider.getTransaction(finalTxHash);
-      if (!txData) {
-        return res.status(400).json({ message: "Transaction data not found on-chain." });
+      if (receipt && receipt.status === 1) {
+        onChainVerified = true;
+        // Verify recipient address only when we have tx data
+        try {
+          const txData = await provider.getTransaction(finalTxHash);
+          if (txData && finalDestinationAddress) {
+            if (String(txData.to).toLowerCase() !== String(finalDestinationAddress).toLowerCase()) {
+              return res.status(400).json({ message: `Recipient address mismatch. Expected: ${finalDestinationAddress}, Found: ${txData.to}` });
+            }
+          }
+        } catch (txErr) {
+          logger.warn("paymentsWrite txData read note:", txErr.message);
+        }
       }
-
-      // Check recipient address
-      if (!finalDestinationAddress) {
-        return res.status(400).json({ message: "No destination address provided for payment verification." });
-      }
-      const expectedReceiver = finalDestinationAddress;
-      if (String(txData.to).toLowerCase() !== String(expectedReceiver).toLowerCase()) {
-        return res.status(400).json({ message: `Recipient address mismatch. Expected: ${expectedReceiver}, Found: ${txData.to}` });
-      }
+      // If receipt is null (not mined yet), we fall through and record the
+      // payment optimistically — the on-chain status will be visible in the
+      // wallet explorer. This prevents the client from timing out.
     } catch (blockchainErr) {
-      logger.error("⚠️ Base Sepolia RPC payment verify error:", blockchainErr.message);
-      return res.status(400).json({ message: "Failed to verify transaction on-chain: " + blockchainErr.message });
+      logger.warn("⚠️ paymentsWrite on-chain verify note (non-fatal):", blockchainErr.message);
+      // Non-fatal: proceed with DB write so the transaction is recorded
     }
 
     // 4. Perform Treasury Settlement (non-critical — best effort)
     const rate = Number(exchangeRateSnapshot) || 83.5;
-    const bPrice = Number(botPriceSnapshot) || 9.72;
+    const bPrice = Number(botPriceSnapshot) || 1.0;
     const botPaid = botAmountSnapshot ? Number(botAmountSnapshot) : (Number(amt) / rate / bPrice);
 
     let localFiatSettled = 0;
@@ -365,9 +375,9 @@ export const paymentsWrite = async (req, res) => {
         receiver_id: receiverUser ? receiverUser.id : sender,
         receiver_pay_tag: rUPI,
         amount: finalAmt > 0 ? finalAmt : botPaid,
-        network: 'base-sepolia',
+        network: process.env.NETWORK || 'arc-testnet',
         tx_hash: finalTxHash,
-        status: 'COMPLETED',
+        status: onChainVerified ? 'COMPLETED' : 'PENDING',
         usd_equivalent: usdFiatSettled,
         local_equivalent: localFiatSettled,
         local_currency: requestedCurrency || 'INR',

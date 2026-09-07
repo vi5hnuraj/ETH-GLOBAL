@@ -11,10 +11,25 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
     senderUPI: userData?.globalPayTag || userData?.internalWalletAddress || '',
     receiverUPI: '',
     amount: '',
-    network: 'base-sepolia'
+    network: 'arc-testnet'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null);
+  const [liveBalance, setLiveBalance] = useState(null);
+
+  React.useEffect(() => {
+    const address = userData?.internalWalletAddress || userData?.internal_wallet_address;
+    if (address && ethers.utils.isAddress(address)) {
+      const provider = new ethers.providers.JsonRpcProvider(mpcChain.rpcUrl);
+      provider.getBalance(address).then((bal) => {
+        setLiveBalance(parseFloat(ethers.utils.formatEther(bal)));
+      }).catch(() => {});
+    }
+  }, [userData]);
+
+  const currentAvailableBalance = liveBalance !== null
+    ? liveBalance
+    : Number(userData?.bankDetails?.usdcBalance || userData?.bankDetails?.internalBalance || 0);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,15 +55,14 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
     }
 
     const amtVal = Number(formData.amount);
-    const ethBalance = Number(userData?.bankDetails?.usdcBalance || 0);
 
     if (amtVal <= 0) {
       toast.error('Please enter a valid amount greater than 0');
       return;
     }
 
-    if (amtVal > ethBalance) {
-      toast.error(`Insufficient balance. Your available ETH balance is ${ethBalance.toFixed(4)} ETH.`);
+    if (amtVal > currentAvailableBalance) {
+      toast.error(`Insufficient balance. Your available USDC balance is ${currentAvailableBalance.toFixed(4)} USDC.`);
       return;
     }
 
@@ -121,9 +135,12 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
       const response = await api.post(`/money-transfer/create`, {
         ...formData,
         senderUPI: userData?.globalPayTag || userData?.internalWalletAddress || formData.senderUPI,
-        network: 'base-sepolia',
+        network: 'arc-testnet',
         senderWalletType: 'internal',
         txHash: txHash
+      }, {
+        // Backend may poll for on-chain receipt before writing to DB; give it plenty of time.
+        timeout: 60000
       });
 
       toast.dismiss(toastId);
@@ -134,7 +151,7 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
         senderUPI: userData?.globalPayTag || userData?.internalWalletAddress || '',
         receiverUPI: '',
         amount: '',
-        network: 'base-sepolia'
+        network: 'arc-testnet'
       });
     } catch (err) {
       console.error(err);
@@ -154,26 +171,26 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Quick Transfer</h2>
-          <p className="text-zinc-500 text-sm mt-1">Send ETH instantly using GlobalPay Tag or Wallet Address</p>
+          <p className="text-zinc-500 text-sm mt-1">Send USDC instantly using GlobalPay Tag or Wallet Address</p>
         </div>
-        <div className="bg-amber-500/10 p-3 rounded-xl text-amber-500">
+        <div className="bg-cyan-500/10 p-3 rounded-xl text-cyan-400">
           <FiSend size={24} />
         </div>
       </div>
 
-      <div className="mb-8 p-4 bg-amber-950/20 border-amber-800/40 border rounded-xl flex items-center justify-between transition-colors">
+      <div className="mb-8 p-4 bg-cyan-950/20 border-cyan-800/40 border rounded-xl flex items-center justify-between transition-colors">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg">
+          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg">
             <FiCreditCard size={18} />
           </div>
           <div>
-            <p className="text-xs text-amber-400/80 uppercase font-bold tracking-wider">Available ETH Balance</p>
-            <p className="text-xl font-bold text-white">{ethBalance.toFixed(4)} ETH</p>
+            <p className="text-xs text-cyan-400/80 uppercase font-bold tracking-wider">Available USDC Balance</p>
+            <p className="text-xl font-bold text-white">{currentAvailableBalance.toFixed(4)} USDC</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-amber-400 font-medium">Blockchain</p>
-          <p className="text-xs text-amber-200">Native ETH</p>
+          <p className="text-[10px] text-cyan-400 font-medium">Arc Testnet</p>
+          <p className="text-xs text-cyan-200">USDC Native Gas</p>
         </div>
       </div>
 
@@ -215,7 +232,7 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
         </div>
 
         <div>
-          <label htmlFor="amount" className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Amount to Transfer (ETH)</label>
+          <label htmlFor="amount" className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Amount to Transfer (USDC)</label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-amber-400 font-bold text-sm">
               ⚡
@@ -245,7 +262,7 @@ const TransactionForm = ({ onTransactionSuccess, userData }) => {
             <div className="w-5 h-5 border-2 border-zinc-950/20 border-t-zinc-950 rounded-full animate-spin" />
           ) : (
             <>
-              Confirm ETH Transfer
+              Confirm USDC Transfer
               <FiSend size={18} />
             </>
           )}

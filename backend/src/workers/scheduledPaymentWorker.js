@@ -385,7 +385,7 @@ export const startScheduledPaymentWorker = () => {
             logger.info(`⏰ [SCHEDULER WORKER] Retrying previously failed payment ${payment.id} (still active on-chain)`);
           }
 
-          logger.info(`⏰ [SCHEDULER WORKER] Releasing payment ${payment.id} (${payment.amount} BOT → ${payment.receiver_pay_tag})`);
+          logger.info(`⏰ [SCHEDULER WORKER] Releasing payment ${payment.id} (${payment.amount} USDC → ${payment.receiver_pay_tag})`);
           const tx = await contract.release(paymentId);
           const receipt = await tx.wait(1);
 

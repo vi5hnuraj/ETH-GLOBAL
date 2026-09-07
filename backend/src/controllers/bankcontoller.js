@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { getProvider } from '../services/chainRpcService.js';
+import { getLiveBotPrice } from '../services/liveRateService.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
@@ -9,7 +10,7 @@ let exchangeRateCache = {
 };
 
 let botPriceCache = {
-  price: 9.72,
+  price: 1.0,
   lastUpdated: 0
 };
 
@@ -76,7 +77,7 @@ export const addBankDetails = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // Convert local currency to USDC/BOT at deposit time
+    // Convert local currency to USDC at deposit time
     const exchangeRates = { India: 83, Brazil: 5.1, Mexico: 17.5 };
     const rate = exchangeRates[region] || 83;
     const usdcBalance = parseFloat((Number(amount) / rate).toFixed(4));
@@ -258,25 +259,41 @@ export const getLoggedUserDetails = async (req, res) => {
     // Fetch REAL Crypto Balance from the blockchain EOA directly
     let onChainBalance = 0;
     try {
+      const fs = await import('fs');
       const { ethers } = await import('ethers');
       const { getProvider } = await import('../services/chainRpcService.js');
 
-      if (user?.internal_wallet_address && ethers.isAddress(user.internal_wallet_address)) {
-        const provider = getProvider();
-        const usdcAddress = process.env.USDC_CONTRACT_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-        const abi = ['function balanceOf(address) view returns (uint256)'];
-        const contract = new ethers.Contract(usdcAddress, abi, provider);
-        const rawBalance = await contract.balanceOf(user.internal_wallet_address);
-        onChainBalance = parseFloat(ethers.formatUnits(rawBalance, 6));
+      if (fs.existsSync('./contractData.json')) {
+        const contractData = JSON.parse(fs.readFileSync('./contractData.json', 'utf8'));
+
+        if (user?.internal_wallet_address) {
+          const provider = getProvider();
+          if (process.env.PAYMENT_MODE === 'USDC') {
+            const rawBalance = await provider.getBalance(user.internal_wallet_address);
+            onChainBalance = parseFloat(ethers.formatUnits(rawBalance, 18));
+          } else {
+            const contract = new ethers.Contract(contractData.address, contractData.abi, provider);
+            const rawBalance = await contract.balanceOf(user.internal_wallet_address);
+            onChainBalance = parseFloat(ethers.formatUnits(rawBalance, 18));
+          }
+        }
       }
     } catch (blockchainErr) {
       logger.error("Failed to fetch on-chain balance:", blockchainErr);
     }
 
-    // Fetch live token price
-    let botPriceUsd = 1.0;
-    if (process.env.PAYMENT_MODE === 'USDC' || process.env.PAYMENT_MODE === 'BOT') {
-      botPriceUsd = 1.0;
+    // USDC is native gas on Arc and is pegged 1:1 to USD.
+    let botPriceUsd = botPriceCache.price;
+    if (process.env.PAYMENT_MODE === 'USDC') {
+      if (Date.now() - botPriceCache.lastUpdated > 30 * 1000) {
+        try {
+          botPriceCache.price = await getLiveBotPrice();
+          botPriceCache.lastUpdated = Date.now();
+        } catch (err) {
+          logger.error("Failed to fetch USDC price in details:", err.message);
+        }
+      }
+      botPriceUsd = botPriceCache.price;
     }
 
     const userDetails = {
@@ -373,7 +390,7 @@ export const swapToCrypto = async (req, res) => {
       return res.status(400).json({ msg: 'Internal Web3 Vault not found. Please complete Web3 Identity Verification or contact support.' });
     }
 
-    const isBotMode = process.env.PAYMENT_MODE === 'BOT';
+    const isBotMode = process.env.PAYMENT_MODE === 'USDC';
     const region = userWithBankAccount.region || 'India';
     const currencyMap = { India: 'INR', Brazil: 'BRL', Mexico: 'MXN' };
     const currencyCode = currencyMap[region] || 'INR';
@@ -396,7 +413,16 @@ export const swapToCrypto = async (req, res) => {
         }
       }
       rate = exchangeRateCache.rates ? exchangeRateCache.rates[currencyCode] : 83.5;
-      botPriceUsd = 1.0;
+
+      if (Date.now() - botPriceCache.lastUpdated > 30 * 1000) {
+        try {
+          botPriceCache.price = await getLiveBotPrice();
+          botPriceCache.lastUpdated = Date.now();
+        } catch (err) {
+          logger.error('Failed to fetch USDC price:', err.message);
+        }
+      }
+      botPriceUsd = botPriceCache.price;
     } else {
       const exchangeRates = { India: 83.5, Brazil: 5.1, Mexico: 17.5 };
       rate = exchangeRates[region] || 83.5;
@@ -422,7 +448,7 @@ export const swapToCrypto = async (req, res) => {
       const fs = await import('fs');
       const { ethers } = await import('ethers');
 
-      const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
+      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || 'https://rpc.testnet.arc.io';
       const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
       if (rpcUrl && privateKey) {
@@ -431,10 +457,10 @@ export const swapToCrypto = async (req, res) => {
 
         // Check Treasury Balance & Monitor
         const treasuryBalance = await provider.getBalance(wallet.address);
-        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} ETH (address: ${wallet.address})`);
+        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} USDC (address: ${wallet.address})`);
         
         if (treasuryBalance < ethers.parseUnits('0.1', 18)) {
-          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} BOT. Refund/Funding recommended.`);
+          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} USDC. Refund/Funding recommended.`);
         }
 
         if (isBotMode) {
@@ -448,7 +474,7 @@ export const swapToCrypto = async (req, res) => {
           botAmount = parseFloat(ethers.formatUnits(tokenAmount, 18));
 
           if (treasuryBalance < tokenAmount) {
-            throw new Error(`Insufficient treasury reserves. Needed: ${ethers.formatEther(tokenAmount)} BOT, Have: ${ethers.formatEther(treasuryBalance)} BOT.`);
+            throw new Error(`Insufficient treasury reserves. Needed: ${ethers.formatEther(tokenAmount)} USDC, Have: ${ethers.formatEther(treasuryBalance)} USDC.`);
           }
 
           // Gas estimation & safe sending
@@ -456,7 +482,7 @@ export const swapToCrypto = async (req, res) => {
           const feeData = await provider.getFeeData();
           const gasPrice = feeData.gasPrice || ethers.parseUnits('1', 'gwei');
 
-          logger.info(`🚀 [TREASURY] Broadcasting transfer of ${botAmount.toFixed(6)} BOT to user ${user.internal_wallet_address}`);
+          logger.info(`🚀 [TREASURY] Broadcasting transfer of ${botAmount.toFixed(6)} USDC to user ${user.internal_wallet_address}`);
           tx = await wallet.sendTransaction({
             to: user.internal_wallet_address,
             value: tokenAmount,
@@ -482,7 +508,7 @@ export const swapToCrypto = async (req, res) => {
             receipt = await tx.wait(1, 30000);
             logger.info(`✅ [TREASURY] Token transaction confirmed: ${tx.hash} (Block: ${receipt.blockNumber})`);
           } else {
-            logger.warn("⚠️ [TREASURY] contractData.json missing for non-BOT mode. Bypassing.");
+            logger.warn("⚠️ [TREASURY] contractData.json missing for non-USDC mode. Bypassing.");
             tx = {
               hash: '0x' + crypto.randomBytes(32).toString('hex'),
               wait: async () => ({ status: 1 })
@@ -520,7 +546,7 @@ export const swapToCrypto = async (req, res) => {
         exchange_rate: isBotMode ? rate : 1.0,
         bot_price: isBotMode ? botPriceUsd : 0.0,
         bot_amount: isBotMode ? botAmount : 0.0,
-        network: 'base-sepolia',
+        network: process.env.NETWORK || 'arc-testnet',
         tx_hash: tx ? tx.hash : 'bridge-mint',
         block_number: receipt ? receipt.blockNumber : null,
         usd_equivalent: isBotMode ? (botAmount * botPriceUsd) : amount,
@@ -579,7 +605,7 @@ export const swapToFiat = async (req, res) => {
       return res.status(400).json({ msg: 'Web3 Wallet not found.' });
     }
 
-    const isBotMode = false; // USDC mode — always 1:1 USD peg on Base Sepolia
+    const isBotMode = process.env.PAYMENT_MODE === 'USDC';
     const region = userWithBankAccount.region || 'India';
     const currencyMap = { India: 'INR', Brazil: 'BRL', Mexico: 'MXN' };
     const currencyCode = currencyMap[region] || 'INR';
@@ -607,19 +633,14 @@ export const swapToFiat = async (req, res) => {
 
       if (Date.now() - botPriceCache.lastUpdated > 30 * 1000) {
         try {
-          const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd');
-          const priceData = await priceRes.json();
-          if (priceData?.['usd-coin']?.usd) {
-            botPriceUsd = Number(priceData['usd-coin'].usd) || 1.0;
-            botPriceCache.price = botPriceUsd;
-            botPriceCache.lastUpdated = Date.now();
-          }
+          botPriceCache.price = await getLiveBotPrice();
+          botPriceCache.lastUpdated = Date.now();
         } catch (err) {
-          logger.warn('Failed to fetch USDC price:', err.message);
-          botPriceUsd = 1.0;
+          logger.error('Failed to fetch USDC price:', err.message);
         }
-      } // end if botPriceCache stale
-    } // end if isBotMode
+      }
+      botPriceUsd = botPriceCache.price;
+    }
 
     const { txHash } = req.body;
     let finalTxHash = txHash;
@@ -636,44 +657,47 @@ export const swapToFiat = async (req, res) => {
       const fs = await import('fs');
       const { ethers } = await import('ethers');
 
-      const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_RPC_URL || "https://sepolia.base.org";
-      const privateKey = process.env.TREASURY_PRIVATE_KEY;
+      if (fs.existsSync('./contractData.json')) {
+        const contractData = JSON.parse(fs.readFileSync('./contractData.json', 'utf8'));
+        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || 'https://rpc.testnet.arc.io';
+        const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
-      if (rpcUrl && privateKey) {
-        const provider = getProvider();
-        const wallet = new ethers.Wallet(privateKey, provider);
+        if (rpcUrl && privateKey) {
+          const provider = new ethers.JsonRpcProvider(rpcUrl);
+          const wallet = new ethers.Wallet(privateKey, provider);
 
-        if (isBotMode) {
-          const amountBig = ethers.parseUnits(amount.toString(), 18);
-          const rateBig = ethers.parseUnits(rate.toString(), 18);
-          const priceBig = ethers.parseUnits(botPriceUsd.toString(), 18);
+          if (isBotMode) {
+            const amountBig = ethers.parseUnits(amount.toString(), 18);
+            const rateBig = ethers.parseUnits(rate.toString(), 18);
+            const priceBig = ethers.parseUnits(botPriceUsd.toString(), 18);
 
-          const scale18 = 10n ** 18n;
-          const usdAmountBig = (amountBig * scale18) / rateBig;
-          tokenAmount = (usdAmountBig * scale18) / priceBig;
+            const scale18 = 10n ** 18n;
+            const usdAmountBig = (amountBig * scale18) / rateBig;
+            tokenAmount = (usdAmountBig * scale18) / priceBig;
 
-          burnAmountToken = parseFloat(ethers.formatUnits(tokenAmount, 18));
-        } else {
-          tokenAmount = ethers.parseUnits(amount.toString(), 18);
+            burnAmountToken = parseFloat(ethers.formatUnits(tokenAmount, 18));
+          } else {
+            tokenAmount = ethers.parseUnits(amount.toString(), 18);
+          }
+
+          // Verify transaction
+          receipt = await provider.getTransactionReceipt(finalTxHash);
+          if (!receipt || receipt.status !== 1) {
+            return res.status(400).json({ msg: 'Blockchain transaction not found or failed on-chain.' });
+          }
+
+          const txData = await provider.getTransaction(finalTxHash);
+          if (!txData) {
+            return res.status(400).json({ msg: 'Blockchain transaction details not found.' });
+          }
+
+          // Recipient must be platform Treasury
+          if (String(txData.to).toLowerCase() !== String(wallet.address).toLowerCase()) {
+            return res.status(400).json({ msg: `Transaction recipient mismatch. Expected: ${wallet.address}` });
+          }
+
+          blockNumber = receipt.blockNumber;
         }
-
-        // Verify transaction
-        receipt = await provider.getTransactionReceipt(finalTxHash);
-        if (!receipt || receipt.status !== 1) {
-          return res.status(400).json({ msg: 'Blockchain transaction not found or failed on-chain.' });
-        }
-
-        const txData = await provider.getTransaction(finalTxHash);
-        if (!txData) {
-          return res.status(400).json({ msg: 'Blockchain transaction details not found.' });
-        }
-
-        // Recipient must be platform Treasury
-        if (String(txData.to).toLowerCase() !== String(wallet.address).toLowerCase()) {
-          return res.status(400).json({ msg: `Transaction recipient mismatch. Expected: ${wallet.address}` });
-        }
-
-        blockNumber = receipt.blockNumber;
       }
     } catch (blockchainErr) {
       logger.error("Failed to verify on-chain transfer for swapToFiat:", blockchainErr);
@@ -703,7 +727,7 @@ export const swapToFiat = async (req, res) => {
         exchange_rate: isBotMode ? rate : 1.0,
         bot_price: isBotMode ? botPriceUsd : 0.0,
         bot_amount: isBotMode ? burnAmountToken : 0.0,
-        network: 'base-sepolia',
+        network: process.env.NETWORK || 'arc-testnet',
         tx_hash: finalTxHash,
         block_number: blockNumber,
         usd_equivalent: isBotMode ? (burnAmountToken * botPriceUsd) : amount,

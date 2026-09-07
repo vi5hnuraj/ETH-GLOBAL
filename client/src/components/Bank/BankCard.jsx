@@ -35,11 +35,12 @@ const BankCard = ({ userData }) => {
   const displayAddress = activeConnectedAddress || dbExternalAddr;
 
   const globalPayTag = userData?.globalPayTag || '';
-  const ethBalance = Number(userData?.bankDetails?.usdcBalance || 0);
-  const extBalance = Number(userData?.bankDetails?.externalBalance || 0);
-  const botPrice = Number(userData?.bankDetails?.botPrice || 0);
-
-  const [liveExtBalance, setLiveExtBalance] = useState(0);
+  // Use stored balance as the source of truth
+  const storedUsdcBalance = Number(userData?.bankDetails?.usdcBalance || userData?.bankDetails?.internalBalance || 0);
+  const storedExtBalance = Number(userData?.bankDetails?.externalBalance || 0);
+  const [liveUsdcBalance, setLiveUsdcBalance] = useState(storedUsdcBalance);
+  const [liveExtBalance, setLiveExtBalance] = useState(storedExtBalance);
+  const extBalance = storedExtBalance;
 
   const isConnected = Boolean(displayAddress && displayAddress !== 'Not Connected' && !isManuallyDisconnected);
 
@@ -56,27 +57,38 @@ const BankCard = ({ userData }) => {
     }
   }, [ext.isConnected, ext.address, dbExternalAddr, isManuallyDisconnected]);
 
-  // Live RPC balance query for external wallet
+  // Live RPC balance query for both internal and external wallets on Arc Testnet
   useEffect(() => {
-    if (displayAddress && displayAddress.startsWith('0x') && displayAddress.length >= 40) {
-      import('ethers').then(async ({ ethers }) => {
+    import('ethers').then(async ({ ethers }) => {
+      const rpc = import.meta.env.VITE_ARC_RPC_URL || import.meta.env.VITE_RPC_URL || 'https://rpc.testnet.arc.io';
+      const provider = new ethers.providers.JsonRpcProvider(rpc);
+
+      if (internalAddr && internalAddr.startsWith('0x') && internalAddr.length >= 40 && internalAddr !== '0x0000000000000000000000000000000000000000') {
         try {
-          const provider = new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || 'https://sepolia.base.org');
+          const rawInt = await provider.getBalance(internalAddr);
+          setLiveUsdcBalance(parseFloat(ethers.utils.formatUnits(rawInt, 18)));
+        } catch (err) {
+          console.error("BankCard internal RPC error:", err);
+        }
+      }
+
+      if (displayAddress && displayAddress.startsWith('0x') && displayAddress.length >= 40) {
+        try {
           const rawBal = await provider.getBalance(displayAddress);
           setLiveExtBalance(parseFloat(ethers.utils.formatUnits(rawBal, 18)));
         } catch (err) {
-          console.error("BankCard RPC error:", err);
+          console.error("BankCard external RPC error:", err);
         }
-      }).catch(e => console.error(e));
-    } else {
-      setLiveExtBalance(0);
-    }
-  }, [displayAddress]);
+      } else {
+        setLiveExtBalance(0);
+      }
+    }).catch(e => console.error(e));
+  }, [internalAddr, displayAddress]);
 
   const shortAddr = (addr) =>
     addr ? `${addr.slice(0, 8)}...${addr.slice(-6)}` : 'Not connected';
 
-  const explorerUrl = import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org';
+  const explorerUrl = import.meta.env.VITE_ARC_EXPLORER_URL || import.meta.env.VITE_EXPLORER_URL || 'https://testnet.arcscan.app';
 
   // Connect external wallet via AppKit modal
   const handleConnectWeb3 = async () => {
@@ -175,10 +187,10 @@ const BankCard = ({ userData }) => {
           <div>
             <p className="text-cyan-400 text-[9px] font-black uppercase tracking-widest">External Balance</p>
             <p className="text-xl font-black text-white mt-0.5">
-              {(isConnected ? (liveExtBalance || extBalance) : 0).toFixed(4)} ETH
+              {(isConnected ? (liveExtBalance || extBalance) : 0).toFixed(4)} USDC
             </p>
-            {isConnected && botPrice > 0 && (liveExtBalance || extBalance) > 0 && (
-              <p className="text-zinc-400 text-[10px] mt-0.5">≈ ${((liveExtBalance || extBalance) * botPrice).toFixed(2)} USD</p>
+            {isConnected && (liveExtBalance || extBalance) > 0 && (
+              <p className="text-zinc-400 text-[10px] mt-0.5">≈ ${((liveExtBalance || extBalance) * 1.0).toFixed(2)} USD</p>
             )}
           </div>
 
@@ -226,15 +238,15 @@ const BankCard = ({ userData }) => {
 
           <div>
             <p className="text-amber-400 text-[9px] font-black uppercase tracking-widest">On-Chain USDC Balance</p>
-            <p className="text-xl font-black text-white mt-0.5">{ethBalance.toFixed(2)} USDC</p>
+            <p className="text-xl font-black text-white mt-0.5">{liveUsdcBalance.toFixed(2)} USDC</p>
             <p className="text-zinc-400 text-[10px] mt-0.5">
-              ≈ ${(ethBalance * 1.0).toFixed(2)} USD
+              ≈ ${(liveUsdcBalance * 1.0).toFixed(2)} USD
             </p>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-amber-900/30">
-            <span className="text-amber-500 font-black text-sm">⚡ USDC</span>
-            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Base Sepolia</span>
+          <div className="flex items-center justify-between pt-2 border-t border-cyan-900/30">
+            <span className="text-cyan-400 font-black text-sm">⚡ USDC Native Gas</span>
+            <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-widest">Arc Testnet</span>
           </div>
         </div>
       </div>

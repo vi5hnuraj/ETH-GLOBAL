@@ -109,7 +109,7 @@ const mapRequestToMongoose = (r) => {
 
 /** Create money transfer */
 export const createMoneyTransfer = async (req, res) => {
-  let { senderUPI, receiverUPI, amount, savePercent = 0, network = 'botchain', senderWalletType: clientSenderWalletType, txHash } = req.body;
+  let { senderUPI, receiverUPI, amount, savePercent = 0, network = 'arc-testnet', senderWalletType: clientSenderWalletType, txHash } = req.body;
 
   // Normalize Pay Tags
   if (!senderUPI.startsWith('upi') && !senderUPI.startsWith('@')) senderUPI = '@' + senderUPI;
@@ -172,7 +172,7 @@ export const createMoneyTransfer = async (req, res) => {
       .maybeSingle();
 
     // For fiat transfers, bank_details is required (balance deductions).
-    // For crypto/BOT transfers, only region is needed — default to 'Global' if missing.
+    // For crypto/USDC transfers, only region is needed — default to 'Global' if missing.
     if (!senderBankDetails && network === 'fiat') {
       return res.status(404).json({ message: 'Sender bank details not found' });
     }
@@ -237,7 +237,7 @@ export const createMoneyTransfer = async (req, res) => {
     const currencyMap = { India: 'INR', Brazil: 'BRL', Mexico: 'MXN', France: 'EUR' };
     const currencyCode = currencyMap[senderRegion] || 'INR';
 
-    if (process.env.PAYMENT_MODE === 'BOT') {
+    if (process.env.PAYMENT_MODE === 'USDC') {
       const helper = await fetchRatesAndPrices(currencyCode);
       botPriceVal = helper.botPriceVal;
       exchangeRateVal = helper.exchangeRateVal;
@@ -272,14 +272,14 @@ export const createMoneyTransfer = async (req, res) => {
     let blockNumber = null;
 
     // 2. Perform Arc Testnet / On-Chain Verification
-    if (network === 'sepolia' || network === 'botchain' || network === 'arc-testnet') {
+    if (network === 'sepolia' || network === 'arc-testnet') {
       if (!verifiedTxHash || typeof verifiedTxHash !== 'string' || !verifiedTxHash.startsWith("0x")) {
         return res.status(400).json({ message: "Transaction hash (txHash) is required for client-signed MPC transfers." });
       }
 
       try {
         const { ethers } = await import('ethers');
-        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
+        const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || "https://rpc.testnet.arc.io";
         const provider = new ethers.JsonRpcProvider(rpcUrl);
 
         let receipt = null;
@@ -369,7 +369,7 @@ export const createMoneyTransfer = async (req, res) => {
     }
 
     // 4. Update Receiver BankDetails usdcBalance dynamically
-    if ((network === 'sepolia' || network === 'botchain' || network === 'arc-testnet') && receiverBankDetails) {
+    if ((network === 'sepolia' || network === 'arc-testnet') && receiverBankDetails) {
       const currentUsdc = Number(receiverBankDetails.usdc_balance || 0);
       const newUsdcBal = currentUsdc + transferAmountUsdc;
 
@@ -725,7 +725,7 @@ export const settleRequestMoney = async (req, res) => {
 
     try {
       const { ethers } = await import('ethers');
-      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || process.env.BOTCHAIN_RPC_URL || "https://rpc.testnet.arc.io";
+      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || "https://rpc.testnet.arc.io";
       const provider = new ethers.JsonRpcProvider(rpcUrl);
 
       const receipt = await provider.getTransactionReceipt(verifiedTxHash);
@@ -852,7 +852,7 @@ export const requestMoneyCreate = async (req, res) => {
     }
 
     // Store a live-rate snapshot at creation time so the receiver's invoice
-    // shows the same BOT equivalent the payer will actually be charged, in
+    // shows the same USDC equivalent the payer will actually be charged, in
     // case the receiver's own price feed is briefly unavailable.
     let rateSnapshot = { exchangeRate: 83.5, botPrice: 9.72, botAmount: 0 };
     try {
@@ -1203,7 +1203,7 @@ export const smartRouteTransfer = async (req, res) => {
       const fs = await import('fs');
       const { ethers } = await import('ethers');
 
-      const rpcUrl = process.env.BOTCHAIN_RPC_URL || process.env.SEPOLIA_RPC_URL;
+      const rpcUrl = process.env.ARC_RPC_URL || process.env.RPC_URL || "https://rpc.testnet.arc.io";
       const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
       if (rpcUrl && privateKey && senderUser.internal_wallet_address && receiverUser.internal_wallet_address) {
@@ -1212,10 +1212,10 @@ export const smartRouteTransfer = async (req, res) => {
 
         const treasuryBalance = await provider.getBalance(wallet.address);
         const addrShort = wallet.address.substring(0, 6) + '...' + wallet.address.slice(-4);
-        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} BOT (${addrShort})`);
+        logger.info(`🏦 [TREASURY] Active balance: ${ethers.formatEther(treasuryBalance)} USDC (${addrShort})`);
 
         if (treasuryBalance < ethers.parseUnits('0.1', 18)) {
-          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} BOT.`);
+          logger.warn(`🚨 [TREASURY ALERT] Low balance in treasury wallet! Current: ${ethers.formatEther(treasuryBalance)} USDC.`);
         }
 
         if (isBotMode) {
@@ -1233,14 +1233,14 @@ export const smartRouteTransfer = async (req, res) => {
           const tokenAmountBig = (usdAmountBig * scale18) / priceBig;
 
           if (treasuryBalance < tokenAmountBig) {
-            throw new Error(`Insufficient treasury reserves for settlement. Needed: ${ethers.formatEther(tokenAmountBig)} BOT, Have: ${ethers.formatEther(treasuryBalance)} BOT.`);
+            throw new Error(`Insufficient treasury reserves for settlement. Needed: ${ethers.formatEther(tokenAmountBig)} USDC, Have: ${ethers.formatEther(treasuryBalance)} USDC.`);
           }
 
           const gasLimit = 21000n;
           const feeData = await provider.getFeeData();
           const gasPrice = feeData.gasPrice || ethers.parseUnits('1', 'gwei');
 
-          logger.info(`🚀 [TREASURY] Smart Route: Transferring ${ethers.formatUnits(tokenAmountBig, 18)} BOT to ${receiverUser.internal_wallet_address}`);
+          logger.info(`🚀 [TREASURY] Smart Route: Transferring ${ethers.formatUnits(tokenAmountBig, 18)} USDC to ${receiverUser.internal_wallet_address}`);
           const tx = await wallet.sendTransaction({
             to: receiverUser.internal_wallet_address,
             value: tokenAmountBig,
@@ -1268,7 +1268,7 @@ export const smartRouteTransfer = async (req, res) => {
             finalTxHash = tx.hash;
             logger.info(`✅ [TREASURY] Token Smart Route confirmed: ${tx.hash} (Block: ${receipt.blockNumber})`);
           } else {
-            logger.warn("⚠️ [TREASURY] contractData.json missing for non-BOT mode. Bypassing.");
+            logger.warn("⚠️ [TREASURY] contractData.json missing for non-USDC mode. Bypassing.");
             finalTxHash = '0x' + crypto.randomBytes(32).toString('hex');
             receipt = { status: 1, blockNumber: 0 };
           }

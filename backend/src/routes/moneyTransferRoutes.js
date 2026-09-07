@@ -9,6 +9,7 @@ const router = express.Router();
 router.post('/create', authMiddleware, validate(createMoneyTransferSchema), moneyTransferController.createMoneyTransfer);
 router.get('/', authMiddleware, moneyTransferController.getMoneyTransfers);
 router.get('/external', authMiddleware, moneyTransferController.getMoneyTransfersExternal);
+router.get('/onchain', authMiddleware, moneyTransferController.getOnChainMoneyTransfers);
 router.post('/money-requested', authMiddleware, validate(requestMoneyCreateSchema), moneyTransferController.requestMoneyCreate);
 
 // ✅ SECURITY: Added authMiddleware to previously unauthenticated routes

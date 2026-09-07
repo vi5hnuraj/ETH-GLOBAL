@@ -51,12 +51,9 @@ export const environment = (_req, res) => {
     success: true,
     environment: ENV,
     isDevelopment: ENV !== 'production',
-    chainName: process.env.CHAIN_NAME || 'Base Sepolia',
-    rpcUrl: process.env.RPC_URL || process.env.BASE_RPC_URL || 'https://sepolia.base.org',
-    explorerUrl: process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || 'https://sepolia.basescan.org/',
-    chainId: Number(process.env.CHAIN_ID || process.env.BASE_CHAIN_ID || 84532),
-    symbol: process.env.SYMBOL || 'USDC',
-    usdcAddress: process.env.USDC_CONTRACT_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    rpcUrl: process.env.ARC_RPC_URL || process.env.RPC_URL || 'https://rpc.testnet.arc.io',
+    explorerUrl: process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/',
+    chainId: Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || 5042002),
     maintenanceMode: isFeatureEnabled('maintenanceMode')
   });
 };

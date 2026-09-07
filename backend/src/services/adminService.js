@@ -332,7 +332,7 @@ export const getPlatformHealth = async () => {
 
   // RPC (via env check)
   checks.rpc = {
-    status: process.env.RPC_URL ? 'ok' : 'unknown',
+    status: (process.env.ARC_RPC_URL || process.env.RPC_URL) ? 'ok' : 'unknown',
     latencyMs: null,
     blockNumber: null,
   };

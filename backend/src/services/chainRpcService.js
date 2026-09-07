@@ -1,8 +1,8 @@
 /**
- * ChainRpcService — resilient BOT Chain JSON-RPC access.
+ * ChainRpcService — resilient Arc Testnet JSON-RPC access.
  *
  * Provides:
- *  - Multiple RPC fallback URLs (BOTCHAIN_RPC_URLS="a,b,c" or BOTCHAIN_RPC_URL).
+ *  - Multiple Arc RPC fallback URLs (ARC_RPC_URLS="a,b,c" or ARC_RPC_URL).
  *  - Per-request timeout (RPC_TIMEOUT_MS, default 10s) via AbortController.
  *  - Exponential retries across the URL list.
  *  - A per-URL circuit breaker (opens after RPC_MAX_FAILURES consecutive
@@ -27,7 +27,7 @@ const RETRIES = Number(process.env.RPC_RETRIES || 2);
 const BACKOFF_MS = Number(process.env.RPC_BACKOFF_MS || 250);
 
 export const getRpcUrls = () => {
-  const fromEnv = process.env.ARC_RPC_URLS || process.env.ARC_RPC_URL || process.env.BOTCHAIN_RPC_URLS || process.env.BOTCHAIN_RPC_URL || process.env.RPC_URLS || process.env.RPC_URL;
+  const fromEnv = process.env.ARC_RPC_URLS || process.env.ARC_RPC_URL || process.env.RPC_URLS || process.env.RPC_URL;
   const urls = fromEnv
     ? fromEnv.split(',').map((u) => u.trim()).filter(Boolean)
     : [];
@@ -92,14 +92,14 @@ export const callRpc = async (method, params) => {
     }
     if (attempt < RETRIES) await new Promise((r) => setTimeout(r, BACKOFF_MS * (attempt + 1)));
   }
-  const err = new Error(`All BOT Chain RPC endpoints are unavailable. Last error: ${lastErr?.message}`);
+  const err = new Error(`All Arc RPC endpoints are unavailable. Last error: ${lastErr?.message}`);
   err.code = 'RPC_UNAVAILABLE';
   throw err;
 };
 
 const ARC_NETWORK = () => {
   try {
-    const chainId = Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || process.env.BOTCHAIN_CHAIN_ID || 5042002);
+    const chainId = Number(process.env.ARC_CHAIN_ID || process.env.CHAIN_ID || 5042002);
     return new ethers.Network('arc-testnet', chainId);
   } catch {
     return undefined;
