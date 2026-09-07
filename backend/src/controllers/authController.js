@@ -134,18 +134,6 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Sign out any existing sessions for this user before creating a new one
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-      if (profile?.id) {
-        await supabase.auth.admin.signOut(profile.id);
-      }
-    } catch { /* session cleanup best-effort */ }
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password

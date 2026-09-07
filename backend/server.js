@@ -255,6 +255,9 @@ const isDirectRun = (() => {
   if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) return true;
   // pm2 / tsx / nodemon: process.argv[1] ends with server.js
   if (process.argv[1] && process.argv[1].endsWith('server.js')) return true;
+  // PM2 imports the module through its process wrapper. Tests set NODE_ENV=test
+  // and must be able to import the app without binding the production port.
+  if (process.env.PM2_HOME && process.env.NODE_ENV !== 'test') return true;
   return false;
 })();
 const PORT = process.env.PORT || 5550;

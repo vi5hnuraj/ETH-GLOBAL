@@ -183,10 +183,9 @@ export const openapiSpec = {
                   type: 'object',
                   properties: {
                     totalPayments: { type: 'integer', description: 'Total number of confirmed payments' },
-                    totalVolumeBOT: { type: 'string', description: 'Total USDC volume sent (formatted)' },
+                    totalVolumeUSDC: { type: 'string', description: 'Total USDC volume sent (formatted)' },
                     uniqueRecipients: { type: 'integer', description: 'Number of unique destination addresses' },
-                    last7DaysVolumeBOT: { type: 'string', description: 'USDC volume in the last 7 days' },
-                    last7DaysPayments: { type: 'integer', description: 'Payment count in the last 7 days' }
+                    last7Days: { type: 'array', description: 'Per-day USDC volume for the last 7 days', items: { type: 'object', properties: { date: { type: 'string', format: 'date' }, volumeUSDC: { type: 'string', description: 'USDC volume for the day (formatted)' } } } }
                   }
                 }
               }

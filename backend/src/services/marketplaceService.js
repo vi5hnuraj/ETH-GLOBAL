@@ -1052,5 +1052,12 @@ const buildRevenueStats = (invoices) => {
 export const getAgentByCode = async (agentId) => {
   const { data, error } = await supabase.from('ai_agents').select('*').eq('agent_id', agentId).maybeSingle();
   if (error) throw new Error(`Agent lookup failed: ${error.message}`);
-  return data || null;
+  if (data) return data;
+  // Gateway may have degraded to anon (RLS filters all rows). Confirm via direct DB.
+  try {
+    const { rows } = await getPool().query('SELECT * FROM ai_agents WHERE agent_id = $1 LIMIT 1', [agentId]);
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
 };

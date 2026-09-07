@@ -288,7 +288,7 @@ const DevAnalytics = () => {
     const avgLat = Number(a.avgLatencyMs ?? u.avgLatencyMs ?? 0);
     if (avgLat > 500) list.push({ severity: 'warning', text: `Average latency is ${fmtInt(avgLat)}ms — consider optimizing.` });
     else if (avgLat > 0) list.push({ severity: 'success', text: `Average latency is ${fmtInt(avgLat)}ms — within target.` });
-    const spend = Number(a.botVolumeBOT ?? 0);
+    const spend = Number(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0);
     if (spend > 0) list.push({ severity: 'info', text: `Estimated monthly spend: ${fmt(spend, 4)} USDC.` });
     const topEndpoint = (u.topEndpoints || [])[0];
     if (topEndpoint && topEndpoint.errors > 0) list.push({ severity: 'warning', text: `${topEndpoint.endpoint} has ${topEndpoint.errors} errors.` });
@@ -302,7 +302,7 @@ const DevAnalytics = () => {
     { icon: <FiCheckCircle size={16} className="text-emerald-400" />, label: 'Success Rate', value: pct(a.successRate ?? u.successRate ?? 100), accent: 'bg-emerald-500/10' },
     { icon: <FiClock size={16} className="text-blue-400" />, label: 'Avg Latency', value: `${fmtInt(a.avgLatencyMs ?? u.avgLatencyMs ?? 0)}ms`, accent: 'bg-blue-500/10' },
     { icon: <FiDollarSign size={16} className="text-emerald-400" />, label: 'Revenue', value: `$${fmt(a.revenueUsd ?? 0)}`, accent: 'bg-emerald-500/10' },
-    { icon: <FiTrendingUp size={16} className="text-violet-400" />, label: 'USDC Volume', value: `${fmt(a.botVolumeBOT ?? 0, 4)}`, accent: 'bg-violet-500/10', sparkData: sparkVol },
+    { icon: <FiTrendingUp size={16} className="text-violet-400" />, label: 'USDC Volume', value: `${fmt(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0, 4)}`, accent: 'bg-violet-500/10', sparkData: sparkVol },
     { icon: <FiUsers size={16} className="text-cyan-400" />, label: 'Active Orgs', value: fmtInt(d.walletsCreated ?? a.walletsCreated ?? 0), accent: 'bg-cyan-500/10' },
     { icon: <FiCpu size={16} className="text-pink-400" />, label: 'Installed Agents', value: fmtInt(d.activeAgents ?? 0), accent: 'bg-pink-500/10' },
     { icon: <FiActivity size={16} className="text-blue-400" />, label: 'Payments', value: fmtInt(a.payments ?? 0), accent: 'bg-blue-500/10', sparkData: sparkPay },
@@ -347,12 +347,12 @@ const DevAnalytics = () => {
 
   /* ── Billing forecast ── */
   const billing = useMemo(() => {
-    const spend = Number(a.botVolumeBOT ?? 0);
+    const spend = Number(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0);
     const daysInMonth = 30;
     const today = new Date().getDate();
     const projected = today > 0 ? (spend / today) * daysInMonth : 0;
     return { current: spend, projected, remaining: Math.max(0, projected - spend) };
-  }, [a.botVolumeBOT]);
+  }, [a.botVolumeUSDC ?? a.botVolumeBOT]);
 
   /* ── Performance ── */
   const perf = useMemo(() => {
@@ -640,7 +640,7 @@ const DevAnalytics = () => {
           {/* Revenue summary */}
           <div className="grid grid-cols-3 gap-3 mt-3">
             {[
-              { label: 'Volume', value: `${fmt(a.botVolumeBOT ?? 0, 4)} USDC` },
+              { label: 'Volume', value: `${fmt(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0, 4)} USDC` },
               { label: 'Payments', value: fmtInt(a.payments ?? 0) },
               { label: 'Revenue', value: `$${fmt(a.revenueUsd ?? 0)}` },
             ].map(r => (
@@ -746,7 +746,7 @@ const DevAnalytics = () => {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="py-2 px-3 bg-zinc-800/20 rounded-xl">
                 <p className="text-zinc-500">USDC Volume</p>
-                <p className="text-zinc-200 font-mono font-semibold">{fmt(a.botVolumeBOT ?? 0, 4)} USDC</p>
+                <p className="text-zinc-200 font-mono font-semibold">{fmt(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0, 4)} USDC</p>
               </div>
               <div className="py-2 px-3 bg-zinc-800/20 rounded-xl">
                 <p className="text-zinc-500">Payments</p>
@@ -779,7 +779,7 @@ const DevAnalytics = () => {
               {[
                 { label: 'Wallets Created', value: fmtInt(a.walletsCreated ?? d.walletsCreated ?? 0), icon: <FiCpu size={12} className="text-violet-400" /> },
                 { label: 'Transactions', value: fmtInt(a.payments ?? 0), icon: <FiActivity size={12} className="text-blue-400" /> },
-                { label: 'USDC Spent', value: `${fmt(a.botVolumeBOT ?? 0, 4)}`, icon: <FiDollarSign size={12} className="text-emerald-400" /> },
+                { label: 'USDC Spent', value: `${fmt(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0, 4)}`, icon: <FiDollarSign size={12} className="text-emerald-400" /> },
                 { label: 'Avg Confirmation', value: '~2s', icon: <FiClock size={12} className="text-amber-400" /> },
                 { label: 'Failed Tx', value: fmtInt(u.errors ?? 0), icon: <FiAlertTriangle size={12} className="text-red-400" /> },
                 { label: 'Active Wallets', value: fmtInt(d.activeAgents ?? 0), icon: <FiWifi size={12} className="text-cyan-400" /> },
@@ -847,7 +847,7 @@ const DevAnalytics = () => {
                   <div key={c.address} className="flex items-center gap-3 py-2 border-b border-zinc-800/20 last:border-0">
                     <span className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-500 font-mono">{i + 1}</span>
                     <code className="text-xs text-zinc-400 font-mono truncate flex-1">{c.address.slice(0, 10)}…{c.address.slice(-6)}</code>
-                    <span className="text-xs text-emerald-400 font-mono font-semibold">{fmt(c.volumeBOT, 4)} USDC</span>
+                    <span className="text-xs text-emerald-400 font-mono font-semibold">{fmt(c.volumeUSDC ?? c.volumeBOT, 4)} USDC</span>
                   </div>
                 ))}
               </div>
@@ -893,7 +893,7 @@ const DevAnalytics = () => {
           {[
             { label: 'Total Requests', value: fmtInt(a.totalApiCalls || u.totalRequests || 0) },
             { label: 'Total Revenue', value: `$${fmt(a.revenueUsd ?? 0)}` },
-            { label: 'Total Spend', value: `${fmt(a.botVolumeBOT ?? 0, 4)} USDC` },
+            { label: 'Total Spend', value: `${fmt(a.botVolumeUSDC ?? a.botVolumeBOT ?? 0, 4)} USDC` },
             { label: 'Platform Uptime', value: '99.9%' },
             { label: 'Success Rate', value: pct(a.successRate ?? u.successRate ?? 100) },
           ].map(s => (

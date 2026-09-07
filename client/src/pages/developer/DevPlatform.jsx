@@ -19,7 +19,7 @@ const NAV_GROUPS = [
     label: 'Organization',
     items: [
       { to: '/developer/network/profile', label: 'Public Profile', icon: FiGlobe },
-      { to: '/developer/organizations', label: 'Organizations', icon: FiUsers },
+      { to: '/developer/organizations', label: 'Organizations', icon: FiUsers, end: true },
       { to: '/developer/organizations/members', label: 'Team', icon: FiUsers },
       { to: '/developer/notifications', label: 'Notifications', icon: FiBell },
       { to: '/developer/settings', label: 'Settings', icon: FiSettings }
@@ -190,7 +190,7 @@ const DevPlatform = () => {
 
       {/* Content */}
       <main ref={mainRef} className="flex-1 min-h-0 min-w-0 p-6 md:p-8 bg-zinc-950 text-white overflow-y-auto">
-        <ArcConnectWallet />
+        {location.pathname === '/developer' && <ArcConnectWallet />}
         {loading && !status ? (
           <div className="space-y-6">
             <Skeleton className="h-8 w-56 rounded mb-6" />

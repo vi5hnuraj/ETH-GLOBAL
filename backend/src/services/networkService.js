@@ -30,6 +30,13 @@ getPolicyByOrg,
 } from './commerceService.js';
 
 const genId = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
+const PROFILE_CACHE_TTL_MS = 15_000;
+const profileCache = new Map();
+
+export const invalidateNetworkProfileCache = (organizationId) => {
+  if (organizationId) profileCache.delete(organizationId);
+  else profileCache.clear();
+};
 
 const httpError = (status, message, code) => {
   const err = new Error(message);
@@ -87,25 +94,21 @@ const toPublicProfile = (p, trustScore = null, extra = {}) => ({
   ...extra
 });
 
-const getOrgTrust = async (organizationId) => {
+const getOrgMetrics = async (organizationId) => {
   const { data: agents } = await supabase.from('ai_agents').select('id').eq('organization_id', organizationId);
   const ids = (agents || []).map((a) => a.id);
-  if (!ids.length) return null;
-  const { data: reps } = await supabase.from('provider_reputation').select('trust_score').in('provider_agent_id', ids);
-  const scores = (reps || []).map((r) => Number(r.trust_score)).filter((n) => !Number.isNaN(n));
-  if (!scores.length) return null;
-  return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100;
-};
-
-const getActivityForOrg = async (organizationId) => {
-  const { data: agents } = await supabase.from('ai_agents').select('id').eq('organization_id', organizationId);
-  const ids = (agents || []).map((a) => a.id);
-  if (!ids.length) return { serviceCount: 0, providerCount: 0 };
-  const [{ count: services }, { count: providers }] = await Promise.all([
+  if (!ids.length) return { trustScore: null, serviceCount: 0, providerCount: 0 };
+  const [{ data: reps }, { count: services }, { count: providers }] = await Promise.all([
+    supabase.from('provider_reputation').select('trust_score').in('provider_agent_id', ids),
     supabase.from('ai_services').select('id', { count: 'exact', head: true }).eq('is_active', true).in('agent_id', ids),
     supabase.from('provider_reputation').select('id', { count: 'exact', head: true }).in('provider_agent_id', ids)
   ]);
-  return { serviceCount: services || 0, providerCount: providers || 0 };
+  const scores = (reps || []).map((r) => Number(r.trust_score)).filter((n) => !Number.isNaN(n));
+  return {
+    trustScore: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100 : null,
+    serviceCount: services || 0,
+    providerCount: providers || 0
+  };
 };
 
 const TRANSIENT_ERROR_CODES = new Set(['42501', '54001', '57014']);
@@ -170,12 +173,16 @@ const ensureProfile = async (organizationId) => {
 };
 
 export const getProfile = async ({ developerId, organizationId }) => {
+  const cached = profileCache.get(organizationId);
+  if (cached && Date.now() - cached.updatedAt < PROFILE_CACHE_TTL_MS) return cached.profile;
   const profile = await ensureProfile(organizationId);
-  const [trustScore, activity] = await Promise.all([
-    getOrgTrust(organizationId),
-    getActivityForOrg(organizationId)
-  ]);
-  return toPublicProfile(profile, trustScore, activity);
+  const metrics = await getOrgMetrics(organizationId);
+  const result = toPublicProfile(profile, metrics.trustScore, {
+    serviceCount: metrics.serviceCount,
+    providerCount: metrics.providerCount
+  });
+  profileCache.set(organizationId, { profile: result, updatedAt: Date.now() });
+  return result;
 };
 
 const PROFILE_FIELDS = [

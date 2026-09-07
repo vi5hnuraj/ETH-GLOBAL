@@ -382,8 +382,8 @@ export const devCreateAgentSchema = Joi.object({
 
 export const devCreateKeySchema = Joi.object({
   name: Joi.string().min(1).max(100).trim().required(),
-  scopes: Joi.array().items(Joi.string().max(50)).max(20),
-  expiresAt: Joi.string().isoDate().allow(null),
+  scopes: Joi.array().items(Joi.string().max(100)),
+  expiresAt: Joi.string().isoDate().allow('', null),
   ipAllowlist: Joi.array().items(Joi.string().max(45)).max(20)
 });
 

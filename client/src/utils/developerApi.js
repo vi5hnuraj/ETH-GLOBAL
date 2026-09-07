@@ -18,7 +18,12 @@ const CACHE_TTL_MS = 8000; // 8 seconds — fast but prevents duplicate fetches
 const CACHE_MAX = 100;
 
 function cacheKey(path, opts) {
-  return `${opts?.method || 'GET'}:${path}`;
+  // Scope the cache by organization. Without this, switching orgs in the
+  // sidebar returns the previous org's cached responses (the remounted page
+  // fetches the same path and hits the stale entry), so the dashboard keeps
+  // showing the old org's data until a hard refresh.
+  const org = getOrganizationId() || 'none';
+  return `${opts?.method || 'GET'}:${org}:${path}`;
 }
 
 function cacheGet(key) {

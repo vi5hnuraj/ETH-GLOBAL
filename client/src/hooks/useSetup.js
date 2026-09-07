@@ -11,12 +11,13 @@ import developerApi from '../utils/developerApi';
  * timeout, and a watchdog races it so the hook can never stay in loading=true
  * forever. State updates after unmount are dropped.
  */
-const STATUS_TIMEOUT_MS = 22000;
+const STATUS_TIMEOUT_MS = 8000;
 
 // Module-level cache so multiple DevPlatform mounts don't re-fetch
 let cachedStatus = null;
 let cachedAt = 0;
 const STATUS_CACHE_TTL = 30_000; // 30 seconds
+let statusRequest = null;
 
 const useSetup = () => {
   const [status, setStatus] = useState(() => {
@@ -42,12 +43,26 @@ const useSetup = () => {
     setLoading(true);
     setError(null);
     try {
-      const s = await Promise.race([
-        developerApi.status(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(Object.assign(new Error('Request timed out.'), { code: 'TIMEOUT' })), STATUS_TIMEOUT_MS)
-        )
-      ]);
+      if (cachedStatus && Date.now() - cachedAt < STATUS_CACHE_TTL) {
+        if (aliveRef.current && loadId === loadIdRef.current) {
+          setStatus(cachedStatus);
+          setLoading(false);
+        }
+        return cachedStatus;
+      }
+
+      if (!statusRequest) {
+        statusRequest = Promise.race([
+          developerApi.status(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(Object.assign(new Error('Request timed out.'), { code: 'TIMEOUT' })), STATUS_TIMEOUT_MS)
+          )
+        ]).finally(() => {
+          statusRequest = null;
+        });
+      }
+
+      const s = await statusRequest;
       if (!aliveRef.current || loadId !== loadIdRef.current) return null;
       cachedStatus = s;
       cachedAt = Date.now();

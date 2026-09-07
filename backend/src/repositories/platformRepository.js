@@ -72,7 +72,7 @@ export const tableExists = async (table) => {
  *  + setup gate hitting status) don't hammer the pool. A refresh can be forced
  *  by the caller; the cache only ever reports the most recent healthy probe. */
 const STATUS_CACHE_KEY = 'required-tables:status';
-const STATUS_CACHE_TTL_MS = 10_000;
+const STATUS_CACHE_TTL_MS = 60_000;
 
 export const checkRequiredTables = async ({ force = false } = {}) => {
   if (!force) {

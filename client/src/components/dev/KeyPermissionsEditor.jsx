@@ -470,7 +470,9 @@ export default function KeyPermissionsEditor({
   };
 
   const toggleAction = (scope) =>
-    onScopesChange(selected.has(scope) ? scopes.filter((s) => s !== scope) : [...scopes, scope]);
+    onScopesChange(selected.has(scope)
+      ? scopes.filter((s) => s !== scope)
+      : [...scopes, scope]);
 
   const toggleGroup = (group) => {
     const groupScopes = group.actions.map((a) => a.scope);
@@ -574,7 +576,7 @@ export default function KeyPermissionsEditor({
         </div>
         <div className="flex items-center justify-between">
           <span className={`text-xs ${selected.size ? 'text-indigo-400' : 'text-zinc-500'}`}>
-            {selected.size} of {ALL_PERMISSION_SCOPES.length} permission{selected.size === 1 ? '' : 's'} selected
+            {selected.size} of {ALL_PERMISSION_SCOPES.length} permissions selected
           </span>
           {someOn && !allOn && (
             <button type="button" onClick={() => onScopesChange([...ALL_PERMISSION_SCOPES])} className="text-xs text-zinc-400 hover:text-zinc-200">

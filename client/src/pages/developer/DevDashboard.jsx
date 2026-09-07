@@ -103,7 +103,7 @@ const DevDashboard = () => {
     { icon: <FiGrid size={16} />, label: 'Wallets', value: d.walletsCreated ?? '0', accent: 'text-cyan-400' },
     { icon: <FiZap size={16} />, label: 'API Today', value: d.apiRequestsToday?.toLocaleString() ?? '0', accent: 'text-amber-400' },
     { icon: <FiDollarSign size={16} />, label: 'Revenue', value: d.monthlyRevenueUsd != null ? `$${Number(d.monthlyRevenueUsd).toFixed(2)}` : '$0.00', accent: 'text-green-400' },
-    { icon: <FiTrendingUp size={16} />, label: 'USDC Volume', value: d.transactionVolumeUsdc != null || d.transactionVolumeBOT != null ? `${Number(d.transactionVolumeUsdc || d.transactionVolumeBOT || 0).toFixed(2)} USDC` : '0.00 USDC', accent: 'text-cyan-400' },
+    { icon: <FiTrendingUp size={16} />, label: 'USDC Volume', value: (d.transactionVolumeUSDC != null || d.transactionVolumeUsdc != null || d.transactionVolumeBOT != null) ? `${Number(d.transactionVolumeUSDC || d.transactionVolumeUsdc || d.transactionVolumeBOT || 0).toFixed(2)} USDC` : '0.00 USDC', accent: 'text-cyan-400' },
     { icon: <FiServer size={16} />, label: 'Services', value: d.servicesPublished ?? '0', accent: 'text-indigo-400' },
     { icon: <FiShoppingBag size={16} />, label: 'Installs', value: d.marketplaceInstalls?.toLocaleString() ?? '0', accent: 'text-purple-400' },
   ];

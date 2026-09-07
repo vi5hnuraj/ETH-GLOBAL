@@ -254,23 +254,29 @@ export default function DevApi() {
   const fetchAll = async (silent) => {
     if (!silent) setLoading(true);
     try {
-      const [u, m, k, ag, lg, ad, ep] = await Promise.all([
+      // Render the API workspace from the two fast, essential requests first.
+      const [k, ep] = await Promise.all([
+        developerApi.get('/developers/api-keys'),
+        developerApi.get('/openapi.json')
+      ]);
+      setKeys(k.apiKeys || []);
+      setEndpoints(ep.paths ? Object.entries(ep.paths) : []);
+      setError(null);
+      setLoading(false);
+
+      // Analytics and logs are secondary; hydrate them without blocking the UI.
+      const [u, m, ag, lg, ad] = await Promise.all([
         developerApi.get('/developers/usage'),
         developerApi.get('/developers/monitoring'),
-        developerApi.get('/developers/api-keys'),
         developerApi.get('/developers/agents?perPage=50'),
-        developerApi.get('/developers/requests?perPage=500'),
-        developerApi.get('/developers/audit'),
-        developerApi.get('/openapi.json')
+        developerApi.get('/developers/requests?perPage=100'),
+        developerApi.get('/developers/audit')
       ]);
       setUsage(u.usage || {});
       setMonitoring(m.monitoring || {});
-      setKeys(k.apiKeys || []);
       setAgents(ag.agents || []);
       setLogs(lg.logs || []);
       setAudits(ad.auditLogs?.logs || []);
-      setEndpoints(ep.paths ? Object.entries(ep.paths) : []);
-      setError(null);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data.');
     } finally {
@@ -423,7 +429,7 @@ export default function DevApi() {
   const agentsStats = useMemo(() => {
     const total = agents.length;
     const req = agents.reduce((s, a) => s + (a.requestCount || 0), 0);
-    const vol = agents.reduce((s, a) => s + Number(a.volumeBOT || 0), 0);
+    const vol = agents.reduce((s, a) => s + Number(a.volumeUSDC ?? a.volumeBOT ?? 0), 0);
     return { total, req, vol: vol.toFixed(2) };
   }, [agents]);
 
@@ -706,7 +712,7 @@ export default function DevApi() {
             {[
               { label: 'API calls', value: formatLargeNumber(chartTotal) },
               { label: 'Payments', value: formatNumber(analytics?.payments || 0) },
-              { label: 'USDC volume', value: `${Number(analytics?.botVolumeBOT || 0).toFixed(2)} USDC` },
+              { label: 'USDC volume', value: `${Number(analytics?.botVolumeUSDC ?? analytics?.botVolumeBOT ?? 0).toFixed(2)} USDC` },
               { label: 'Wallets', value: formatNumber(analytics?.walletsCreated || 0) }
             ].map((s) => (
               <div key={s.label}>

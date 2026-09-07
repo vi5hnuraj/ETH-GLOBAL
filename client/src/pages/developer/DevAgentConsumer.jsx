@@ -158,7 +158,7 @@ const DevAgentConsumer = () => {
   const errorRate = a.errorRate ?? u.errorRate ?? 0;
   const requestsToday = u.requestsToday ?? 0;
   const requestsThisMonth = u.requestsThisMonth ?? 0;
-  const botVolume = a.botVolumeBOT ?? '0';
+  const botVolume = a.botVolumeUSDC ?? a.botVolumeBOT ?? '0';
 
   // Chart data
   const chartData = useMemo(() => {

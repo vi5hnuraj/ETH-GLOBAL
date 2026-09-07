@@ -203,9 +203,27 @@ const safeQuery = async (table, fn) => {
   }
 };
 
+// Services are published into `ai_services` (marketplaceService.createService),
+// scoped to the org through the owning agent. There is no `published_services`
+// table — reading it returned null and the dashboard "Services" stat stayed 0.
+const fetchOrgServices = async (orgId) => {
+  try {
+    const { rows } = await getPool().query(
+      `SELECT s.id, s.created_at
+         FROM ai_services s
+         JOIN ai_agents a ON a.id = s.agent_id
+        WHERE a.organization_id = $1 AND s.is_active = true`,
+      [orgId]
+    );
+    return rows;
+  } catch {
+    return null;
+  }
+};
+
 const fetchV3Metrics = async (orgId) => {
   const [services, installs, projects, tsRows] = await Promise.all([
-    safeQuery('services', () => supabase.from('published_services').select('*').eq('organization_id', orgId)),
+    fetchOrgServices(orgId),
     safeQuery('installs', () => supabase.from('marketplace_installs').select('*').eq('developer_id', orgId)),
     safeQuery('projects', () => supabase.from('developer_projects').select('*').eq('organization_id', orgId)),
     safeQuery('trust', () => supabase.from('directory_entities').select('trust_score').eq('organization_id', orgId))
@@ -312,7 +330,8 @@ export const getDashboard = async (orgId, developerId) => {
     monthlyRequests: logs.filter((l) => new Date(l.created_at).getTime() >= startOfMonth).length,
     successfulPayments: successfulPayments.length,
     failedPayments: txs.filter((t) => t.status === 'failed').length,
-    transactionVolumeBOT: volumeBOT,
+    transactionVolumeUSDC: volumeBOT,
+    transactionVolumeBOT: volumeBOT, // backward compat
     monthlyRevenueUsd: monthlyRevenue,
      plan: plan.name,
     walletProvider: settings?.walletProvider || 'local',
@@ -380,7 +399,7 @@ export const getAnalytics = async (orgId, range = 'month', developerId) => {
   const topCustomers = Object.entries(recipientVolume)
     .sort((a, b) => (b[1] > a[1] ? 1 : -1))
     .slice(0, 5)
-    .map(([address, wei]) => ({ address, volumeBOT: formatBOT(wei) }));
+    .map(([address, wei]) => ({ address, volumeUSDC: formatBOT(wei), volumeBOT: formatBOT(wei) }));
 
   let cumulativeWallets = 0;
   const chartData = buckets.map((b, i) => {
@@ -403,7 +422,8 @@ export const getAnalytics = async (orgId, range = 'month', developerId) => {
     avgLatencyMs: avgLatency,
     successRate,
     errorRate,
-    botVolumeBOT: formatBOT(sumWei(inRangeTxs)),
+    botVolumeUSDC: formatBOT(sumWei(inRangeTxs)),
+    botVolumeBOT: formatBOT(sumWei(inRangeTxs)), // backward compat
     payments: inRangeTxs.length,
     walletsCreated: agents.length,
     mostActiveAgent,
@@ -556,7 +576,8 @@ export const getRevenue = async () => {
     .map(([id, wei]) => ({
       agentId: agentById[id]?.agent_id || id,
       name: agentById[id]?.agent_name || 'Unknown agent',
-      volumeBOT: formatBOT(wei),
+      volumeUSDC: formatBOT(wei),
+      volumeBOT: formatBOT(wei), // backward compat
       wallet: agentById[id]?.wallet_address || null
     }));
 
@@ -589,7 +610,8 @@ export const getRevenue = async () => {
     walletCreationRevenue: monthlyRevenue * REVENUE_ATTRIBUTION.walletCreation,
     walletsThisMonth,
     requestsThisMonth,
-    transactionVolumeBOT: formatBOT(sumWei(confirmed))
+    transactionVolumeUSDC: formatBOT(sumWei(confirmed)),
+    transactionVolumeBOT: formatBOT(sumWei(confirmed)) // backward compat
   };
 };
 
@@ -887,7 +909,8 @@ export const listAgentsWithStats = async (orgId, developerId, { search, status, 
       lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null,
       requestCount: agentLogs.length,
       paymentCount: agentTxs.length,
-      volumeBOT: Number(confirmed.reduce((s, t) => s + Number(t.amount || 0) / 1e18, 0).toFixed(6))
+      volumeUSDC: Number(confirmed.reduce((s, t) => s + Number(t.amount || 0) / 1e18, 0).toFixed(6)),
+      volumeBOT: Number(confirmed.reduce((s, t) => s + Number(t.amount || 0) / 1e18, 0).toFixed(6)) // backward compat
     };
   });
 
@@ -1006,8 +1029,21 @@ export const getOwnedAgent = async (orgId, agentId) => {
     supabase.from('ai_agents').select('*').eq('agent_id', agentId).eq('organization_id', orgId).maybeSingle()
   );
   if (error) throwMissingTable(error);
-  if (!data) throw Object.assign(new Error('Agent not found.'), { status: 404 });
-  return data;
+  if (data) return data;
+  // The gateway intermittently downgrades service-role reads to anon, and RLS
+  // then hides the row (200 / null) — indistinguishable from a real miss.
+  // Confirm on the direct DB connection before answering 404, matching the
+  // fallback already used by fetchAgents/deleteAgent.
+  try {
+    const { rows } = await getPool().query(
+      'SELECT * FROM ai_agents WHERE agent_id = $1 AND organization_id = $2 LIMIT 1',
+      [agentId, orgId]
+    );
+    if (rows.length > 0) return rows[0];
+  } catch {
+    /* direct read unavailable — keep the gateway result */
+  }
+  throw Object.assign(new Error('Agent not found.'), { status: 404 });
 };
 
 export const getAgentDetail = async (orgId, developerId, agentId) => {

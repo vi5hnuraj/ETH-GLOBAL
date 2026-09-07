@@ -175,9 +175,9 @@ const requireOwnedAgent = async ({ developerId, organizationId, agentId }) => {
 
 export const devCreateService = async (req, res) => {
   try {
-    const { agentId, title, description, category, pricingModel, unitPrice, unitLabel, metadata } = req.body;
+    const { agentId, title, description, category, pricingModel, unitPrice, unitLabel, metadata, endpointUrl, healthCheckUrl } = req.body;
     const agent = await requireOwnedAgent({ developerId: req.developerId, organizationId: req.organization?.id, agentId });
-    const service = await createService({ agent, title, description, category, pricingModel, unitPrice, unitLabel, metadata });
+    const service = await createService({ agent, title, description, category, pricingModel, unitPrice, unitLabel, metadata, endpointUrl, healthCheckUrl });
     return ok(res, { message: `📦 Service published: ${service.title}`, service }, 201);
   } catch (err) {
     return handleError(res, err, 'service');
