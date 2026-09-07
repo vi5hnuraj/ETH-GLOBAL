@@ -10,6 +10,7 @@ import SetupRequired from '../../components/dev/SetupRequired';
 import Skeleton from '../../components/dev/Skeleton';
 import OrgSwitcher from '../../components/dev/OrgSwitcher';
 import EnvBadge from '../../components/dev/EnvBadge';
+import { ArcConnectWallet } from '../../components/dev/ArcConnectWallet';
 import { getOrganizationId } from '../../utils/identity';
 import logoImg from '../../assets/logo.jpeg';
 
@@ -105,6 +106,7 @@ const DevPlatform = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-screen overflow-hidden">
+      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-60 shrink-0 bg-zinc-950 border-r border-zinc-800 p-4 h-full overflow-y-auto">
         <div className="px-3 py-2 mb-3 flex items-center gap-3">
           <img src={logoImg} alt="GlobalPay" className="h-8 w-8 object-contain rounded-lg" />
@@ -159,11 +161,14 @@ const DevPlatform = () => {
             </div>
           ))}
         </nav>
+
         <div className="space-y-2 px-3 pt-4 mt-4 border-t border-zinc-800 text-xs text-zinc-500">
           <EnvBadge />
-          <p>Financial infrastructure for AI agents on BOT Chain</p>
+          <p className="text-cyan-400/90 font-medium">⚡ Built on Arc L1 (USDC Native Gas)</p>
         </div>
       </aside>
+
+      {/* Mobile top nav */}
       <div className="md:hidden flex-none w-full sticky top-0 z-30 bg-zinc-950 border-b border-zinc-800 p-3 overflow-x-auto">
         <div className="flex gap-2">
           {FLAT_NAV.map(({ to, label }) => (
@@ -182,7 +187,10 @@ const DevPlatform = () => {
           ))}
         </div>
       </div>
+
+      {/* Content */}
       <main ref={mainRef} className="flex-1 min-h-0 min-w-0 p-6 md:p-8 bg-zinc-950 text-white overflow-y-auto">
+        <ArcConnectWallet />
         {loading && !status ? (
           <div className="space-y-6">
             <Skeleton className="h-8 w-56 rounded mb-6" />
