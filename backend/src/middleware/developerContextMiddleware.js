@@ -13,7 +13,9 @@ import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabaseClient.js';
 import logger from '../utils/logger.js';
 
-const isProduction = () => (process.env.NODE_ENV || '').toLowerCase() !== 'development';
+// Test runs use the same header-based developer context as development. Only
+// the production deployment requires a bearer developer API key.
+const isProduction = () => (process.env.NODE_ENV || '').toLowerCase() === 'production';
 
 // ── JWT validation cache ──────────────────────────────────────────
 // Cache the result of Supabase API getUser() calls to avoid repeated

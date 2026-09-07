@@ -168,10 +168,20 @@ export const resolveChainId = () => {
   const configuredChainId = Number(
     process.env.CHAIN_ID ||
     process.env.ARC_CHAIN_ID ||
-    process.env.BASE_CHAIN_ID ||
     5042002
   );
   return configuredChainId;
+};
+
+export const validateNetworkConfiguration = () => {
+  const network = String(process.env.NETWORK || 'arc-testnet').toLowerCase();
+  const chainId = resolveChainId();
+  const expected = NETWORK_CHAIN_MAP[network];
+  if (!expected) throw new Error(`Invalid NETWORK: ${network}`);
+  if (chainId !== expected) {
+    throw new Error(`MPC network configuration mismatch: ${network} expects chain ${expected}, got ${chainId}`);
+  }
+  return { network, chainId };
 };
 
 /**
@@ -227,6 +237,7 @@ export const createMpcWalletService = () => {
      * Safe on both testnet and mainnet (read-only from a broadcast perspective).
      */
     async createWallet({ name, ownerId }) {
+      validateNetworkConfiguration();
       const url = `${mpcServiceUrl()}/api/v1/wallets`;
       logger.info('[MPC WALLET] Requesting wallet creation from external MPC provider', { name, ownerId });
 
@@ -373,7 +384,7 @@ export const createMpcWalletService = () => {
       // provider can verify the per-transaction authorization. Testnet sends
       // are unarmed and never attach the token.
       const headers = {};
-      if (chainId === 677) {
+      if (chainId === 5042001) {
         headers['X-Mainnet-Approval'] = mainnetApprovalToken();
       }
 

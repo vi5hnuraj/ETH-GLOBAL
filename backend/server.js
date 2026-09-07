@@ -255,10 +255,7 @@ const isDirectRun = (() => {
   if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) return true;
   // pm2 / tsx / nodemon: process.argv[1] ends with server.js
   if (process.argv[1] && process.argv[1].endsWith('server.js')) return true;
-  // pm2 via npx bash wrapper — PM2_HOME is set
-  if (process.env.PM2_HOME) return true;
-  // Fallback: not a child_module import (no __filename weirdness)
-  return !process.env.__cjsModule;
+  return false;
 })();
 const PORT = process.env.PORT || 5550;
 if (isDirectRun) {

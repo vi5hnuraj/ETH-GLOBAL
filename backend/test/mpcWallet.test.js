@@ -69,10 +69,10 @@ test('getWalletService returns mpc provider when WALLET_PROVIDER is mpc', (t) =>
   assert.equal(svc.provider, 'mpc');
 });
 
-// ─── Testnet (chain 968) happy path ─────────────────────────────────────────
+// ─── Testnet (chain 5042002) happy path ─────────────────────────────────────────
 
-test('mpcWalletService createWallet on testnet/968 calls external MPC and returns wallet details', async (t) => {
-  setNetwork(t, 'testnet', 968);
+test('mpcWalletService createWallet on testnet/5042002 calls external MPC and returns wallet details', async (t) => {
+  setNetwork(t, 'testnet', 5042002);
   setMpcUrl(t);
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -83,7 +83,7 @@ test('mpcWalletService createWallet on testnet/968 calls external MPC and return
     const body = JSON.parse(options.body);
     assert.equal(body.threshold, 2);
     assert.equal(body.parties, 3);
-    assert.equal(body.chainId, 968);
+    assert.equal(body.chainId, 5042002);
     return {
       ok: true,
       json: async () => ({
@@ -102,8 +102,8 @@ test('mpcWalletService createWallet on testnet/968 calls external MPC and return
   assert.equal(wallet.privateKey, null);
 });
 
-test('mpcWalletService sendPayment on testnet/968 succeeds', async (t) => {
-  setNetwork(t, 'testnet', 968);
+test('mpcWalletService sendPayment on testnet/5042002 succeeds', async (t) => {
+  setNetwork(t, 'testnet', 5042002);
   setMpcUrl(t);
   delete process.env.MAINNET_BROADCAST_ENABLED;
   const originalFetch = globalThis.fetch;
@@ -112,7 +112,7 @@ test('mpcWalletService sendPayment on testnet/968 succeeds', async (t) => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, 'http://localhost:8080/api/v1/wallets/wallet-testnet-123/send');
     const body = JSON.parse(options.body);
-    assert.equal(body.chainId, 968);
+    assert.equal(body.chainId, 5042002);
     return {
       ok: true,
       json: async () => ({ txHash: '0xhash_testnet', status: 'BROADCASTED' })
@@ -125,10 +125,10 @@ test('mpcWalletService sendPayment on testnet/968 succeeds', async (t) => {
   assert.equal(result.provider, 'mpc');
 });
 
-// ─── Mainnet (chain 677) wallet creation — allowed even while broadcast is locked ─
+// ─── Mainnet (chain 5042001) wallet creation — allowed even while broadcast is locked ─
 
-test('mpcWalletService createWallet on mainnet/677 is allowed regardless of broadcast lock', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService createWallet on mainnet/5042001 is allowed regardless of broadcast lock', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
   setMpcUrl(t);
   delete process.env.MAINNET_BROADCAST_ENABLED;
   const originalFetch = globalThis.fetch;
@@ -136,7 +136,7 @@ test('mpcWalletService createWallet on mainnet/677 is allowed regardless of broa
 
   globalThis.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    assert.equal(body.chainId, 677);
+    assert.equal(body.chainId, 5042001);
     return {
       ok: true,
       json: async () => ({
@@ -155,8 +155,8 @@ test('mpcWalletService createWallet on mainnet/677 is allowed regardless of broa
 
 // ─── Mainnet broadcast lock: sendPayment blocked by default ─────────────────
 
-test('mpcWalletService sendPayment on mainnet/677 is blocked by default (MAINNET_BROADCAST_ENABLED not set)', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService sendPayment on mainnet/5042001 is blocked by default (MAINNET_BROADCAST_ENABLED not set)', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
   setMainnetBroadcast(t, undefined, undefined);
 
   const svc = createMpcWalletService();
@@ -170,8 +170,8 @@ test('mpcWalletService sendPayment on mainnet/677 is blocked by default (MAINNET
   );
 });
 
-test('mpcWalletService sendPayment on mainnet/677 is blocked when MAINNET_BROADCAST_ENABLED=false', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService sendPayment on mainnet/5042001 is blocked when MAINNET_BROADCAST_ENABLED=false', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
   setMainnetBroadcast(t, false, undefined);
 
   const svc = createMpcWalletService();
@@ -186,8 +186,9 @@ test('mpcWalletService sendPayment on mainnet/677 is blocked when MAINNET_BROADC
 
 // ─── Mainnet approval token: fail closed when missing/invalid ──────────────
 
-test('mpcWalletService sendPayment on mainnet/677 is blocked when enabled but MAINNET_APPROVAL_TOKEN is missing', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService sendPayment on mainnet/5042001 is blocked when enabled but MAINNET_APPROVAL_TOKEN is missing', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
+  setMpcUrl(t);
   setMainnetBroadcast(t, true, undefined);
 
   const svc = createMpcWalletService();
@@ -200,8 +201,9 @@ test('mpcWalletService sendPayment on mainnet/677 is blocked when enabled but MA
   );
 });
 
-test('mpcWalletService sendPayment on mainnet/677 is blocked when approval token is blank whitespace', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService sendPayment on mainnet/5042001 is blocked when approval token is blank whitespace', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
+  setMpcUrl(t);
   setMainnetBroadcast(t, true, '   ');
 
   const svc = createMpcWalletService();
@@ -216,8 +218,8 @@ test('mpcWalletService sendPayment on mainnet/677 is blocked when approval token
 
 // ─── Mainnet send with armed config forwards the approval header ───────────
 
-test('mpcWalletService sendPayment on mainnet/677 forwards X-Mainnet-Approval when armed', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+test('mpcWalletService sendPayment on mainnet/5042001 forwards X-Mainnet-Approval when armed', async (t) => {
+  setNetwork(t, 'mainnet', 5042001);
   setMainnetBroadcast(t, true, 'approval-s3cret-token');
   setMpcUrl(t);
   const originalFetch = globalThis.fetch;
@@ -227,7 +229,7 @@ test('mpcWalletService sendPayment on mainnet/677 forwards X-Mainnet-Approval wh
     assert.equal(url, 'http://localhost:8080/api/v1/wallets/wallet-mainnet-456/send');
     assert.equal(options.headers['X-Mainnet-Approval'], 'approval-s3cret-token');
     const body = JSON.parse(options.body);
-    assert.equal(body.chainId, 677);
+    assert.equal(body.chainId, 5042001);
     assert.ok(body.idempotencyKey, 'idempotency key should be derived');
     assert.ok(body.sessionId, 'sessionId should mirror the idempotency key');
     return {
@@ -244,8 +246,8 @@ test('mpcWalletService sendPayment on mainnet/677 forwards X-Mainnet-Approval wh
 
 // ─── Testnet never sends the approval header ───────────────────────────────
 
-test('mpcWalletService sendPayment on testnet/968 does NOT send X-Mainnet-Approval', async (t) => {
-  setNetwork(t, 'testnet', 968);
+test('mpcWalletService sendPayment on testnet/5042002 does NOT send X-Mainnet-Approval', async (t) => {
+  setNetwork(t, 'testnet', 5042002);
   setMainnetBroadcast(t, true, 'approval-s3cret-token');
   setMpcUrl(t);
   const originalFetch = globalThis.fetch;
@@ -268,7 +270,7 @@ test('mpcWalletService sendPayment on testnet/968 does NOT send X-Mainnet-Approv
 // ─── Wallet metadata: chainId propagation ──────────────────────────────────
 
 test('mpcWalletService createWallet propagates chainId from the MPC provider', async (t) => {
-  setNetwork(t, 'mainnet', 677);
+  setNetwork(t, 'mainnet', 5042001);
   setMpcUrl(t);
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -280,7 +282,7 @@ test('mpcWalletService createWallet propagates chainId from the MPC provider', a
       json: async () => ({
         walletId: 'wallet-chain-1',
         address: '0xabcdef1234567890abcdef1234567890abcdef12',
-        chainId: 677,
+        chainId: 5042001,
         status: 'READY'
       })
     };
@@ -289,7 +291,7 @@ test('mpcWalletService createWallet propagates chainId from the MPC provider', a
   const svc = createMpcWalletService();
   const wallet = await svc.createWallet({ name: 'Chain MPC', ownerId: 'user-1' });
   assert.equal(wallet.walletId, 'wallet-chain-1');
-  assert.equal(wallet.chainId, 677);
+  assert.equal(wallet.chainId, 5042001);
 });
 
 test('mpcWalletService getWallet resolves authoritative chainId', async (t) => {
@@ -301,12 +303,12 @@ test('mpcWalletService getWallet resolves authoritative chainId', async (t) => {
     assert.equal(url, 'http://localhost:8080/api/v1/wallets/wallet-lookup-1');
     return {
       ok: true,
-      json: async () => ({ walletId: 'wallet-lookup-1', chainId: 677, status: 'READY' })
+      json: async () => ({ walletId: 'wallet-lookup-1', chainId: 5042001, status: 'READY' })
     };
   };
 
   const svc = createMpcWalletService();
-  assert.equal(await svc.getWalletChainId('wallet-lookup-1'), 677);
+  assert.equal(await svc.getWalletChainId('wallet-lookup-1'), 5042001);
 });
 
 test('mpcWalletService getWalletChainId fails closed when the wallet has no chainId', async (t) => {
@@ -328,8 +330,8 @@ test('mpcWalletService getWalletChainId fails closed when the wallet has no chai
 
 // ─── Network/chain mismatch: hard rejection ─────────────────────────────────
 
-test('mpcWalletService rejects NETWORK=testnet + CHAIN_ID=677 mismatch', async (t) => {
-  setNetwork(t, 'testnet', 677);
+test('mpcWalletService rejects NETWORK=testnet + CHAIN_ID=5042001 mismatch', async (t) => {
+  setNetwork(t, 'testnet', 5042001);
 
   const svc = createMpcWalletService();
   await assert.rejects(
@@ -337,14 +339,14 @@ test('mpcWalletService rejects NETWORK=testnet + CHAIN_ID=677 mismatch', async (
     (err) => {
       assert.match(err.message, /configuration mismatch/);
       assert.match(err.message, /testnet/);
-      assert.match(err.message, /968/);
+      assert.match(err.message, /5042002/);
       return true;
     }
   );
 });
 
-test('mpcWalletService rejects NETWORK=mainnet + CHAIN_ID=968 mismatch', async (t) => {
-  setNetwork(t, 'mainnet', 968);
+test('mpcWalletService rejects NETWORK=mainnet + CHAIN_ID=5042002 mismatch', async (t) => {
+  setNetwork(t, 'mainnet', 5042002);
 
   const svc = createMpcWalletService();
   await assert.rejects(
@@ -352,14 +354,14 @@ test('mpcWalletService rejects NETWORK=mainnet + CHAIN_ID=968 mismatch', async (
     (err) => {
       assert.match(err.message, /configuration mismatch/);
       assert.match(err.message, /mainnet/);
-      assert.match(err.message, /677/);
+      assert.match(err.message, /5042001/);
       return true;
     }
   );
 });
 
 test('mpcWalletService rejects invalid NETWORK value', async (t) => {
-  setNetwork(t, 'devnet', 968);
+  setNetwork(t, 'devnet', 5042002);
 
   const svc = createMpcWalletService();
   await assert.rejects(
@@ -402,7 +404,7 @@ test('mpcWalletService getAddress falls back to walletAddress when no walletId',
 // ─── Fail-closed configuration ──────────────────────────────────────────────
 
 test('mpcWalletService fails closed when MPC_SERVICE_URL is not configured (no local fallback)', async (t) => {
-  setNetwork(t, 'testnet', 968);
+  setNetwork(t, 'testnet', 5042002);
   missingMpcUrl(t);
 
   const svc = createMpcWalletService();
@@ -417,7 +419,7 @@ test('mpcWalletService fails closed when MPC_SERVICE_URL is not configured (no l
 });
 
 test('mpcWalletService fails closed when MPC_SERVICE_URL is empty', async (t) => {
-  setNetwork(t, 'testnet', 968);
+  setNetwork(t, 'testnet', 5042002);
   const prev = process.env.MPC_SERVICE_URL;
   process.env.MPC_SERVICE_URL = '   ';
   t.after(() => {
