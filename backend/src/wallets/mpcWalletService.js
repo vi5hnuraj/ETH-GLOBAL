@@ -460,6 +460,29 @@ export const createMpcWalletService = () => {
       const res = await requestMpc(url, { method: 'POST', body, headers });
 
       if (!res.ok) {
+        // The MPC node exposes a single-recipient /send but not /send-split.
+        // Fall back to one /send per recipient so prepaid/agent purchases settle
+        // on Arc even when the multi-recipient split route is unavailable.
+        if (res.status === 404 || res.status === 405) {
+          logger.info('[MPC WALLET] /send-split unavailable, falling back to per-recipient /send');
+          const hashes = [];
+          for (const r of recipients) {
+            const single = await this.sendPayment({
+              walletId,
+              to: r.address,
+              wei: r.amountWei,
+              idempotencyKey: idempotencyKey
+            });
+            hashes.push({ to: r.address, amountWei: r.amountWei, label: r.label || null, txHash: single.txHash });
+          }
+          return {
+            txHash: hashes[0]?.txHash,
+            from: null,
+            totalWei: totalWei.toString(),
+            splits: hashes.map(({ to, amountWei, label }) => ({ to, amountWei, label })),
+            provider: 'mpc'
+          };
+        }
         const errText = await res.text();
         throw new Error(`MPC split payment failed: ${res.status} ${errText}`);
       }
