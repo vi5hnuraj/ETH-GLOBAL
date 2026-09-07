@@ -707,16 +707,16 @@ export const setPlan = async (orgId, developerId, { plan }) => {
 };
 
 /**
- * Pay for Pro subscription with BOT from wallet.
+ * Pay for Pro subscription with USDC from wallet.
  * 
  * Flow:
- * 1. Check user has enough BOT in wallet
- * 2. Send 4.9 BOT to treasury (100% to GlobalPay)
+ * 1. Check user has enough USDC in wallet
+ * 2. Send 4.9 USDC to treasury (100% to GlobalPay)
  * 3. Upgrade plan to 'pro'
  * 4. Return success with txHash
  */
 /**
- * Pay for Pro subscription with BOT.
+ * Pay for Pro subscription with USDC.
  * 
  * Supports two payment methods:
  * 1. Agent Wallet (walletId starts with 'agt_') - Backend sends payment directly
@@ -728,7 +728,7 @@ export const paySubscriptionWithBOT = async ({ organizationId, developerId, wall
   const { getTreasuryAddress, getPlan } = await import('../config/config.js');
   
   const PRO_PLAN = getPlan('pro');
-  const PRO_PRICE_BOT = PRO_PLAN.priceCents / 100 / 10; // $49 / $10 per BOT = 4.9 BOT
+  const PRO_PRICE_BOT = PRO_PLAN.priceCents / 100 / 10; // $49 / $10 per USDC = 4.9 USDC
   const PRO_PRICE_WEI = ethers.parseEther(String(PRO_PRICE_BOT));
   
   const walletService = getWalletService();
@@ -781,13 +781,13 @@ export const paySubscriptionWithBOT = async ({ organizationId, developerId, wall
     
     // Verify amount (allow small gas variance)
     const paidWei = BigInt(tx.value.toString());
-    const minExpected = PRO_PRICE_WEI - ethers.parseEther('0.001'); // Allow 0.001 BOT variance
+    const minExpected = PRO_PRICE_WEI - ethers.parseEther('0.001'); // Allow 0.001 USDC variance
     if (paidWei < minExpected) {
-      throw new Error(`Insufficient amount. Sent ${ethers.formatEther(paidWei)} BOT, need ${PRO_PRICE_BOT} BOT.`);
+      throw new Error(`Insufficient amount. Sent ${ethers.formatEther(paidWei)} USDC, need ${PRO_PRICE_BOT} USDC.`);
     }
     
     txHash = externalTxHash;
-    logger.info(`[BILLING] MetaMask payment verified: ${PRO_PRICE_BOT} BOT from ${tx.from}`);
+    logger.info(`[BILLING] MetaMask payment verified: ${PRO_PRICE_BOT} USDC from ${tx.from}`);
     
   // === AGENT WALLET PAYMENT ===
   } else {
@@ -801,7 +801,7 @@ export const paySubscriptionWithBOT = async ({ organizationId, developerId, wall
     
     const balanceWei = BigInt(balance.wei || '0');
     if (balanceWei < PRO_PRICE_WEI) {
-      throw new Error(`Insufficient balance. Need ${PRO_PRICE_BOT} BOT, have ${ethers.formatEther(balanceWei)} BOT.`);
+      throw new Error(`Insufficient balance. Need ${PRO_PRICE_BOT} USDC, have ${ethers.formatEther(balanceWei)} USDC.`);
     }
     
     // 2. Send payment to treasury (100% to GlobalPay)
@@ -836,7 +836,7 @@ export const paySubscriptionWithBOT = async ({ organizationId, developerId, wall
     plan: 'pro',
     amountBOT: PRO_PRICE_BOT,
     txHash,
-    message: `✅ Pro plan activated! Paid ${PRO_PRICE_BOT} BOT. Valid for 30 days.`
+    message: `✅ Pro plan activated! Paid ${PRO_PRICE_BOT} USDC. Valid for 30 days.`
   };
 };
 

@@ -24,7 +24,9 @@ import { supabase } from '../config/supabaseClient.js';
 import { getPool } from '../utils/db.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
-const EXPLORER_URL = process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || 'https://sepolia.basescan.org/';const REPUTATION_TTL_MS = Number(process.env.REPUTATION_TTL_MS || 15 * 60 * 1000);
+import logger from '../utils/logger.js';
+const EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/';
+const REPUTATION_TTL_MS = Number(process.env.REPUTATION_TTL_MS || 15 * 60 * 1000);
 
 export const genId = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -43,7 +45,7 @@ const formatEtherSafe = (wei) => {
   }
 };
 
-/** Charge for quantity against a BOT unit price (decimal strings), big-int safe. */
+/** Charge for quantity against a USDC unit price (decimal strings), big-int safe. */
 export const chargeWei = async (unitPriceBot, quantity) => {
   const { computeChargeWei } = await import('./marketplaceService.js');
   return computeChargeWei(unitPriceBot, quantity);
@@ -74,7 +76,7 @@ const toPublicPolicy = (p) => ({
   minimumAvailabilityPct: p.minimum_availability_pct,
   minimumTrustScore: p.minimum_trust_score,
   maximumLatencyMs: p.maximum_latency_ms,
-  preferredCurrencies: p.preferred_currencies || ['BOT'],
+  preferredCurrencies: p.preferred_currencies || ['USDC'],
   autoPurchaseEnabled: p.auto_purchase_enabled,
   invoiceApprovalThresholdBOT: p.invoice_approval_threshold_bot,
   spendingLimits: p.spending_limits || {},
@@ -813,7 +815,7 @@ export const createSession = async ({
         try { budgetWei = BigInt(ethers.parseEther(String(policy.max_budget_bot)).toString()); } catch { budgetWei = 0n; }
         const remaining = budgetWei - monthlySpent;
         if (remaining < estWei) {
-          throw httpError(403, `Purchase would exceed the monthly procurement budget (${formatEtherSafe(remaining)} BOT remaining).`, 'POLICY_BUDGET_EXCEEDED');
+          throw httpError(403, `Purchase would exceed the monthly procurement budget (${formatEtherSafe(remaining)} USDC remaining).`, 'POLICY_BUDGET_EXCEEDED');
         }
       }
     }
@@ -1035,11 +1037,11 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     balance = { wei: '0', formatted: '0' };
   }
   if (BigInt(balance.wei) < BigInt(amountWei)) {
-    const failedSession = await setSessionPaymentFailed(session, 'Insufficient BOT balance', provider);
+    const failedSession = await setSessionPaymentFailed(session, 'Insufficient USDC balance', provider);
     return {
       success: false,
       failed: true,
-      failureReason: 'Insufficient BOT balance',
+      failureReason: 'Insufficient USDC balance',
       requiredBOT: amountBOT,
       availableBOT: Number(balance.formatted || 0),
       session: toPublicSession(failedSession),
@@ -1080,7 +1082,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
         ],
         idempotencyKey: `split:${session.session_id}`
       });
-      logger.info(`[COMMERCE] Split payment executed: ${formatEtherSafe(providerAmountWei)} BOT to provider + ${formatEtherSafe(platformFeeWei)} BOT to treasury (${PLATFORM_FEES.marketplace}%)`);
+      logger.info(`[COMMERCE] Split payment executed: ${formatEtherSafe(providerAmountWei)} USDC to provider + ${formatEtherSafe(platformFeeWei)} USDC to treasury (${PLATFORM_FEES.marketplace}%)`);
     } else {
       // Fallback: Send full amount to provider (no fee collected)
       result = await walletService.sendPayment({
@@ -1148,7 +1150,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
       quantity: String(session.quantity),
       unit: session.unit || null,
       amount_wei: amountWei,
-      currency: 'BOT',
+      currency: 'USDC',
       status: 'paid',
       tx_hash: txHash,
       paid_at: paidAt,
@@ -1174,7 +1176,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     agent_id: consumer.id,
     destination_address: provider.wallet_address,
     amount: amountWei,
-    token: 'BOT',
+    token: 'USDC',
     note: `prepaid:${session.session_id} (${live.service_id}) [${hasPlatformFee ? `${PLATFORM_FEES.marketplace}% platform fee applied` : 'no fee'}]`,
     tx_hash: txHash,
     status: result.confirmed ? 'confirmed' : 'pending'
@@ -1630,12 +1632,12 @@ export const getCommerceDashboard = async ({ developerId, organizationId }) => {
   const budgetPolicy = organizationId ? await getPolicyByOrg(organizationId) : null;
   if (budgetPolicy && Number(budgetPolicy.max_budget_bot) > 0) {
     const pct = Math.min(Math.round((Number(formatEtherSafe(spendWei)) / Number(budgetPolicy.max_budget_bot)) * 1000) / 10, 100);
-    insights.push({ level: pct >= 90 ? 'warning' : pct >= 60 ? 'info' : 'ok', text: `Monthly budget usage ${pct}% of ${budgetPolicy.max_budget_bot} BOT.` });
+    insights.push({ level: pct >= 90 ? 'warning' : pct >= 60 ? 'info' : 'ok', text: `Monthly budget usage ${pct}% of ${budgetPolicy.max_budget_bot} USDC.` });
   }
   const lowTrust = providers.filter((p) => p.trustScore < 50).sort((a, b) => a.trustScore - b.trustScore);
   if (lowTrust.length) insights.push({ level: 'warning', text: `${lowTrust.length} active provider(s) below 50 trust — consider blocking in the procurement policy.` });
   if (pendingPayments > 0) insights.push({ level: 'info', text: `${pendingPayments} purchase session(s) awaiting payment confirmation.` });
-  if (monthlySavings > 0) insights.push({ level: 'ok', text: `Optimizing spend could save ~${Math.round(monthlySavings * 100) / 100} BOT/month.` });
+  if (monthlySavings > 0) insights.push({ level: 'ok', text: `Optimizing spend could save ~${Math.round(monthlySavings * 100) / 100} USDC/month.` });
   if (insights.length === 0) insights.push({ level: 'ok', text: 'No procurement anomalies detected.' });
 
   return {

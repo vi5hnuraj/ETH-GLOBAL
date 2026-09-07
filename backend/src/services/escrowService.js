@@ -89,7 +89,7 @@ export const releaseEscrow = async ({ sessionId }) => {
     released: true,
     amountBOT: e.amount_bot,
     sellerAgentId: e.seller_agent_id,
-    message: `Escrow released. ${e.amount_bot} BOT transferred to seller.`
+    message: `Escrow released. ${e.amount_bot} USDC transferred to seller.`
   };
 };
 
@@ -130,7 +130,7 @@ export const refundEscrow = async ({ sessionId, reason }) => {
     refunded: true,
     amountBOT: e.amount_bot,
     buyerAgentId: e.buyer_agent_id,
-    message: `Escrow refunded. ${e.amount_bot} BOT returned to buyer.`
+    message: `Escrow refunded. ${e.amount_bot} USDC returned to buyer.`
   };
 };
 

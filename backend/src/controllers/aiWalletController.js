@@ -10,7 +10,7 @@ createAiWallet,
 
 /**
  * POST /api/agent/wallet (public/dev)
- * Mint a headless BOT Chain vault for a new AI agent.
+ * Mint a headless Arc Chain vault for a new AI agent.
  * Returns the bot's wallet address + a one-time API key.
  */
 export const createWallet = async (req, res) => {
@@ -19,7 +19,7 @@ export const createWallet = async (req, res) => {
     const result = await createAiWallet({ name, ownerEmail });
     return res.status(201).json({
       success: true,
-      message: '🤖 Headless AI wallet created. Your bot now has a bank account on BOT Chain.',
+      message: '🤖 Headless AI wallet created. Your bot now has a bank account on Arc Chain.',
       ...result
     });
   } catch (error) {
@@ -37,7 +37,7 @@ export const createWallet = async (req, res) => {
 
 /**
  * GET /api/agent/wallet/balance
- * Read the bot's live on-chain BOT balance. Scoped by API key.
+ * Read the agent's live on-chain USDC balance. Scoped by API key.
  */
 export const getBalance = async (req, res) => {
   try {
@@ -68,7 +68,7 @@ export const sendPayment = async (req, res) => {
     const result = await sendAgentPayment(agent, { destinationAddress, amount, wei, note });
     return res.status(200).json({
       success: true,
-      message: `💸 AI payment sent: ${result.amount} BOT -> ${result.to}`,
+      message: `💸 AI payment sent: ${result.amount} USDC -> ${result.to}`,
       ...result
     });
   } catch (error) {

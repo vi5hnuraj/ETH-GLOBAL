@@ -26,11 +26,11 @@ export const subscribe = async (req, res) => {
 };
 
 /**
- * Pay for Pro subscription with BOT from wallet.
+ * Pay for Pro subscription with USDC from wallet.
  * POST /api/billing/pay
  * Body: { walletId: string }
  * 
- * Takes 4.9 BOT from user's wallet → treasury.
+ * Takes 4.9 USDC from user's wallet → treasury.
  * Upgrades plan to 'pro' for 30 days.
  */
 export const paySubscription = async (req, res) => {

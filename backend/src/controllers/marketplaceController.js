@@ -105,7 +105,7 @@ export const agentReportUsage = async (req, res) => {
   try {
     const { serviceId, quantity, consumerAgentId, metadata, sessionId } = req.body;
     const result = await reportUsage({ agent: req.agent, serviceId, quantity, consumerAgentId, metadata, sessionId });
-    return ok(res, { message: `🧮 Usage recorded (prepaid) — ${result.amountBOT} BOT. No invoice generated (payment is settled at purchase time).`, ...result });
+    return ok(res, { message: `🧮 Usage recorded (prepaid) — ${result.amountBOT} USDC. No invoice generated (payment is settled at purchase time).`, ...result });
   } catch (err) {
     return handleError(res, err, 'usage');
   }
@@ -148,7 +148,7 @@ export const agentPayInvoice = async (req, res) => {
     if (result.alreadyPaid) {
       return ok(res, { message: `ℹ️ Invoice ${result.invoiceId} was already paid.`, ...result });
     }
-    return ok(res, { message: `✅ Invoice paid — ${result.amountBOT} BOT settled to ${result.to}.`, ...result });
+    return ok(res, { message: `✅ Invoice paid — ${result.amountBOT} USDC settled to ${result.to}.`, ...result });
   } catch (err) {
     return handleError(res, err, 'invoice');
   }
@@ -332,11 +332,10 @@ export const devGetInvoice = async (req, res) => {
         providerAgentId: invoice.provider_agent_code,
         quantity: invoice.quantity,
         unit: invoice.unit,
-        amountUSDC: ethers.formatEther(invoice.amount_wei),
-        amountBOT: ethers.formatEther(invoice.amount_wei), // compatibility alias
+        amountBOT: ethers.formatEther(invoice.amount_wei),
         status: invoice.status,
         txHash: invoice.tx_hash,
-        explorerUrl: invoice.tx_hash ? `${process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || 'https://sepolia.basescan.org/'}tx/${invoice.tx_hash}` : null,
+        explorerUrl: invoice.tx_hash ? `${process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/'}tx/${invoice.tx_hash}` : null,
         paidAt: invoice.paid_at,
         dueAt: invoice.due_at,
         createdAt: invoice.created_at
@@ -356,7 +355,7 @@ export const devPayInvoice = async (req, res) => {
       invoiceId: req.params.invoiceId
     });
     if (result.alreadyPaid) return ok(res, { message: `ℹ️ Invoice ${result.invoiceId} was already paid.`, ...result });
-    return ok(res, { message: `✅ Invoice paid — ${result.amountBOT} BOT settled to ${result.to}.`, ...result });
+    return ok(res, { message: `✅ Invoice paid — ${result.amountBOT} USDC settled to ${result.to}.`, ...result });
   } catch (err) {
     return handleError(res, err, 'invoice');
   }
@@ -367,7 +366,7 @@ export const devReportUsage = async (req, res) => {
     const { serviceId, quantity, consumerAgentId, metadata, sessionId } = req.body;
     const consumer = await requireOwnedAgent({ developerId: req.developerId, organizationId: req.organization?.id, agentId: consumerAgentId });
     const result = await reportUsage({ agent: consumer, serviceId, quantity, consumerAgentId, metadata, sessionId });
-    return ok(res, { message: `🧮 Usage recorded (prepaid) — ${result.amountBOT} BOT. No invoice generated (payment is settled at purchase time).`, ...result }, 201);
+    return ok(res, { message: `🧮 Usage recorded (prepaid) — ${result.amountBOT} USDC. No invoice generated (payment is settled at purchase time).`, ...result }, 201);
   } catch (err) {
     return handleError(res, err, 'usage');
   }

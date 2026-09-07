@@ -86,7 +86,7 @@ export const createMoneyTransferSchema = Joi.object({
   receiverUPI: payTag.required(),
   amount: positiveAmount.required(),
   savePercent: Joi.number().min(0).max(100).default(0),
-  network: Joi.string().valid('fiat', 'sepolia', 'base-sepolia').default('base-sepolia'),
+  network: Joi.string().valid('fiat', 'sepolia', 'arc-testnet', 'arc').default('arc-testnet'),
   senderWalletType: Joi.string().max(50).allow('', null),
   txHash: txHash.allow('', null)
 });
@@ -213,12 +213,12 @@ export const createAgentSchema = Joi.object({
 export const agentPaySchema = Joi.object({
   to: walletAddress.required(),
   amount: Joi.number().positive().max(1e12).allow(null),
-  token: Joi.string().max(20).default('BOT').allow('', null),
+  token: Joi.string().max(20).default('USDC').allow('', null),
   wei: Joi.string().pattern(/^\d+$/).allow('', null),
   note: Joi.string().max(500).allow('', null)
 }).custom((value, helpers) => {
   if (!value.amount && !value.wei) {
-    return helpers.error('any.custom', { message: 'Provide either amount (BOT) or wei.' });
+    return helpers.error('any.custom', { message: 'Provide either amount (USDC) or wei.' });
   }
   return value;
 }, 'agent pay requires amount or wei');

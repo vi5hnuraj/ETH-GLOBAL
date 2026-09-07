@@ -36,7 +36,7 @@ export const getAgentBalance = async (agent) => {
   const result = await getAgentBalanceService(agent);
   return {
     wei: result.wei,
-    formatted: result.balance.replace(' BOT', '')
+    formatted: result.balance.replace(' USDC', '')
   };
 };
 
@@ -45,7 +45,7 @@ export const sendAgentPayment = async (agent, { destinationAddress, amount, wei,
     to: destinationAddress,
     amount,
     wei,
-    token: 'BOT',
+    token: 'USDC',
     note
   });
   return {

@@ -25,7 +25,7 @@ export const create = async (req, res) => {
     const result = await createAgent({ name, description, developerId: ownerId, organizationId: org.id });
     return res.status(201).json({
       success: true,
-      message: '🤖 AI Agent created — your bot now has a bank account on BOT Chain.',
+      message: '🤖 AI Agent created — your bot now has a bank account on Arc Chain.',
       ...result
     });
   } catch (error) {

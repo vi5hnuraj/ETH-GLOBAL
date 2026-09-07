@@ -128,7 +128,7 @@ export const agentCreateSession = async (req, res) => {
       source: 'manual'
     });
     return ok(res, {
-      message: `🛒 Purchase session ${result.session.sessionId} created for ${result.estimatedCostBOT} BOT — confirm payment to grant credits.`,
+      message: `🛒 Purchase session ${result.session.sessionId} created for ${result.estimatedCostBOT} USDC — confirm payment to grant credits.`,
       ...result
     }, 201);
   } catch (err) {
@@ -247,7 +247,7 @@ export const devCreateSession = async (req, res) => {
       source: req.body.source || 'manual'
     });
     return ok(res, {
-      message: `🛒 Purchase session ${result.session.sessionId} created for ${result.estimatedCostBOT} BOT — confirm payment to grant credits.`,
+      message: `🛒 Purchase session ${result.session.sessionId} created for ${result.estimatedCostBOT} USDC — confirm payment to grant credits.`,
       ...result
     }, 201);
   } catch (err) {
@@ -286,7 +286,7 @@ export const devConfirmPrepaidPurchase = async (req, res) => {
     const result = await confirmPrepaidPurchase({ sessionId: req.params.sessionId, organizationId: req.organization?.id });
     if (result.success) {
       return ok(res, {
-        message: `✅ Prepaid purchase settled — ${result.amountBOT} BOT paid, invoice ${result.invoice.invoiceId}, ${result.credits} credits granted.`,
+        message: `✅ Prepaid purchase settled — ${result.amountBOT} USDC paid, invoice ${result.invoice.invoiceId}, ${result.credits} credits granted.`,
         ...result
       });
     }

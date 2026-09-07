@@ -384,7 +384,7 @@ export const smartProcurement = async ({ developerId, organizationId, consumerAg
   const policy = await getPolicyByOrg(organizationId);
   const p = policy;
   const constraints = {
-    budgetBOT: p?.max_budget_bot ? String(p.max_budget_bot) : null,
+    budgetUSDC: p?.max_budget_bot ? String(p.max_budget_bot) : null,
     minTrustScore: p?.minimum_trust_score ?? null,
     region: (p?.preferred_regions || [])[0] || null,
     minUptimePct: p?.minimum_availability_pct ?? null,
@@ -408,7 +408,7 @@ const healthyCandidates = (ranked, policy) => {
     if (minUptime && r.reputation?.uptimePct != null && Number(r.reputation.uptimePct) < minUptime) return false;
     if (maxLatency && r.reputation?.responseLatencyMs != null && Number(r.reputation.responseLatencyMs) > maxLatency) return false;
     if (maxLatency && r.capabilities?.averageLatencyMs != null && Number(r.capabilities.averageLatencyMs) > maxLatency) return false;
-    if (budgetBot && Number(r.unitPriceBOT) > budgetBot) return false;
+    if (budgetBot && Number(r.unitPriceUSDC) > budgetBot) return false;
     return true;
   });
 };
@@ -493,7 +493,7 @@ export const autoRoute = async ({
   return {
     policy: result.policy,
     constraints: {
-      budgetBOT: policy?.max_budget_bot ? String(policy.max_budget_bot) : null,
+      budgetUSDC: policy?.max_budget_bot ? String(policy.max_budget_bot) : null,
       minTrustScore: policy?.minimum_trust_score ?? null,
       minUptimePct: policy?.minimum_availability_pct ?? null,
       maxLatencyMs: policy?.maximum_latency_ms ?? null
@@ -502,7 +502,7 @@ export const autoRoute = async ({
     switched,
     attempts: attempts.map((a) => ({ index: a.index, serviceId: a.serviceId, providerAgentId: a.providerAgentId, status: a.status, error: a.error })),
     session: created.session,
-    estimatedCostBOT: created.estimatedCostBOT,
+    estimatedCostUSDC: created.estimatedCostUSDC,
     approvalRequired: created.approvalRequired
   };
 };
@@ -637,8 +637,8 @@ const toPublicStep = (s) => ({
   providerAgentId: s.provider_agent_code,
   sessionId: s.session_id,
   invoiceId: s.invoice_id,
-  estimatedCostBOT: formatEtherSafe(s.estimated_cost_wei || '0'),
-  actualCostBOT: formatEtherSafe(s.actual_cost_wei || '0'),
+  estimatedCostUSDC: formatEtherSafe(s.estimated_cost_wei || '0'),
+  actualCostUSDC: formatEtherSafe(s.actual_cost_wei || '0'),
   failoverTried: s.failover_tried,
   error: s.error,
   startedAt: s.started_at,
@@ -659,8 +659,8 @@ const toPublicRun = (r) => ({
   dependencies: r.dependencies || [],
   sessionIds: r.session_ids || [],
   invoiceIds: r.invoice_ids || [],
-  estimatedCostBOT: formatEtherSafe(r.estimated_cost_wei || '0'),
-  actualCostBOT: formatEtherSafe(r.actual_cost_wei || '0'),
+  estimatedCostUSDC: formatEtherSafe(r.estimated_cost_wei || '0'),
+  actualCostUSDC: formatEtherSafe(r.actual_cost_wei || '0'),
   consumerAgentId: r.consumer_agent_code,
   startedAt: r.started_at,
   completedAt: r.completed_at,
@@ -756,8 +756,8 @@ export const runWorkflow = async ({
       });
       const sess = route.session;
       sessionIds.push(sess.session_id);
-      const estWei = toWeiSafe(sess.estimatedCostBOT);
-      const actWei = sess.actualCostBOT != null ? toWeiSafe(sess.actualCostBOT) : 0n;
+      const estWei = toWeiSafe(sess.estimatedCostUSDC);
+      const actWei = sess.actualCostUSDC != null ? toWeiSafe(sess.actualCostUSDC) : 0n;
       estimatedWei += estWei;
       actualWei += actWei;
 
@@ -816,7 +816,7 @@ export const runWorkflow = async ({
     action: 'workflow.deployed',
     resourceType: 'workflow_run',
     resourceId: runCode,
-    metadata: { status: finalStatus, steps: totalSteps, sessions: sessionIds.length, estimatedBOT: formatEtherSafe(estimatedWei) }
+    metadata: { status: finalStatus, steps: totalSteps, sessions: sessionIds.length, estimatedUSDC: formatEtherSafe(estimatedWei) }
   });
   dispatchEvent('workflow.deployed', {
     runId: runCode,
@@ -966,8 +966,8 @@ export const getProcurementDashboard = async ({ developerId, organizationId }) =
     dist[key] = (dist[key] || 0n) + BigInt(i.amount_wei || '0');
   });
   const providerDistribution = Object.entries(dist)
-    .map(([providerAgentId, wei]) => ({ providerAgentId, amountBOT: formatEtherSafe(wei) }))
-    .sort((a, b) => Number(b.amountBOT) - Number(a.amountBOT));
+    .map(([providerAgentId, wei]) => ({ providerAgentId, amountUSDC: formatEtherSafe(wei) }))
+    .sort((a, b) => Number(b.amountUSDC) - Number(a.amountUSDC));
 
   const savings = (sessions || []).reduce((acc, s) => {
     if (!s.actual_cost_wei) return acc;
@@ -986,21 +986,21 @@ export const getProcurementDashboard = async ({ developerId, organizationId }) =
 
   return {
     monthly: {
-      spendBOT: spentBOT.toFixed(4),
-      budgetBOT: budgetBOT != null ? budgetBOT : null,
+      spendUSDC: spentBOT.toFixed(4),
+      budgetUSDC: budgetBOT != null ? budgetBOT : null,
       budgetUtilizationPct: budgetBOT != null ? Math.round((spentBOT / budgetBOT) * 1000) / 10 : null,
       sessionCount: total,
       autoApprovedCount: auto,
       autoApprovalRate: total ? Math.round((auto / total) * 1000) / 10 : null,
       failedSessions,
       providerCount: providerDistribution.length,
-      estimatedSavingsBOT: formatEtherSafe(savings)
+      estimatedSavingsUSDC: formatEtherSafe(savings)
     },
     providerDistribution,
     topProviders: providerDistribution.slice(0, 5),
     reliability,
     procurement: {
-      approvalThresholdBOT: policy?.invoice_approval_threshold_bot || null,
+      approvalThresholdUSDC: policy?.invoice_approval_threshold_bot || null,
       autoPurchaseEnabled: policy?.auto_purchase_enabled ?? true,
       autoSwitchProviders: policy?.auto_switch_providers ?? false,
       preferredFailoverCount: policy?.preferred_failover_count ?? 2
@@ -1057,8 +1057,8 @@ export const getNetworkAnalytics = async ({ limit = 50 }) => {
       if (paidMonth === month || !paidMonth) byCode[code] = (byCode[code] || 0n) + BigInt(i.amount_wei || '0');
     });
     providerRevenue = Object.entries(byCode)
-      .map(([code, wei]) => ({ providerAgentId: code, name: nameByCode[code] || code, revenueBOT: formatEtherSafe(wei) }))
-      .sort((a, b) => Number(b.revenueBOT) - Number(a.revenueBOT))
+      .map(([code, wei]) => ({ providerAgentId: code, name: nameByCode[code] || code, revenueUSDC: formatEtherSafe(wei) }))
+      .sort((a, b) => Number(b.revenueUSDC) - Number(a.revenueUSDC))
       .slice(0, 10);
     // Current vs previous month (30d windows) for fastest-growing providers
     const prev = await supabase.from('service_invoices').select('amount_wei,provider_agent_code,paid_at,created_at').eq('status', 'paid').gte('created_at', prevStart.toISOString()).lt('created_at', start.toISOString());
@@ -1076,13 +1076,13 @@ export const getNetworkAnalytics = async ({ limit = 50 }) => {
       .map((code) => ({
         providerAgentId: code,
         name: nameByCode[code] || code,
-        currentBOT: formatEtherSafe(curByCode[code] || 0n),
-        previousBOT: formatEtherSafe(prevByCode[code] || 0n),
+        currentUSDC: formatEtherSafe(curByCode[code] || 0n),
+        previousUSDC: formatEtherSafe(prevByCode[code] || 0n),
         growthPct: (prevByCode[code] || 0n) > 0n
           ? Math.round((Number((curByCode[code] || 0n) - prevByCode[code]) / Number(prevByCode[code])) * 1000) / 10
           : (curByCode[code] || 0n) > 0n ? 100 : 0
       }))
-      .filter((g) => !(Number(g.currentBOT) === 0 && Number(g.previousBOT) === 0))
+      .filter((g) => !(Number(g.currentUSDC) === 0 && Number(g.previousUSDC) === 0))
       .sort((a, b) => b.growthPct - a.growthPct)
       .slice(0, 10);
     providerCount = providerCodes.length;
@@ -1096,8 +1096,8 @@ export const getNetworkAnalytics = async ({ limit = 50 }) => {
     categories[cat] = (categories[cat] || 0n) + BigInt(i.amount_wei || '0');
   });
   const topServiceCategories = Object.entries(categories)
-    .map(([category, wei]) => ({ category, amountBOT: formatEtherSafe(wei) }))
-    .sort((a, b) => Number(b.amountBOT) - Number(a.amountBOT))
+    .map(([category, wei]) => ({ category, amountUSDC: formatEtherSafe(wei) }))
+    .sort((a, b) => Number(b.amountUSDC) - Number(a.amountUSDC))
     .slice(0, 10);
 
   return {
@@ -1109,8 +1109,8 @@ export const getNetworkAnalytics = async ({ limit = 50 }) => {
       activeProviders: providerCount,
       servicesPublished: services || 0,
       marketplaceTransactions: sessions || 0,
-      settlementVolumeBOT: formatEtherSafe(settlementWei),
-      networkRevenueBOT: formatEtherSafe(revenueWei)
+      settlementVolumeUSDC: formatEtherSafe(settlementWei),
+      networkRevenueUSDC: formatEtherSafe(revenueWei)
     },
     topServiceCategories,
     providerRevenue,
@@ -1210,7 +1210,7 @@ export const getNetworkActivity = async ({ limit = 20 } = {}) => {
   (recentInvoices || []).forEach(inv => {
     events.push({
       time: inv.paid_at || inv.created_at,
-      text: `Invoice paid: ${formatEtherSafe(BigInt(inv.amount_wei || '0'))} BOT`,
+      text: `Invoice paid: ${formatEtherSafe(BigInt(inv.amount_wei || '0'))} USDC`,
       type: 'payment'
     });
   });
@@ -1344,10 +1344,10 @@ export const getNetworkLeaderboard = async () => {
     .map(([code, wei]) => ({
       id: code,
       name: nameMap[code]?.name || code,
-      revenueBOT: formatEtherSafe(wei),
+      revenueUSDC: formatEtherSafe(wei),
       transactions: providerTx[code] || 0,
     }))
-    .sort((a, b) => Number(b.revenueBOT) - Number(a.revenueBOT))
+    .sort((a, b) => Number(b.revenueUSDC) - Number(a.revenueUSDC))
     .slice(0, 10);
 
   // Top categories by revenue
@@ -1364,10 +1364,10 @@ export const getNetworkLeaderboard = async () => {
   const topCategories = Object.entries(catRev)
     .map(([cat, wei]) => ({
       name: cat,
-      revenueBOT: formatEtherSafe(wei),
+      revenueUSDC: formatEtherSafe(wei),
       transactions: catTx[cat] || 0,
     }))
-    .sort((a, b) => Number(b.revenueBOT) - Number(a.revenueBOT))
+    .sort((a, b) => Number(b.revenueUSDC) - Number(a.revenueUSDC))
     .slice(0, 10);
 
   return { topProviders, topCategories };

@@ -139,7 +139,7 @@ export const devInstall = async (req, res) => {
     const sub = result.subscription;
     const msg = result.alreadyInstalled
       ? 'ℹ️ Agent is already installed.'
-      : (sub ? `🔌 Agent installed — subscription ${sub.subscriptionId} is active (${sub.priceBOT} BOT/${sub.billingCycle}).` : '🔌 Agent installed (free).');
+      : (sub ? `🔌 Agent installed — subscription ${sub.subscriptionId} is active (${sub.priceBOT} USDC/${sub.billingCycle}).` : '🔌 Agent installed (free).');
     return ok(res, { message: msg, ...result }, result.alreadyInstalled ? 200 : 201);
   } catch (err) {
     return handleError(res, err, 'agent-marketplace');

@@ -672,7 +672,7 @@ export const installAgent = async ({ developerId, organizationId, listingId, act
             txHash: splitTxHash
           };
           
-          logger.info(`[AGENT_STORE] MPC split payment: ${platformFeeInfo.developerBOT} BOT to developer + ${platformFeeInfo.platformFeeBOT} BOT to treasury`);
+          logger.info(`[AGENT_STORE] MPC split payment: ${platformFeeInfo.developerBOT} USDC to developer + ${platformFeeInfo.platformFeeBOT} USDC to treasury`);
         } else {
           logger.warn(`[AGENT_STORE] No consumer wallet found for split payment`);
         }
@@ -905,7 +905,7 @@ export const renewSubscription = async ({ developerId, organizationId, installat
           quantity: '1',
           unit: 'period',
           amount_wei: toWei(String(sub.price_bot)).toString(),
-          currency: 'BOT',
+          currency: 'USDC',
           status: 'pending',
           due_at: new Date(now + 30 * 86400 * 1000).toISOString(),
           metadata: { source: 'agent-subscription', subscriptionId: sub.subscription_id, installationId, platform_fee_pct: 7 },

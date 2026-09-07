@@ -275,9 +275,9 @@ Never output raw code. Choose the best matching tool to execute backend actions.
           const recipient = extractTag(message);
           const date = parseScheduleDate(message);
           if (!recipient || amount <= 0) {
-            aiResponseText = '💡 Use: Schedule 1 BOT to @username tomorrow at 3pm.';
+            aiResponseText = '💡 Use: Schedule 1 USDC to @username tomorrow at 3pm.';
           } else if (!date && (/(?:at|by|for)\s+\d/i.test(message) || /\d\s*(?:am|pm)/i.test(message))) {
-            aiResponseText = '🤔 I found a time in your message but couldn\'t understand the date. Try: "Schedule 1 BOT to @username today at 5pm" or "tomorrow at 3pm".';
+            aiResponseText = '🤔 I found a time in your message but couldn\'t understand the date. Try: "Schedule 1 USDC to @username today at 5pm" or "tomorrow at 3pm".';
           } else {
             executedTool = 'schedulePayment';
             toolCallResult = await executeTool('schedulePayment', { recipient, amount, date }, user, accessToken, { timezoneOffset: tzOffsetMinutes });
@@ -320,7 +320,7 @@ Never output raw code. Choose the best matching tool to execute backend actions.
           } else if (lower.includes('qr') && !recipient) {
             aiResponseText = '📷 Please scan a QR code in the QR payment screen, or paste a valid QR PayTag/payload.';
           } else if (!recipient && !lower.includes('merchant') && !lower.includes('starbucks') && !lower.includes('amazon')) {
-            aiResponseText = '💡 Include a recipient PayTag—for example: Send 5 BOT to @username.';
+            aiResponseText = '💡 Include a recipient PayTag—for example: Send 5 USDC to @username.';
           } else if (lower.includes('merchant') || lower.includes('starbucks') || lower.includes('amazon')) {
             const merchantMatch = message.match(/(?:starbucks|amazon|walmart)/i);
             executedTool = 'payMerchant';

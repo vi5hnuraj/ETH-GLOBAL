@@ -204,7 +204,7 @@ export const getPublicCompanyProfile = async (slug) => {
       name: s.name,
       category: s.category,
       description: s.description,
-      unitPriceBOT: s.unit_price_bot,
+      unitPriceUSDC: s.unit_price_bot,
     })),
     acceptedPartnerships: (partnerships || []).length,
   };
@@ -847,12 +847,12 @@ export const installWorkflow = async ({ buyerOrgId, actorId, developerId, templa
   // Create purchase session via existing commerce engine if there's a price
   let sessionId = null;
   let invoiceId = null;
-  const priceBot = template.price_bot || '0';
-  if (BigInt(priceBot === '0' ? '0' : '1') > 0n || priceBot !== '0') {
+  const priceUsdc = template.price_bot || '0';
+  if (BigInt(priceUsdc === '0' ? '0' : '1') > 0n || priceUsdc !== '0') {
     try {
       // The commerce session creation is delegated to existing createSession
       // We pass it as a commerce event — non-blocking if price is 0
-      if (priceBot !== '0') {
+      if (priceUsdc !== '0') {
         const policy = await getPolicyByOrg(buyerOrgId).catch(() => null);
         const session = await createSession({
           organizationId: buyerOrgId,
@@ -939,7 +939,7 @@ const toPublicWorkflowListing = (t) => ({
   description: t.description,
   category: t.marketplace_category || t.category,
   steps: t.steps || [],
-  priceBOT: t.price_bot,
+  priceUSDC: t.price_bot,
   installCount: t.install_count || 0,
   ratingAvg: Number(t.rating_avg || 0),
   ratingCount: t.rating_count || 0,
@@ -1211,7 +1211,7 @@ export const getNetworkDashboard = async () => {
     supabase.from('organization_profiles').select('organization_id, name, slug, logo_url, trust_score_v3, verification_level').eq('is_public', true).order('trust_score_v3', { ascending: false, nullsFirst: false }).limit(10),
   ]);
 
-  const monthlyRevenueBOT = (monthlyRevData || []).reduce((acc, r) => acc + Number(r.amount_bot || 0), 0);
+  const monthlyRevenueUSDC = (monthlyRevData || []).reduce((acc, r) => acc + Number(r.amount_bot || 0), 0);
 
   // Industry distribution
   const industryMap = {};
@@ -1235,7 +1235,7 @@ export const getNetworkDashboard = async () => {
     publishedWorkflows: totalWorkflows || 0,
     activeProjects: totalProjects || 0,
     monthlyInvoices: monthlyInvoices || 0,
-    monthlyRevenueBOT,
+    monthlyRevenueUSDC,
     monthlyTransactions: monthlyTx || 0,
     countries,
     topIndustries: topIndustriesList,

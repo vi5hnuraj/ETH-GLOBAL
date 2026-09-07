@@ -13,7 +13,7 @@ router.post('/chat', authMiddleware, validate(agentChatSchema), handleAgentChat)
 // ==================== Headless AI Wallet ("Bank for Bots") ====================
 // Priority 1 of the AI-to-AI Payments roadmap.
 
-// POST /api/agent/wallet - Mint a headless BOT Chain vault for a new AI agent
+// POST /api/agent/wallet - Mint a headless Arc vault for a new AI agent
 router.post('/wallet', validate(createAiWalletSchema), createWallet);
 
 // Bot-scoped endpoints (authenticated with the bot's API key)

@@ -7,7 +7,7 @@
  *   - metering usage (providers or consumers report quantities)
  *   - an automatic invoice engine (usage -> invoice)
  *   - settlement: the consumer agent pays the provider's wallet from its own
- *     MPC wallet (existing WalletService), on BOT Chain.
+ *     MPC wallet (existing WalletService), on Arc Chain.
  *
  * All reads/writes go through Supabase (same as agentService); the marketplace
  * reuses the existing org/scopes/auth + audit + webhook dispatch machinery.
@@ -21,7 +21,9 @@ import { getWalletService } from '../wallets/walletService.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
 import { enrichServices } from './commerceService.js';
-const EXPLORER_URL = process.env.EXPLORER_URL || process.env.BASE_EXPLORER_URL || 'https://sepolia.basescan.org/';
+import logger from '../utils/logger.js';
+const EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/';
+
 export const generateServiceId = () => `srv_${crypto.randomBytes(8).toString('hex')}`;
 export const generateUsageId = () => `use_${crypto.randomBytes(8).toString('hex')}`;
 export const generateInvoiceId = () => `inv_${crypto.randomBytes(8).toString('hex')}`;
@@ -70,7 +72,7 @@ const withRetry = async (fn, retries = 2, delay = 500) => {
 
 // ==================== Weights & formatting ====================
 
-/** Compute charge for a quantity against a BOT unit price (both decimal strings). */
+/** Compute charge for a quantity against a USDC unit price (both decimal strings). */
 export const computeChargeWei = async (unitPriceBot, quantity) => {
   const unitWei = ethers.parseEther(String(unitPriceBot || '0'));
   const q = String(quantity || '0');
@@ -88,7 +90,7 @@ const validateQuantity = (quantity) => {
 
 const validatePrice = (unitPrice) => {
   if (typeof unitPrice !== 'string' || !/^\d+(\.\d+)?$/.test(unitPrice) || Number(unitPrice) < 0) {
-    throw httpError(400, 'Unit price must be a non-negative BOT decimal string (e.g. "0.05").');
+    throw httpError(400, 'Unit price must be a non-negative USDC decimal string (e.g. "0.05").');
   }
 };
 
@@ -107,7 +109,7 @@ const toPublicService = (s) => ({
   unitLabel: s.unit_label,
   endpointUrl: s.endpoint_url || null,
   healthCheckUrl: s.health_check_url || null,
-  supportedCurrencies: s.supported_currencies || ['BOT'],
+  supportedCurrencies: s.supported_currencies || ['USDC'],
   isActive: s.is_active,
   metadata: s.metadata || {},
   createdAt: s.created_at,
@@ -867,7 +869,7 @@ const settleInvoice = async ({ consumerAgent, provider, invoice }) => {
   try {
     const bal = await walletService.getBalance(consumerAgent.wallet_address);
     if (BigInt(bal.wei) < BigInt(amountWei)) {
-      throw httpError(400, `Insufficient wallet balance. Invoice requires ${formatEtherSafe(amountWei)} BOT but ${consumerAgent.agent_name || consumerAgent.agent_id} holds ${Number(bal.formatted).toFixed(6)} BOT.`, 'INSUFFICIENT_BALANCE');
+      throw httpError(400, `Insufficient wallet balance. Invoice requires ${formatEtherSafe(amountWei)} USDC but ${consumerAgent.agent_name || consumerAgent.agent_id} holds ${Number(bal.formatted).toFixed(6)} USDC.`, 'INSUFFICIENT_BALANCE');
     }
   } catch (err) {
     if (err.status === 400) throw err;
@@ -914,7 +916,7 @@ const settleInvoice = async ({ consumerAgent, provider, invoice }) => {
     agent_id: consumerAgent.id,
     destination_address: provider.wallet_address,
     amount: amountWei,
-    token: 'BOT',
+    token: 'USDC',
     note: `invoice:${invoice.invoice_id} (${invoice.service_code})`,
     tx_hash: txHash,
     status: result.confirmed ? 'confirmed' : 'pending'
@@ -945,9 +947,9 @@ const settleInvoice = async ({ consumerAgent, provider, invoice }) => {
     agentId: consumerAgent.agent_id,
     to: provider.wallet_address,
     amount: formatEtherSafe(amountWei),
-    token: 'BOT',
+    token: 'USDC',
     txHash,
-    network: 'BOT Chain'
+    network: 'Arc Chain'
   }, { developerId: consumerAgent.developer_id, organizationId: consumerAgent.organization_id });
 
   // Autonomous commerce: close any linked purchase sessions + refresh reputation.

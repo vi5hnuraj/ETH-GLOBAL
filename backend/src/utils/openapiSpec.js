@@ -11,14 +11,14 @@ export const openapiSpec = {
     title: 'GlobalPay API — Bank for Bots',
     version: '1.1.0',
     description:
-      'Headless wallets + API keys for autonomous AI agents on BOT Chain. Agents authenticate with a gpay_sk_ API key and pay gas-free from their wallet.'
+      'Headless wallets + API keys for autonomous AI agents on Arc. Agents authenticate with a gpay_sk_ API key and pay in USDC from their wallet.'
   },
   servers: [{ url: SERVER_URL }],
   tags: [
     { name: 'Agents', description: 'Create and manage AI agents' },
     { name: 'Payments', description: 'Agent-scoped payments' },
     { name: 'Developer Platform', description: 'Dashboard, analytics, billing, webhooks, settings (gpay_dev_ key, scope-enforced)' },
-    { name: 'Marketplace', description: 'AI Service Marketplace & Autonomous Billing: publish services (agent gpay_sk_ key or developer gpay_dev_ key), browse, report metered usage, auto-generated invoices, BOT settlement, revenue' },
+    { name: 'Marketplace', description: 'AI Service Marketplace & Autonomous Billing: publish services (agent gpay_sk_ key or developer gpay_dev_ key), browse, report metered usage, auto-generated invoices, USDC settlement, revenue' },
     { name: 'Autonomous Commerce', description: 'Autonomous AI Commerce: company procurement policies, provider capability profiles, recommendation engine, purchase sessions, reputation, cost optimization, compliance' },
     { name: 'Organizations', description: 'Multi-tenant organizations + RBAC (members, invitations, roles, settings, audit). Org resolution order: path :orgId, X-Organization-Id header, ?organizationId, X-Organization-Slug, API key org, or the developer personal org.' },
     { name: 'Platform', description: 'Operational endpoints (health, feature flags, environment, maintenance)' }
@@ -49,7 +49,7 @@ export const openapiSpec = {
           walletId: { type: 'string', description: 'Wallet provider id' },
           apiKey: { type: 'string', description: 'One-time agent API key (gpay_sk_…)' },
           apiKeyPrefix: { type: 'string', description: 'Prefix of the agent key' },
-          network: { type: 'string', description: 'Network name (BOT Chain)' },
+          network: { type: 'string', description: 'Network name (Arc)' },
           chainId: { type: 'integer', description: 'Network chain id' }
         }
       },
@@ -57,18 +57,18 @@ export const openapiSpec = {
         type: 'object',
         properties: {
           wallet: { type: 'string', description: 'Wallet address queried' },
-          balance: { type: 'string', description: 'Formatted BOT balance' },
+          balance: { type: 'string', description: 'Formatted USDC balance' },
           wei: { type: 'string', description: 'Raw balance in wei' }
         }
       },
       Payment: {
         type: 'object',
         properties: {
-          txHash: { type: 'string', description: 'Transaction hash on BOT Chain' },
+          txHash: { type: 'string', description: 'Transaction hash on Arc' },
           from: { type: 'string', description: 'Sender address' },
           to: { type: 'string', description: 'Recipient address' },
-          amount: { type: 'string', description: 'Payment amount in BOT' },
-          token: { type: 'string', description: 'Token symbol (BOT)' },
+          amount: { type: 'string', description: 'Payment amount in USDC' },
+          token: { type: 'string', description: 'Token symbol (USDC)' },
           explorerUrl: { type: 'string', description: 'Link to the transaction explorer' }
         }
       },
@@ -137,9 +137,9 @@ export const openapiSpec = {
                 required: ['to', 'amount'],
                 properties: {
                   to: { type: 'string', description: 'Destination EVM address' },
-                  amount: { type: 'string', description: 'Amount in BOT' },
+                  amount: { type: 'string', description: 'Amount in USDC' },
                   wei: { type: 'string', description: 'Raw wei (mutually exclusive with amount)' },
-                  token: { type: 'string', default: 'BOT' },
+                  token: { type: 'string', default: 'USDC' },
                   note: { type: 'string' }
                 }
               }
@@ -183,9 +183,9 @@ export const openapiSpec = {
                   type: 'object',
                   properties: {
                     totalPayments: { type: 'integer', description: 'Total number of confirmed payments' },
-                    totalVolumeBOT: { type: 'string', description: 'Total BOT volume sent (formatted)' },
+                    totalVolumeBOT: { type: 'string', description: 'Total USDC volume sent (formatted)' },
                     uniqueRecipients: { type: 'integer', description: 'Number of unique destination addresses' },
-                    last7DaysVolumeBOT: { type: 'string', description: 'BOT volume in the last 7 days' },
+                    last7DaysVolumeBOT: { type: 'string', description: 'USDC volume in the last 7 days' },
                     last7DaysPayments: { type: 'integer', description: 'Payment count in the last 7 days' }
                   }
                 }
@@ -767,7 +767,7 @@ export const openapiSpec = {
       post: {
         tags: ['Marketplace'],
         security: [{ apiKey: [] }],
-        summary: 'Publish a service (per_unit, per_hour, flat… pricing; unitPrice in BOT as decimal string)',
+        summary: 'Publish a service (per_unit, per_hour, flat… pricing; unitPrice in USDC as decimal string)',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { type: 'object' } } }
@@ -838,7 +838,7 @@ export const openapiSpec = {
       post: {
         tags: ['Marketplace'],
         security: [{ apiKey: [] }],
-        summary: 'Pay an invoice: BOT transfer to provider MPC wallet (balance-gated), idempotent via invoice code',
+        summary: 'Pay an invoice: USDC transfer to provider MPC wallet (balance-gated), idempotent via invoice code',
         parameters: [{ name: 'invoiceId', in: 'path', required: true, schema: { type: 'string' } }],
         requestBody: {
           required: true,
@@ -2133,7 +2133,7 @@ export const openapiSpec = {
       post: {
         tags: ['Marketplace'],
         security: [{ apiKey: [] }],
-        summary: 'Pay an invoice: BOT transfer to provider MPC wallet (balance-gated), idempotent via invoice code',
+        summary: 'Pay an invoice: USDC transfer to provider MPC wallet (balance-gated), idempotent via invoice code',
         parameters: [{ name: 'invoiceId', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { '200': { description: 'Invoice paid, tx hash returned' } }
       }
