@@ -5,11 +5,11 @@ const RefundPolicy = () => (
   <LegalLayout title="Refund Policy" lastUpdated="August 30, 2026">
     <h2 className="text-2xl font-bold text-white">1. Overview</h2>
     <p className="text-zinc-400 leading-relaxed">
-      GlobalPay operates on Ethereum using native tokens. Due to the nature of blockchain transactions, refunds follow specific guidelines outlined below.
+      GlobalPay operates on Arc L1 using USDC native gas and Circle tools. Due to the nature of blockchain transactions, refunds follow specific guidelines outlined below.
     </p>
 
     <h2 className="text-2xl font-bold text-white">2. Subscription Refunds</h2>
-    <h3 className="text-lg font-semibold text-zinc-200">Pro Plan (4.9 ETH/month)</h3>
+    <h3 className="text-lg font-semibold text-zinc-200">Pro Plan (49 USDC/month)</h3>
     <ul className="list-disc list-inside text-zinc-400 space-y-1">
       <li>Monthly subscriptions can be cancelled at any time</li>
       <li>No refund for the current billing period once payment is confirmed on-chain</li>
@@ -18,7 +18,7 @@ const RefundPolicy = () => (
 
     <h2 className="text-2xl font-bold text-white">3. Marketplace Transaction Refunds</h2>
     <ul className="list-disc list-inside text-zinc-400 space-y-1">
-      <li>All marketplace transactions are final once confirmed on Ethereum</li>
+      <li>All marketplace transactions are final once confirmed on Arc L1</li>
       <li>If a service was not delivered as described, contact the developer directly</li>
       <li>GlobalPay can mediate disputes but cannot reverse on-chain transactions</li>
       <li>Refunds between parties must be processed as new transactions</li>

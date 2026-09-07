@@ -136,7 +136,7 @@ const AdminWallets = () => {
                       <td className="py-3 pr-4 text-xs text-zinc-400">{w.developerName || w.developerId || '—'}</td>
                       <td className="py-3 pr-4">
                         <span className="text-zinc-200 font-medium">
-                          {w.balance != null ? `${Number(w.balance).toFixed(4)} ETH` : '—'}
+                          {w.balance != null ? `${Number(w.balance).toFixed(4)} USDC` : '—'}
                         </span>
                       </td>
                       <td className="py-3 pr-4"><WalletStatusBadge frozen={w.frozen} /></td>
@@ -198,7 +198,7 @@ const AdminWallets = () => {
                         <p className="text-[11px] text-zinc-500">{tx.timestamp ? new Date(tx.timestamp).toLocaleString() : '—'}</p>
                       </div>
                       <span className={`text-xs font-medium ${tx.type === 'outgoing' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        {tx.type === 'outgoing' ? '-' : '+'}{tx.amount != null ? `${Number(tx.amount).toFixed(4)}` : '—'} ETH
+                        {tx.type === 'outgoing' ? '-' : '+'}{tx.amount != null ? `${Number(tx.amount).toFixed(4)}` : '—'} USDC
                       </span>
                     </div>
                   ))}

@@ -51,7 +51,7 @@ const BarGraph = ({ title, transactions, type, userData }) => {
         padding: 16,
         displayColors: false,
         callbacks: {
-          label: (context) => `${context.raw.toFixed(4)} ETH`
+          label: (context) => `${context.raw.toFixed(4)} USDC`
         }
       }
     },
@@ -59,7 +59,7 @@ const BarGraph = ({ title, transactions, type, userData }) => {
       y: {
         beginAtZero: true,
         grid: { color: 'rgba(255, 255, 255, 0.03)' },
-        ticks: { color: '#3f3f46', font: { size: 10, weight: '700' }, callback: (v) => `${v} ETH` }
+        ticks: { color: '#3f3f46', font: { size: 10, weight: '700' }, callback: (v) => `${v} USDC` }
       },
       x: {
         grid: { display: false },
@@ -76,7 +76,7 @@ const BarGraph = ({ title, transactions, type, userData }) => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{title}</p>
-            <h3 className="text-3xl font-black text-white tracking-tighter">{totalAmount.toFixed(4)} ETH</h3>
+            <h3 className="text-3xl font-black text-white tracking-tighter">{totalAmount.toFixed(4)} USDC</h3>
           </div>
           <div className={`p-3 rounded-2xl border ${type === 'sent' ? 'bg-red-500/5 border-red-500/10 text-red-500' : 'bg-emerald-500/5 border-emerald-500/10 text-emerald-500'}`}>
             {type === 'sent' ? <FiTrendingDown size={20} /> : <FiTrendingUp size={20} />}

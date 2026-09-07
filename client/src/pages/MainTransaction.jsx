@@ -14,8 +14,13 @@ function MainTransaction() {
 
   const fetchUserData = async () => {
     try {
-      const user = await getCachedUserDetail();
-      setUserData(user);
+      const user = await refreshUserCache();
+      if (user) {
+        setUserData(user);
+      } else {
+        const cached = await getCachedUserDetail();
+        setUserData(cached);
+      }
     } catch (err) {
       console.error(err);
     }

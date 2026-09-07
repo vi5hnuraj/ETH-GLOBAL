@@ -136,7 +136,7 @@ const Reqpay = ({
     return () => clearInterval(interval);
   }, [createdAt, currentStatus]);
 
-  // Dynamic live ETH calculation protecting merchant USD value from price fluctuations
+  // Dynamic live USDC calculation protecting merchant USD value from price fluctuations
   const reqAmount = requestedAmount !== undefined && requestedAmount !== null ? Number(requestedAmount) : Number(amount || 0);
   const reqCurrency = (requestedCurrency || currency || "INR").toUpperCase();
   const rateSnapshot = Number(exchangeRateSnapshot) || 83.5;

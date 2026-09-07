@@ -28,7 +28,7 @@ const Loan = () => {
   const [usdcAddress, setUsdcAddress] = useState("0x77F684961BCb0Aad4efe029CF0F6F8c9ee2C4F2C");
   // web3 hooks
   const walletAddress = useAddress();
-  const { data: userUSDCBalance, isLoading: loadingUSDCToken } = useBalance(import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? undefined : usdcAddress);
+  const { data: userUSDCBalance, isLoading: loadingUSDCToken } = useBalance(usdcAddress);
   const { contract } = useContract(usdcAddress);
   const {
     mutateAsync: transferTokens,
@@ -111,7 +111,7 @@ const Loan = () => {
     } else {
       const realBalance = Number(userUSDCBalance.displayValue) || 0;
       const totalBalance = (realBalance + simulatedProfitTotal).toFixed(4);
-      setBalance(`${totalBalance} ${import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? 'ETH' : 'USDC'}`);
+      setBalance(`${totalBalance} USDC`);
     }
   }, [loadingUSDCToken, userUSDCBalance, simulatedProfitTotal])
 
@@ -128,7 +128,7 @@ const Loan = () => {
 
   const handleArena = async () => {
     try {
-      const toastId = toast.loading(`Depositing 5 ${import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? 'ETH' : 'USDC'} to lock Arena Smart Contract...`);
+      const toastId = toast.loading('Depositing 5 USDC to lock Arena Smart Contract...');
       setTimeout(() => {
         localStorage.setItem('user', 'active');
         setStatus('Locked');
@@ -179,7 +179,7 @@ const Loan = () => {
       setTimeout(async () => {
         const mockProfitPct = (Math.random() * (0.8 - 0.2) + 0.2).toFixed(2); // Random profit between 0.2% and 0.8%
         const profitValue = ((loanAmount * mockProfitPct) / 100).toFixed(4);
-        const profitLabel = `+${profitValue} ${import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? 'ETH' : 'USDC'} (${mockProfitPct}%)`;
+        const profitLabel = `+${profitValue} USDC (${mockProfitPct}%)`;
         
         setStatusMessage(`Success! Arbitrage executed flawlessly. Profit: ${profitLabel}`);
         setEstimatedProfit(profitLabel);
@@ -225,7 +225,7 @@ const Loan = () => {
           </button>
         </div>
         <div className="bg-zinc-900 border-zinc-700 border-[1px] p-6 rounded-lg shadow-lg">
-          <p className="text-lg mb-2">Required Balance: <span className="font-bold">5 {import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? 'ETH' : 'USDC'}</span></p>
+          <p className="text-lg mb-2">Required Balance: <span className="font-bold">5 USDC</span></p>
           <div className="flex items-center gap-2">
             <p className="text-lg">Available Balance:</p>
             {balance === 'Loading...' ? (
@@ -237,7 +237,7 @@ const Loan = () => {
         </div>
         <br />
         <h1 className="text-3xl font-bold">Arenas</h1>
-        <p className='text-2xl text-green-500' ><em>Deposit 5 {import.meta.env.VITE_PAYMENT_MODE === 'ETH' ? 'ETH' : 'USDC'} to lock the arena!</em></p>
+        <p className='text-2xl text-green-500' ><em>Deposit 5 USDC to lock the arena!</em></p>
         <br />
         <div className="grid grid-cols-2 gap-6 mb-8">
           <div className="bg-zinc-900 border-zinc-700 border-[1px] p-6 rounded-lg shadow-lg cursor-pointer">

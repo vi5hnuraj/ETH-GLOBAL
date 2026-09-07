@@ -82,7 +82,7 @@ const Pay = () => {
   const botAmountSnapshot = Number(searchParams.get("botAmountSnapshot")) || 0;
   const reqStatus = searchParams.get("status") || "Pending";
 
-  // Displayed ETH amount (locked from request or entered manually)
+  // Displayed USDC amount (locked from request or entered manually)
   const displayBotAmt = botAmountSnapshot > 0
     ? botAmountSnapshot
     : amount
@@ -92,10 +92,10 @@ const Pay = () => {
     : 0;
 
   const estimatedGas =
-    walletRail === "internal" ? "0.0000 ETH (Vault Gasless)" : "0.0001 ETH";
+    walletRail === "internal" ? "0.0000 USDC (Vault Gasless)" : "0.0001 USDC";
 
   const explorerUrl =
-    import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || "https://sepolia.basescan.org";
+    import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_ARC_EXPLORER_URL || "https://testnet.arcscan.app";
 
   // ─── INTERNAL VAULT PAYMENT ───────────────────────────────────────────────
   const handleInternalPay = async () => {
@@ -203,7 +203,7 @@ const Pay = () => {
         senderWalletType: "internal",
         destinationAddress: confirm.to,
         reqId: validReqId,
-      });
+      }, { timeout: 60000 });
 
       toast.dismiss(toastId);
       toast.success("Internal MPC Vault Payment Completed!");
@@ -316,7 +316,7 @@ const Pay = () => {
         destinationAddress: targetDestination,
         senderWalletAddress: fromAddr,
         reqId: reqId || undefined,
-      });
+      }, { timeout: 60000 });
 
       toast.dismiss(toastId);
       toast.success("External Wallet Payment Completed!");
@@ -392,7 +392,7 @@ const Pay = () => {
               rel="noopener noreferrer"
               className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-lg"
             >
-              <FiExternalLink size={15} /> View on Basescan ↗
+              <FiExternalLink size={15} /> View on ArcScan ↗
             </a>
           )}
           <button

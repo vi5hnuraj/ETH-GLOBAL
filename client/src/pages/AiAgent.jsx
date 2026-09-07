@@ -115,7 +115,7 @@ const AiAgentHub = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       setSendResult(data);
-      toast.success(`Sent ${data.amount} ETH`);
+      toast.success(`Sent ${data.amount} USDC`);
       setPayTo('');
       setPayAmount('');
       loadAgent(selected);
@@ -137,7 +137,7 @@ const AiAgentHub = () => {
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gradient">AI Agent Hub</h1>
           <p className="text-zinc-400 mt-1 flex items-center gap-2">
-            <FiCpu className="inline" /> Financial infrastructure for autonomous AI agents on Ethereum.
+            <FiCpu className="inline" /> Financial infrastructure for autonomous AI agents on Arc L1.
           </p>
         </header>
 
@@ -239,7 +239,7 @@ const AiAgentHub = () => {
                     <p className="text-3xl font-black text-gradient">
                       {balanceLoading ? '…' : (balance ?? '—')}
                     </p>
-                    <p className="text-zinc-500 text-xs mt-1">ETH balance</p>
+                    <p className="text-zinc-500 text-xs mt-1">USDC balance (Native Gas)</p>
                   </div>
                   <button
                     onClick={() => loadAgent(selected)}
@@ -286,7 +286,7 @@ const AiAgentHub = () => {
                   <input
                     value={payAmount}
                     onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder="Amount in ETH (e.g. 0.02)"
+                    placeholder="Amount in USDC (e.g. 0.50)"
                     type="number"
                     className="w-full bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -302,7 +302,7 @@ const AiAgentHub = () => {
                 {sendResult && (
                   <div className="mt-4 bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 text-xs">
                     <div className="flex items-center gap-2 text-emerald-400 font-medium"><FiCheckCircle /> Payment confirmed</div>
-                    <div className="mt-2 font-mono text-zinc-300">amount: {sendResult.amount} ETH</div>
+                    <div className="mt-2 font-mono text-zinc-300">amount: {sendResult.amount} USDC</div>
                     <a href={sendResult.explorerUrl} target="_blank" rel="noreferrer"
                        className="mt-1 inline-flex items-center gap-1 text-blue-400 hover:text-blue-300">
                       View on explorer <FiExternalLink size={12} />
@@ -325,7 +325,7 @@ const AiAgentHub = () => {
                       </div>
                       <div className="bg-zinc-950/60 rounded-lg p-3 text-center">
                         <p className="text-2xl font-black text-gradient">{Number(stats.totalVolumeETH).toFixed(4)}</p>
-                        <p className="text-[10px] uppercase text-zinc-500">Volume ETH</p>
+                        <p className="text-[10px] uppercase text-zinc-500">Volume USDC</p>
                       </div>
                     </div>
                     <div className="bg-zinc-950/60 rounded-lg p-3">
@@ -339,7 +339,7 @@ const AiAgentHub = () => {
                           {stats.last7Days.map((d) => (
                             <div key={d.date} className="flex justify-between text-xs">
                               <span className="text-zinc-500">{d.date}</span>
-                              <span className="text-zinc-300">{Number(d.volumeETH).toFixed(6)} ETH</span>
+                              <span className="text-zinc-300">{Number(d.volumeETH).toFixed(4)} USDC</span>
                             </div>
                           ))}
                         </div>

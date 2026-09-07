@@ -30,24 +30,24 @@ const BridgePanel = ({ userData }) => {
     <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between shadow-lg mb-6 gap-4 font-sans">
       <div className="flex items-center gap-4">
         <div>
-          <p className="text-sm text-zinc-400 font-bold tracking-widest uppercase">Quick Actions</p>
-          <p className="text-xs text-zinc-500 mt-1">Blockchain Payment Ecosystem</p>
+          <p className="text-sm text-cyan-400 font-bold tracking-widest uppercase">Quick Actions</p>
+          <p className="text-xs text-zinc-500 mt-1">Arc L1 Stablecoin Payment Rails</p>
         </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => navigate('/payments')}
-          className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all shadow-md text-xs"
+          className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all shadow-md text-xs"
         >
-          <FiSend size={14} /> Send ETH
+          <FiSend size={14} /> Send USDC
         </button>
 
         <button
           onClick={() => navigate('/payments')}
           className="bg-secondary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all shadow-md text-xs"
         >
-          <FiDownload size={14} /> Receive ETH
+          <FiDownload size={14} /> Receive USDC
         </button>
 
         <button

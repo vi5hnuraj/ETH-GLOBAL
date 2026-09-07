@@ -127,7 +127,7 @@ const ScannerComponent = ({ userData }) => {
               />
             </div>
             <p className="text-[10px] text-zinc-500 font-semibold">
-              Rate: 1 USDC = $1.00 USD (Base Sepolia)
+              Rate: 1 USDC = $1.00 USD (Arc Testnet)
             </p>
           </div>
         ) : (

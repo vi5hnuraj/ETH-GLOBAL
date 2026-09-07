@@ -115,6 +115,11 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
 
       toast.loading("Recording transaction log on GlobalPay...", { id: toastId });
 
+      const reqIdForWrite = typeof paymentId === 'string' && (
+        /^[0-9a-fA-F]{24}$/.test(paymentId) ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(paymentId)
+      ) ? paymentId : undefined;
+
       try {
         await api.post("/pay/paymentWrite", {
           date: new Date().toISOString(),
@@ -128,15 +133,10 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
           senderWalletType: "internal",
           destinationAddress: confirm.to,
           reqId: reqIdForWrite
-        });
+        }, { timeout: 60000 });
       } catch (writeErr) {
         console.warn("Payment log write failed (tx confirmed on-chain):", writeErr.message);
       }
-
-      const reqIdForWrite = typeof paymentId === 'string' && (
-        /^[0-9a-fA-F]{24}$/.test(paymentId) ||
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(paymentId)
-      ) ? paymentId : undefined;
 
       toast.dismiss(toastId);
       toast.success("Internal MPC Vault Payment Completed!");
@@ -166,8 +166,8 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
   const receiver = qrData.receiver || qrData.payTag || qrData.wallet || "Recipient";
   const walletAddress = qrData.wallet || "";
   const paymentId = qrData.paymentId || "";
-  const estimatedGas = walletRail === 'internal' ? "0.0000 ETH (Vault Gasless)" : "0.0001 ETH";
-  const explorerUrl = import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || "https://sepolia.basescan.org";
+  const estimatedGas = walletRail === 'internal' ? "0.0000 USDC (Vault Gasless)" : "0.0001 USDC";
+  const explorerUrl = import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_ARC_EXPLORER_URL || "https://testnet.arcscan.app";
   const currentPayAmt = Number(editableAmount) > 0 ? Number(editableAmount) : 0;
 
   // Handle Payment Execution
@@ -192,10 +192,10 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
       // live gas price keeps this message identical to the backend's.
       let required = currentPayAmt;
       try {
-        const prov = new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL || import.meta.env.VITE_BASE_RPC_URL || "https://sepolia.base.org");
+        const prov = new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL || import.meta.env.VITE_ARC_RPC_URL || "https://rpc.testnet.arc.io");
         const fee = await prov.getFeeData();
         if (fee?.gasPrice) {
-          required = currentPayAmt + Number(ethers.utils.formatEther(fee.gasPrice.mul(21000)));
+          required = currentPayAmt + Number(ethers.utils.formatUnits(fee.gasPrice.mul(21000), 18));
         }
       } catch (gasErr) {
         console.warn("Gas reservation estimate failed (falling back to amount-only gate):", gasErr.message);
@@ -351,7 +351,7 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
           destinationAddress: finalDestination,
           senderWalletAddress: fromAddr,
           reqId: validReqId
-        });
+        }, { timeout: 60000 });
       } catch (writeErr) {
         console.warn("Payment log write failed (tx confirmed on-chain):", writeErr.message);
       }
@@ -404,7 +404,7 @@ const QRPaymentModal = ({ isOpen, onClose, qrData, user }) => {
     if (!successData) return;
     const content = `==================================
 GLOBALPAY PAYMENT RECEIPT
-BASE SEPOLIA TESTNET
+ARC TESTNET (USDC NATIVE GAS)
 ==================================
 Status: CONFIRMED
 Amount: ${successData.amount} USDC
@@ -502,7 +502,7 @@ Verified on Blockchain`;
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-lg"
                   >
-                    <FiExternalLink size={15} /> View on Basescan ↗
+                    <FiExternalLink size={15} /> View on ArcScan ↗
                   </a>
                 )}
 
@@ -526,7 +526,7 @@ Verified on Blockchain`;
             /* ─── CONFIRMATION VIEW WITH EDITABLE AMOUNT & WALLET RAIL SELECTOR ─── */
             <div className="space-y-4">
 
-              {/* Editable ETH Amount Section */}
+              {/* Editable USDC Amount Section */}
               {(() => {
                 const hasEncodedAmount = Boolean(qrData && qrData.amount && Number(qrData.amount) > 0);
                 return (

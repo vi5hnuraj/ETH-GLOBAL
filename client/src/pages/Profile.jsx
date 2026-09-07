@@ -31,7 +31,7 @@ const Profile = () => {
   const [mob, setMob] = useState("..");
   const [dob, setDob] = useState("..");
   const [kyc, setKyc] = useState(false);
-  const [botBalance, setBotBalance] = useState(0);   // internal vault BOT balance
+  const [botBalance, setBotBalance] = useState(0);   // internal vault USDC balance
   const [extBalance, setExtBalance] = useState(0);   // external wallet balance
   const [liveExtBalance, setLiveExtBalance] = useState(0); // live on-chain balance
   const [botPrice, setBotPrice] = useState(1.0);    // live price

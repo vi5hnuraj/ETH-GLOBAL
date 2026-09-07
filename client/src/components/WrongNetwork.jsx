@@ -8,8 +8,8 @@ const WrongNetwork = () => {
   const [switching, setSwitching] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const targetChainId = Number(import.meta.env.VITE_CHAIN_ID || import.meta.env.VITE_BASE_CHAIN_ID || 84532);
-  const targetChainName = import.meta.env.VITE_CHAIN_NAME || import.meta.env.VITE_BASE_CHAIN_NAME || "Base Sepolia";
+  const targetChainId = Number(import.meta.env.VITE_ARC_CHAIN_ID || import.meta.env.VITE_CHAIN_ID || 5042002);
+  const targetChainName = import.meta.env.VITE_ARC_CHAIN_NAME || import.meta.env.VITE_CHAIN_NAME || "Arc Testnet";
 
   const handleSwitch = async () => {
     if (!switchNetwork) {

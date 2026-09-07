@@ -69,7 +69,7 @@ const Dashboard = () => {
       const allPaysCombined = [...pays, ...extPays];
 
       const normalizedPays = allPaysCombined.map((p) => {
-        const coin = p.coin || 'ETH';
+        const coin = p.coin || 'USDC';
         const ethAmt = Number(p.botAmountSnapshot || p.amount || 0);
         return {
           ...p,
@@ -92,8 +92,8 @@ const Dashboard = () => {
         return {
           ...t,
           _id: t._id || t.id,
-          amountDisplay: `${ethAmt.toFixed(4)} ${t.coin || 'ETH'}`,
-          coin: t.coin || 'ETH',
+          amountDisplay: `${ethAmt.toFixed(4)} ${t.coin || 'USDC'}`,
+          coin: t.coin || 'USDC',
           botAmount: ethAmt,
           receiverId: t.receiverUPI || t.senderUPI || t.receiver || 'Recipient',
           timestamp: t.timestamp || t.createdAt || new Date().toISOString()
@@ -299,7 +299,7 @@ const Dashboard = () => {
               displayColors: false,
               callbacks: {
                 label: function (context) {
-                  return 'Vault Transferred: ' + context.parsed.y.toFixed(4) + ' ETH';
+                  return 'Vault Transferred: ' + context.parsed.y.toFixed(4) + ' USDC';
                 }
               }
             }
@@ -347,7 +347,7 @@ const Dashboard = () => {
               displayColors: false,
               callbacks: {
                 label: function (context) {
-                  return 'External Transferred: ' + context.parsed.y.toFixed(4) + ' ETH';
+                  return 'External Transferred: ' + context.parsed.y.toFixed(4) + ' USDC';
                 }
               }
             }
@@ -430,10 +430,10 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'ETH Sent', value: `${totals.ethSent} ETH`, icon: FiTrendingUp, color: 'text-orange-400 border-orange-500/20', trend: 'On-Chain' },
-            { label: 'ETH Received', value: `${totals.ethReceived} ETH`, icon: FiTrendingDown, color: 'text-emerald-400 border-emerald-500/20', trend: 'Confirmed' },
+            { label: 'USDC Sent', value: `${totals.ethSent} USDC`, icon: FiTrendingUp, color: 'text-orange-400 border-orange-500/20', trend: 'On-Chain' },
+            { label: 'USDC Received', value: `${totals.ethReceived} USDC`, icon: FiTrendingDown, color: 'text-emerald-400 border-emerald-500/20', trend: 'Confirmed' },
             { label: 'On-Chain Transactions', value: totals.txCount, icon: FiZap, color: 'text-secondary border-secondary/20', trend: 'All Time' },
-            { label: 'ETH Volume', value: `${totals.ethVolume} ETH`, icon: FiHash, color: 'text-cyan-400 border-cyan-500/20', trend: 'Total Volume' },
+            { label: 'USDC Volume', value: `${totals.ethVolume} USDC`, icon: FiHash, color: 'text-cyan-400 border-cyan-500/20', trend: 'Total Volume' },
           ].map((stat, i) => (
             <div key={i} className="group bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 p-4 rounded-2xl hover:border-secondary/30 transition-all duration-500 shadow-xl relative overflow-hidden">
               <div className="relative z-10 flex items-center justify-between">
@@ -457,7 +457,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 p-6 rounded-[2rem] shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Internal Vault (ETH)</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Internal Vault (USDC)</h3>
               <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-1 rounded-full border border-secondary/10">7D WINDOW</span>
             </div>
             <div className="h-56 relative">
@@ -467,7 +467,7 @@ const Dashboard = () => {
 
           <div className="bg-zinc-900/30 backdrop-blur-md border border-zinc-800/50 p-6 rounded-[2rem] shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">External Wallet (ETH)</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">External Wallet (USDC)</h3>
               <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-full border border-cyan-500/10">7D WINDOW</span>
             </div>
             <div className="h-56 relative">
@@ -528,7 +528,7 @@ const Dashboard = () => {
                         </p>
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-6">
-                        <span className={`px-2 sm:px-3 py-1 bg-zinc-900 border rounded-full text-[9px] font-black uppercase tracking-widest ${t.coin === 'ETH' ? 'text-secondary border-secondary/20' : 'text-cyan-400 border-cyan-500/20'}`}>
+                        <span className={`px-2 sm:px-3 py-1 bg-zinc-900 border rounded-full text-[9px] font-black uppercase tracking-widest ${t.coin === 'USDC' ? 'text-secondary border-secondary/20' : 'text-cyan-400 border-cyan-500/20'}`}>
                           {t.coin}
                         </span>
                       </td>
@@ -543,7 +543,7 @@ const Dashboard = () => {
                       <td className="px-4 sm:px-8 py-4 sm:py-6 text-right">
                         {t.txHash ? (
                           <a
-                            href={`${import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_BASE_EXPLORER_URL || 'https://sepolia.basescan.org'}/tx/${t.txHash}`}
+                            href={`${import.meta.env.VITE_EXPLORER_URL || import.meta.env.VITE_ARC_EXPLORER_URL || 'https://testnet.arcscan.app'}/tx/${t.txHash}`}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-block px-4 py-2 bg-secondary/5 hover:bg-secondary/10 border border-secondary/20 rounded-xl text-[9px] font-black uppercase text-secondary hover:text-white transition-all"

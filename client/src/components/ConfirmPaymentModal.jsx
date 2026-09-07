@@ -12,7 +12,7 @@ const ConfirmPaymentModal = ({
   to,
   amountETH,
   memo,
-  network = "Blockchain",
+  network = "Arc Testnet (5042002)",
   onConfirm,
   onCancel,
   loading = false,

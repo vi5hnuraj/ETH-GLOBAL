@@ -1,24 +1,23 @@
 /**
  * GlobalPay QR Code Utility
- * Production-ready JSON QR payload builder, decoder, and validator for Blockchain.
+ * Production-ready JSON QR payload builder, decoder, and validator for Arc Mainnet.
  */
 
-export const BASE_SEPOLIA_NETWORK = "BASE_SEPOLIA";
-export const ETH_CHAIN_NETWORK = BASE_SEPOLIA_NETWORK;
+export const ARC_CHAIN_NETWORK = "ARC_CHAIN";
 export const QR_VERSION = 1;
 
 /**
  * Generate a standardized merchant QR code payload
  */
-export const createQRPayload = ({ wallet = "", payTag = "", amount = 0, memo = "", paymentId = "", usdAmount = 0, botPriceSnapshot = null }) => {
+export const createQRPayload = ({ wallet = "", payTag = "", amount = 0, memo = "", paymentId = "", usdAmount = 0, usdcPriceSnapshot = null }) => {
   return JSON.stringify({
     version: QR_VERSION,
-    network: BASE_SEPOLIA_NETWORK,
+    network: ARC_CHAIN_NETWORK,
     wallet: wallet.trim(),
     payTag: payTag.startsWith('@') ? payTag.trim() : (payTag ? `@${payTag.trim()}` : ""),
     amount: Number(amount) > 0 ? Number(amount) : 0,
     usdAmount: Number(usdAmount) > 0 ? Number(usdAmount) : 0,
-    botPriceSnapshot: Number(botPriceSnapshot) > 0 ? Number(botPriceSnapshot) : null,
+    usdcPriceSnapshot: Number(usdcPriceSnapshot) > 0 ? Number(usdcPriceSnapshot) : null,
     memo: memo.trim(),
     paymentId: paymentId || `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     timestamp: Math.floor(Date.now() / 1000)
@@ -31,7 +30,7 @@ export const createQRPayload = ({ wallet = "", payTag = "", amount = 0, memo = "
  * 1. Standard GlobalPay JSON payload
  * 2. Plain PayTag (e.g. @merchant or merchant)
  * 3. Plain EVM Wallet address (0x...)
- * 4. URI scheme (base-sepolia:0x...?amount=10&memo=...)
+ * 4. URI scheme (arc:0x...?amount=10&memo=...)
  * 5. URL with query parameters (http://localhost:5173/payments?upi=@merchant&amount=10)
  */
 export const parseAndValidateQR = (rawString) => {
@@ -46,7 +45,7 @@ export const parseAndValidateQR = (rawString) => {
     try {
       const data = JSON.parse(str);
       const recipient = data.payTag || data.wallet || data.upi || data.to || data.sender || data.receiver || data.address || data.globalPayTag || data.upiId || "";
-      const amt = data.amount || data.amt || data.value || data.requestedAmount || data.botAmount || 0;
+      const amt = data.amount || data.amt || data.value || data.requestedAmount || data.usdcAmount || 0;
       const memo = data.memo || data.keyword || data.note || "";
       const paymentId = data.paymentId || data.reqId || data._id || data.id || "";
 
@@ -56,13 +55,13 @@ export const parseAndValidateQR = (rawString) => {
           isValid: true,
           data: {
             version: data.version || 1,
-            network: "Blockchain",
+            network: "Arc Mainnet",
             wallet: cleanRecipient.startsWith('0x') ? cleanRecipient : (data.wallet || ""),
             payTag: cleanRecipient.startsWith('@') ? cleanRecipient : (cleanRecipient ? `@${cleanRecipient}` : ""),
             receiver: cleanRecipient || "@merchant",
             amount: Number(amt) > 0 ? Number(amt) : "",
             usdAmount: Number(data.usdAmount) > 0 ? Number(data.usdAmount) : "",
-            botPriceSnapshot: Number(data.botPriceSnapshot) > 0 ? Number(data.botPriceSnapshot) : null,
+            usdcPriceSnapshot: Number(data.usdcPriceSnapshot) > 0 ? Number(data.usdcPriceSnapshot) : null,
             memo: memo,
             paymentId: paymentId,
             timestamp: data.timestamp || Math.floor(Date.now() / 1000)
@@ -88,7 +87,7 @@ export const parseAndValidateQR = (rawString) => {
           isValid: true,
           data: {
             version: 1,
-            network: "Blockchain",
+            network: "Arc Mainnet",
             wallet: recipient.startsWith('0x') ? recipient : "",
             payTag: recipient.startsWith('@') ? recipient : (recipient ? `@${recipient}` : ""),
             receiver: recipient || "@merchant",
@@ -109,7 +108,7 @@ export const parseAndValidateQR = (rawString) => {
       isValid: true,
       data: {
         version: 1,
-        network: "Blockchain",
+        network: "Arc Mainnet",
         wallet: matchAddress[0],
         payTag: "",
         receiver: matchAddress[0],
@@ -129,7 +128,7 @@ export const parseAndValidateQR = (rawString) => {
       isValid: true,
       data: {
         version: 1,
-        network: "Blockchain",
+        network: "Arc Mainnet",
         wallet: "",
         payTag: tag,
         receiver: tag,

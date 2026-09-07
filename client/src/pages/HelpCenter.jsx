@@ -49,7 +49,7 @@ const HelpCenter = () => {
     {
       category: 'getting-started',
       question: 'What is GlobalPay?',
-      answer: 'GlobalPay is an AI Agent Economy platform built on Ethereum. It lets developers build AI agents, publish services, and accept payments in ETH — all with on-chain settlements and MPC wallets.'
+      answer: 'GlobalPay is an AI Agent Economy platform built on Arc L1 and powered by Circle Agent Stack. It lets developers build AI agents, publish services, and accept payments in USDC — all with on-chain settlements and Circle MPC wallets.'
     },
     {
       category: 'getting-started',
@@ -63,13 +63,13 @@ const HelpCenter = () => {
     },
     {
       category: 'getting-started',
-      question: 'What is Base Sepolia?',
-      answer: 'Base Sepolia is the official testnet for Base, the Layer 2 network built on Ethereum by Coinbase. It provides fast, low-cost EVM-compatible transactions with native ETH and USDC token rails. GlobalPay runs natively on Base Sepolia.'
+      question: 'What is Arc Testnet?',
+      answer: 'Arc Testnet is Circle’s Layer 1 blockchain built for stablecoin-native finance, where USDC serves natively as both the gas token and primary settlement currency. GlobalPay runs natively on Arc Testnet (Chain ID: 5042002).'
     },
     {
       category: 'getting-started',
-      question: 'How do I add Base Sepolia to my wallet?',
-      answer: 'Open MetaMask or your EVM wallet, go to Networks > Add Network, and enter: Network Name "Base Sepolia", RPC "https://sepolia.base.org", Chain ID "84532", Symbol "ETH", Explorer "https://sepolia.basescan.org/".'
+      question: 'How do I add Arc Testnet to my wallet?',
+      answer: 'Open MetaMask, Rabby, or Coinbase Wallet, and add: Network Name "Arc Testnet", RPC "https://rpc.testnet.arc.io", Chain ID "5042002", Symbol "USDC", Explorer "https://testnet.arcscan.app". You can also use our 1-click ArcConnect button.'
     },
 
     // Wallets
@@ -86,7 +86,7 @@ const HelpCenter = () => {
     {
       category: 'wallets',
       question: 'Can I transfer funds between my internal and external wallet?',
-      answer: 'Yes. Go to Transfers, select your source and destination wallet, enter the amount in USDC or ETH, and confirm. The transaction is settled on-chain in under a second.'
+      answer: 'Yes. Go to Transfers, select your source and destination wallet, enter the amount in USDC, and confirm. The transaction is settled on-chain in under a second.'
     },
     {
       category: 'wallets',
@@ -98,7 +98,7 @@ const HelpCenter = () => {
     {
       category: 'agents',
       question: 'What are AI Agents on GlobalPay?',
-      answer: 'AI Agents are autonomous programs you create on GlobalPay. Each agent gets its own wallet, can discover and pay for services, and can transact with other agents — all on Base Sepolia.'
+      answer: 'AI Agents are autonomous programs you create on GlobalPay using Circle Agent Stack. Each agent gets its own headless wallet, can discover and pay for services, enforce spending policies, and transact with other agents using USDC on Arc.'
     },
     {
       category: 'agents',
@@ -145,7 +145,7 @@ const HelpCenter = () => {
     {
       category: 'billing',
       question: 'Do I pay gas fees for transactions?',
-      answer: 'Yes. Every on-chain transaction requires a tiny gas fee in ETH on Base. Base Layer 2 gas fees are sub-cent (fractions of a penny per transaction).'
+      answer: 'Yes. Every on-chain transaction requires a micro gas fee settled natively in USDC on Arc L1. Arc gas fees are ultra-low (fractions of a cent per transaction).'
     },
 
     // Security
@@ -184,17 +184,17 @@ const HelpCenter = () => {
     {
       category: 'developers',
       question: 'What blockchain does GlobalPay use?',
-      answer: 'GlobalPay is built on Base Sepolia (Chain ID: 84532), an EVM-compatible Layer 2 by Coinbase. You can use standard Ethereum tools (ethers.js, viem, Hardhat, Foundry) to interact with the chain.'
+      answer: 'GlobalPay is built on Arc L1 (Testnet Chain ID: 5042002, Mainnet: 5042001) by Circle, where USDC is the native gas asset. You can use standard Ethereum tools (ethers.js, viem, Hardhat, Foundry, AppKit) to interact with Arc.'
     },
     {
       category: 'developers',
-      question: 'How do I deploy a smart contract on Base Sepolia?',
-      answer: 'Add Base Sepolia to your wallet (RPC: https://sepolia.base.org, Chain ID: 84532), deploy using Hardhat, Foundry, or Remix, then verify on sepolia.basescan.org. Get test tokens from faucet.quicknode.com/base/sepolia.'
+      question: 'How do I deploy a smart contract on Arc Testnet?',
+      answer: 'Add Arc Testnet to your wallet (RPC: https://rpc.testnet.arc.io, Chain ID: 5042002), deploy using Foundry or Hardhat, and verify on testnet.arcscan.app. Get testnet USDC from faucet.circle.com.'
     },
     {
       category: 'developers',
       question: 'Is there a sandbox/test environment?',
-      answer: 'Yes. Base Sepolia (Chain ID: 84532) is the active test environment with free testnet ETH and testnet USDC.'
+      answer: 'Yes. Arc Testnet (Chain ID: 5042002) is the active environment with free testnet USDC available at faucet.circle.com.'
     },
   ];
 

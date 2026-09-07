@@ -6,7 +6,7 @@ import Request from './Request';
 import RequestForm from '../components/RequestForm';
 
 const quickActions = [
-  { key: 'pay', label: 'Pay', desc: 'Send ETH to anyone', icon: FiSend },
+  { key: 'pay', label: 'Pay', desc: 'Send USDC to anyone', icon: FiSend },
   { key: 'send-request', label: 'Request', desc: 'Create an invoice', icon: FiDollarSign },
   { key: 'reqpay', label: 'Inbox', desc: 'View pending requests', icon: FiInbox },
 ];
@@ -35,7 +35,7 @@ const Payements = () => {
 
                 <div className="mb-8 sm:mb-10">
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">Payments</h1>
-                    <p className="text-zinc-500 text-sm sm:text-base mt-1.5">Send, request, and manage your ETH payments on-chain</p>
+                    <p className="text-zinc-500 text-sm sm:text-base mt-1.5">Send, request, and manage your USDC payments on Arc L1</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10">

@@ -26,13 +26,16 @@ export const initials = (name = '') => {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 };
 
-export const fmtEth = (v) => {
+export const fmtUsdc = (v) => {
   const n = Number(v ?? 0);
   if (!Number.isFinite(n) || n === 0) return '0';
   if (n < 0.001) return String(parseFloat(n.toFixed(8)));
   if (n < 1) return String(parseFloat(n.toFixed(6)));
   return String(parseFloat(n.toFixed(4)));
 };
+
+// Keep existing developer-page imports working while the UI migrates to USDC.
+export const fmtBot = fmtUsdc;
 
 export const fmtShort = (iso) => {
   if (!iso) return null;
@@ -52,7 +55,7 @@ export const fmtWhen = (iso) => {
 
 export const pricingLabel = (svc) => {
   if (!svc) return null;
-  const price = `${fmtEth(svc.unitPriceETH || svc.unitPriceUSDC || svc.unitPrice)} USDC`;
+  const price = `${fmtUsdc(svc.unitPriceUSDC || svc.unitPriceBOT || svc.unitPrice)} USDC`;
   const unit = svc.unitLabel || 'unit';
   switch (svc.pricingModel) {
     case 'subscription': return `${price} / month`;

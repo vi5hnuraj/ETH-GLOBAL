@@ -17,7 +17,7 @@ const RequestForm = () => {
   const [currencySymbol] = useState("$");
   const [botPrice, setBotPrice] = useState(null);
 
-  // 🔹 Fetch Live ETH Price from Coinstore ETHUSDT Ticker
+  // USDC is a USD-pegged native asset on Arc.
   useEffect(() => {
     const updateBotPrice = () => {
       fetchLiveBotPrice().then(price => {
