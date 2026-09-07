@@ -706,7 +706,7 @@ export default function DevApi() {
             {[
               { label: 'API calls', value: formatLargeNumber(chartTotal) },
               { label: 'Payments', value: formatNumber(analytics?.payments || 0) },
-              { label: 'BOT volume', value: `${Number(analytics?.botVolumeBOT || 0).toFixed(2)} BOT` },
+              { label: 'USDC volume', value: `${Number(analytics?.botVolumeBOT || 0).toFixed(2)} USDC` },
               { label: 'Wallets', value: formatNumber(analytics?.walletsCreated || 0) }
             ].map((s) => (
               <div key={s.label}>
@@ -974,7 +974,7 @@ export default function DevApi() {
 
         <Card
           title="AI agents"
-          subtitle={`${agentsStats.total} agents · ${formatNumber(agentsStats.req)} requests · ${agentsStats.vol} BOT`}
+          subtitle={`${agentsStats.total} agents · ${formatNumber(agentsStats.req)} requests · ${agentsStats.vol} USDC`}
           actions={
             <Link
               to="/developer/agents"
@@ -1003,7 +1003,7 @@ export default function DevApi() {
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-500">
                       {formatNumber(a.requestCount || 0)} requests ·{' '}
-                      {Number(a.balance ?? 0)} BOT balance
+                      {Number(a.balance ?? 0)} USDC balance
                     </p>
                   </div>
                   <Link

@@ -85,7 +85,7 @@ const CartDrawer = ({ open, onClose }) => {
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-white truncate">{item.title}</p>
                       <p className="text-[11px] text-zinc-500 mt-0.5">
-                        {item.pricingModel} · {Number(item.unitPriceBOT || 0).toFixed(4)} BOT / {item.unitLabel || 'unit'}
+                        {item.pricingModel} · {Number(item.unitPriceBOT || 0).toFixed(4)} USDC / {item.unitLabel || 'unit'}
                       </p>
                     </div>
                     <button
@@ -101,7 +101,7 @@ const CartDrawer = ({ open, onClose }) => {
                   {isFlat ? (
                     <div className="flex items-center justify-between text-xs text-zinc-400">
                       <span>One-time</span>
-                      <span className="font-semibold text-white">{lineTotal.toFixed(4)} BOT</span>
+                      <span className="font-semibold text-white">{lineTotal.toFixed(4)} USDC</span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
@@ -123,7 +123,7 @@ const CartDrawer = ({ open, onClose }) => {
                           <FiPlus size={11} />
                         </button>
                       </div>
-                      <span className="text-xs font-semibold text-white">{lineTotal.toFixed(4)} BOT</span>
+                      <span className="text-xs font-semibold text-white">{lineTotal.toFixed(4)} USDC</span>
                     </div>
                   )}
                 </div>
@@ -137,7 +137,7 @@ const CartDrawer = ({ open, onClose }) => {
           <div className="px-5 py-4 border-t border-zinc-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-400">Estimated total</span>
-              <span className="text-lg font-black text-gradient">{totalEstimate.toFixed(4)} BOT</span>
+              <span className="text-lg font-black text-gradient">{totalEstimate.toFixed(4)} USDC</span>
             </div>
 
             <div>
@@ -168,7 +168,7 @@ const CartDrawer = ({ open, onClose }) => {
               ) : (
                 <>
                   <FiExternalLink size={14} />
-                  Buy Now — {totalEstimate.toFixed(4)} BOT
+                  Buy Now — {totalEstimate.toFixed(4)} USDC
                 </>
               )}
             </button>

@@ -148,7 +148,7 @@ const DevInvoiceDetail = () => {
       {/* ── 2. Summary Metrics ────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'Amount', value: `${formatAmountSafe(invoice.amountBOT)} BOT`, sub: `${invoice.quantity} ${invoice.unit || 'Request'}` },
+          { label: 'Amount', value: `${formatAmountSafe(invoice.amountBOT)} USDC`, sub: `${invoice.quantity} ${invoice.unit || 'Request'}` },
           { label: 'Status', value: null, badge: true },
           { label: 'Created', value: formatDateSafe(invoice.createdAt), sub: formatTimeSafe(invoice.createdAt) },
           { label: isPaid ? 'Paid On' : 'Status', value: isPaid ? formatDateSafe(invoice.paidAt) : 'Not paid', sub: isPaid ? formatTimeSafe(invoice.paidAt) : 'Awaiting settlement' }
@@ -180,8 +180,8 @@ const DevInvoiceDetail = () => {
               ['Category', service?.category || '—'],
               ['Pricing Model', service?.pricingModel || 'Per Request'],
               ['Quantity', `${invoice.quantity} ${invoice.unit || 'Request'}`],
-              ['Unit Price', formatAmountSafe(invoice.unitPrice || invoice.amountBOT) + ' BOT'],
-              ['Total Paid', formatAmountSafe(invoice.amountBOT) + ' BOT']
+              ['Unit Price', formatAmountSafe(invoice.unitPrice || invoice.amountBOT) + ' USDC'],
+              ['Total Paid', formatAmountSafe(invoice.amountBOT) + ' USDC']
             ].map(([label, value], i) => (
               <div key={i} className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">{label}</span>
@@ -228,7 +228,7 @@ const DevInvoiceDetail = () => {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500">Network</span>
-                <span className="text-xs font-medium text-white">BOT Chain</span>
+                <span className="text-xs font-medium text-white">Arc Chain</span>
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500">Transaction Hash</span>
@@ -255,7 +255,7 @@ const DevInvoiceDetail = () => {
             <FiClock size={16} className="text-amber-500 animate-pulse shrink-0" />
             <div>
               <p className="text-xs text-zinc-400">Waiting for payment</p>
-              <p className="text-[11px] text-zinc-600">The consumer agent wallet will settle this invoice on BOT Chain.</p>
+              <p className="text-[11px] text-zinc-600">The consumer agent wallet will settle this invoice in USDC on Arc.</p>
             </div>
           </div>
         ) : (
@@ -323,7 +323,7 @@ const DevInvoiceDetail = () => {
                 <tr className="border-b border-zinc-800/50">
                   <td className="py-2 pr-4 text-zinc-300">{paymentMethod.method}</td>
                   <td className="py-2 pr-4 font-mono text-zinc-400">{paymentMethod.wallet}</td>
-                  <td className="py-2 pr-4 font-semibold text-emerald-400">{paymentMethod.amount} BOT</td>
+                  <td className="py-2 pr-4 font-semibold text-emerald-400">{paymentMethod.amount} USDC</td>
                   <td className="py-2 pr-4 text-emerald-400 font-medium">{paymentMethod.status}</td>
                   <td className="py-2 text-right">
                     {paymentMethod.txHash && (

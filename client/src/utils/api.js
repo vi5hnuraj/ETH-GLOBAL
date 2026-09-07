@@ -67,14 +67,15 @@ api.interceptors.response.use(
 );
 
 const USER_CACHE_KEY = 'globalpay_user_cache_v3';
-export const USER_CACHE_STALE_MS = 5_000; // 5 seconds max
+export const USER_CACHE_STALE_MS = 5_000;
 
-// Purge legacy cache keys from earlier sessions/databases
+// Remove cache formats from previous app versions so stale wallet/profile
+// fields cannot survive an Arc/USDC migration.
 if (typeof window !== 'undefined') {
   try {
     localStorage.removeItem('globalpay_user_cache');
     localStorage.removeItem('globalpay_user_cache_v2');
-  } catch (e) {}
+  } catch { /* storage may be unavailable in private/embedded contexts */ }
 }
 
 let inflightFetch = null;
@@ -89,19 +90,25 @@ export const getCachedUserDetailSync = () => {
 };
 
 export const getCachedUserDetail = async () => {
+  const sync = getCachedUserDetailSync();
+  let fresh = false;
+  try {
+    const raw = localStorage.getItem(USER_CACHE_KEY);
+    if (raw) fresh = Date.now() - JSON.parse(raw).timestamp < USER_CACHE_STALE_MS;
+  } catch { /* unreadable cache: refetch */ }
+  if (sync && fresh) return sync;
+
   if (inflightFetch) return inflightFetch;
 
   inflightFetch = api.get('/auth/fetchdetail').then(res => {
     const user = res.data;
-    if (user) {
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ data: user, timestamp: Date.now() }));
-    }
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ data: user, timestamp: Date.now() }));
     inflightFetch = null;
     return user;
   }).catch(err => {
     inflightFetch = null;
-    const sync = getCachedUserDetailSync();
-    if (sync) return sync;
+    const cached = getCachedUserDetailSync();
+    if (cached) return cached;
     throw err;
   });
 
@@ -112,9 +119,7 @@ export const refreshUserCache = async () => {
   try {
     const res = await api.get('/auth/fetchdetail');
     const user = res.data;
-    if (user) {
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ data: user, timestamp: Date.now() }));
-    }
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ data: user, timestamp: Date.now() }));
     return user;
   } catch { return null; }
 };
@@ -122,12 +127,11 @@ export const refreshUserCache = async () => {
 export const invalidateUserCache = () => {
   try {
     localStorage.removeItem(USER_CACHE_KEY);
-    localStorage.removeItem('globalpay_user_cache');
-  } catch (e) {}
+  } catch { /* storage may be unavailable */ }
   inflightFetch = null;
 };
 
-/** Fetch live token price (USDC is pegged 1:1 with USD) */
+/** Fetch live token price in USD (1 USDC = 1 USD on Arc Testnet) */
 export const fetchLiveBotPrice = async () => {
   return 1.0;
 };

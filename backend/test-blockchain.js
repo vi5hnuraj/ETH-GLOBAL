@@ -6,7 +6,7 @@ dotenv.config();
 const run = async () => {
   try {
     const contractData = JSON.parse(fs.readFileSync('./contractData.json', 'utf8'));
-    const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || 'https://sepolia.base.org';
+    const rpcUrl = process.env.RPC_URL || process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.io';
     const privateKey = process.env.TREASURY_PRIVATE_KEY;
 
     console.log("RPC:", rpcUrl);

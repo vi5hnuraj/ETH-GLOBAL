@@ -152,7 +152,7 @@ const DevBilling = () => {
           // Activate pro plan with txHash for verification
           const res = await developerApi.paySubscriptionWithTxHash('metamask-' + connectedAddress, txHash);
           setShowWalletSelect(false);
-          setPaymentReceipt({ success: true, txHash: res.txHash, amount: '4.9 BOT', plan: 'Pro' });
+          setPaymentReceipt({ success: true, txHash: res.txHash, amount: '4.9 USDC', plan: 'Pro' });
           await refresh();
         } catch (err) {
           setPaymentError(err.message || 'Payment failed');
@@ -172,7 +172,7 @@ const DevBilling = () => {
       try {
         const res = await developerApi.paySubscription(selectedWallet);
         setShowWalletSelect(false);
-        setPaymentReceipt({ success: true, txHash: res.txHash || null, amount: '4.9 BOT', plan: 'Pro' });
+        setPaymentReceipt({ success: true, txHash: res.txHash || null, amount: '4.9 USDC', plan: 'Pro' });
         await refresh();
       } catch (err) {
         setPaymentError(err.message || 'Payment failed');
@@ -286,7 +286,7 @@ const DevBilling = () => {
                       : 'border border-zinc-700 text-zinc-300 hover:bg-zinc-800'
                 }`}
               >
-                {isCurrent ? 'Current Plan' : subscribing === p.name ? 'Processing…' : p.name === 'pro' ? 'Pay 4.9 BOT ($49/mo)' : p.name === 'enterprise' ? 'Choose Enterprise' : `Switch to ${p.name[0].toUpperCase() + p.name.slice(1)}`}
+                {isCurrent ? 'Current Plan' : subscribing === p.name ? 'Processing…' : p.name === 'pro' ? 'Pay 4.9 USDC ($49/mo)' : p.name === 'enterprise' ? 'Choose Enterprise' : `Switch to ${p.name[0].toUpperCase() + p.name.slice(1)}`}
               </button>
             </div>
           );
@@ -416,7 +416,7 @@ const DevBilling = () => {
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-black text-white">4.9</span>
-                <span className="text-lg font-semibold text-zinc-400">BOT</span>
+                <span className="text-lg font-semibold text-zinc-400">USDC</span>
               </div>
               <p className="text-zinc-500 text-sm mt-1">≈ $49 USD/month</p>
             </div>
@@ -472,7 +472,7 @@ const DevBilling = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-white font-semibold">{Number(w.balance || 0).toFixed(4)}</p>
-                      <p className="text-zinc-500 text-xs">BOT</p>
+                      <p className="text-zinc-500 text-xs">USDC</p>
                     </div>
                   </div>
                 ))}
@@ -496,7 +496,7 @@ const DevBilling = () => {
                         <p className="text-emerald-400 font-medium">Connected</p>
                         <p className="text-white text-sm font-mono">{connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}</p>
                       </div>
-                      <span className="text-emerald-400 font-semibold">{connectedBalance} BOT</span>
+                      <span className="text-emerald-400 font-semibold">{connectedBalance} USDC</span>
                     </div>
                   </div>
                 ) : (
@@ -548,7 +548,7 @@ const DevBilling = () => {
                 disabled={!selectedWallet && selectedWalletType === 'agent' || (!connectedAddress && selectedWalletType === 'external') || subscribing === 'pro'}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-3.5 rounded-xl font-semibold shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {subscribing === 'pro' ? 'Processing...' : 'Pay 4.9 BOT'}
+                {subscribing === 'pro' ? 'Processing...' : 'Pay 4.9 USDC'}
               </button>
             </div>
           </div>

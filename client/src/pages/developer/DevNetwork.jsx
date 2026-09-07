@@ -239,7 +239,7 @@ const DevNetwork = () => {
     const topCat = categories[0];
     if (topCat && totalRev > 0) {
       const share = ((Number(topCat.amountBOT) / totalRev) * 100).toFixed(0);
-      list.push({ severity: 'info', text: `${topCat.category} generated ${share}% of network revenue (${fmtBOT(topCat.amountBOT)} BOT).` });
+      list.push({ severity: 'info', text: `${topCat.category} generated ${share}% of network revenue (${fmtBOT(topCat.amountBOT)} USDC).` });
     }
     if (growers.length > 0 && Number(growers[0].growthPct) > 0) {
       list.push({ severity: 'success', text: `${growers[0].name} grew ${fmt(growers[0].growthPct, 1)}% this period.` });
@@ -266,7 +266,7 @@ const DevNetwork = () => {
     { icon: <FiGrid size={16} className="text-emerald-400" />, label: 'Active Providers', value: fmtInt(t.activeProviders ?? 0), accent: 'bg-emerald-500/10' },
     { icon: <FiPackage size={16} className="text-violet-400" />, label: 'Published Agents', value: fmtInt(t.servicesPublished ?? 0), accent: 'bg-violet-500/10' },
     { icon: <FiShoppingBag size={16} className="text-cyan-400" />, label: 'Transactions', value: fmtInt(t.marketplaceTransactions ?? 0), accent: 'bg-cyan-500/10' },
-    { icon: <FiDollarSign size={16} className="text-emerald-400" />, label: 'Settlement Vol', value: `${fmtBOT(t.settlementVolumeBOT)}`, accent: 'bg-emerald-500/10', sub: 'BOT settled' },
+    { icon: <FiDollarSign size={16} className="text-emerald-400" />, label: 'Settlement Vol', value: `${fmtBOT(t.settlementVolumeBOT)}`, accent: 'bg-emerald-500/10', sub: 'USDC settled' },
     { icon: <FiTrendingUp size={16} className="text-amber-400" />, label: 'Network Revenue', value: `${fmtBOT(t.networkRevenueBOT)}`, accent: 'bg-amber-500/10', sub: 'Fees accrued' },
     { icon: <FiZap size={16} className="text-pink-400" />, label: 'Active Agents', value: fmtInt(t.activeAgents ?? 0), accent: 'bg-pink-500/10' },
     { icon: <FiShield size={16} className="text-cyan-400" />, label: 'Provider Companies', value: fmtInt(t.providerCompanies ?? 0), accent: 'bg-cyan-500/10' },
@@ -420,7 +420,7 @@ const DevNetwork = () => {
         {/* Summary row */}
         <div className="flex items-center gap-6 mt-3 text-xs text-zinc-500 flex-wrap">
           <span>Period Total: <span className="text-zinc-300 font-mono">{fmtInt(tl.totalTransactions)}</span> transactions</span>
-          <span>Revenue: <span className="text-emerald-400 font-mono">{fmtBOT(tl.totalRevenue)} BOT</span></span>
+          <span>Revenue: <span className="text-emerald-400 font-mono">{fmtBOT(tl.totalRevenue)} USDC</span></span>
           <span>Invocations: <span className="text-zinc-300 font-mono">{fmtInt(tl.totalInvocations)}</span></span>
         </div>
       </Section>
@@ -439,7 +439,7 @@ const DevNetwork = () => {
                       <span className="text-zinc-300 font-medium">{c.category}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-zinc-500 font-mono">{fmtInt(c.transactions)} tx</span>
-                        <span className="text-zinc-400 font-mono">{fmtBOT(c.amountBOT)} BOT</span>
+                        <span className="text-zinc-400 font-mono">{fmtBOT(c.amountBOT)} USDC</span>
                         <span className="text-zinc-600 w-10 text-right">{c.shareOfTotal}%</span>
                       </div>
                     </div>
@@ -466,7 +466,7 @@ const DevNetwork = () => {
                       <Tooltip content={({ active, payload }) => active && payload?.[0] ? (
                         <div className="bg-zinc-900 border border-zinc-700/60 rounded-xl px-3 py-2 shadow-xl text-xs">
                           <p className="text-zinc-300 font-medium">{payload[0].name}</p>
-                          <p className="text-white font-mono">{fmt(payload[0].value, 4)} BOT</p>
+                          <p className="text-white font-mono">{fmt(payload[0].value, 4)} USDC</p>
                         </div>
                       ) : null} />
                     </PieChart>
@@ -508,7 +508,7 @@ const DevNetwork = () => {
                   </div>
                 </div>
               )},
-              { key: 'revenueBOT', label: 'Revenue', align: 'right', render: v => <span className="text-emerald-400 font-mono font-semibold">{fmtBOT(v)} BOT</span> },
+              { key: 'revenueBOT', label: 'Revenue', align: 'right', render: v => <span className="text-emerald-400 font-mono font-semibold">{fmtBOT(v)} USDC</span> },
             ]}
             data={providerRevenue}
             maxRows={6}
@@ -622,7 +622,7 @@ const DevNetwork = () => {
                       <p className="text-xs text-zinc-200 font-medium truncate">{p.name || p.id}</p>
                       <p className="text-[9px] text-zinc-600">{fmtInt(p.transactions)} transactions</p>
                     </div>
-                    <span className="text-xs text-emerald-400 font-mono font-semibold">{fmtBOT(p.revenueBOT)} BOT</span>
+                    <span className="text-xs text-emerald-400 font-mono font-semibold">{fmtBOT(p.revenueBOT)} USDC</span>
                   </div>
                 ))}
               </div>
@@ -638,7 +638,7 @@ const DevNetwork = () => {
                       <p className="text-xs text-zinc-200 font-medium truncate">{c.name}</p>
                       <p className="text-[9px] text-zinc-600">{fmtInt(c.transactions)} transactions</p>
                     </div>
-                    <span className="text-xs text-violet-400 font-mono font-semibold">{fmtBOT(c.revenueBOT)} BOT</span>
+                    <span className="text-xs text-violet-400 font-mono font-semibold">{fmtBOT(c.revenueBOT)} USDC</span>
                   </div>
                 ))}
               </div>

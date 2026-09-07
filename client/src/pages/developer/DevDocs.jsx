@@ -62,7 +62,7 @@ const { agentId, walletAddress, walletId, apiKey } = await gp.agents.create({
 // 2. Agent-scoped client from the one-time key
 const agent = gp.agent(apiKey);
 
-const balance  = await agent.balance();                       // 1.234567 BOT
+const balance  = await agent.balance();                       // 1.234567 USDC
 const result   = await agent.pay({ to: '0x…', amount: '0.02' }); // { txHash, explorerUrl }
 const history  = await agent.history({ limit: 50 });
 const stats    = await agent.stats();
@@ -110,7 +110,7 @@ api_key = created["apiKey"]  # shown exactly once
 # 2. Agent-scoped client
 agent = Agent(api_key)
 
-balance = agent.balance()                    # "1.234567 BOT"
+balance = agent.balance()                    # "1.234567 USDC"
 result  = agent.pay(to="0x…", amount="0.02") # { "txHash": "0x…", ... }
 history = agent.history(limit=50)
 stats   = agent.stats()
@@ -152,7 +152,7 @@ if err != nil { log.Fatal(err) }
 // 2. Agent-scoped client from the one-time key
 agent := client.Agent(created.APIKey)
 
-bal, _ := agent.Balance(ctx)     // "1.234567 BOT"
+bal, _ := agent.Balance(ctx)     // "1.234567 USDC"
 result, _ := agent.Pay(ctx, globalpay.PayParams{To: "0x…", Amount: "0.02"})
 history, _ := agent.History(ctx, 50)
 stats, _ := agent.Stats(ctx)
@@ -203,7 +203,7 @@ System.out.println(created);
 Agent agent = gp.agent(apiKey); // apiKey from the create response
 
     System.out.println(agent.balance());   // JSON
-    System.out.println(agent.pay("0x…", "0.02", null, "BOT", null));
+    System.out.println(agent.pay("0x…", "0.02", null, "USDC", null));
     System.out.println(agent.history(50));
     System.out.println(agent.stats());
     System.out.println(agent.rotateKey());
@@ -248,7 +248,7 @@ $created = $gp->createAgent('Travel AI', 'Books flights', 'user_123');
 // 2. Agent-scoped client from the one-time key
 $agent = $gp->agent($created['apiKey']);
 
-echo $agent->balance()['balance'];              // "1.234567 BOT"
+echo $agent->balance()['balance'];              // "1.234567 USDC"
 $agent->pay('0x…', '0.02');
 $agent->history(50);
 $agent->stats();
@@ -341,7 +341,7 @@ const DevDocs = () => {
       <div className="flex-1 min-w-0">
         <header className="mb-6">
           <h1 className="text-2xl font-bold">Documentation</h1>
-          <p className="text-sm text-zinc-500 mt-1">Build financial rails for autonomous AI agents on BOT Chain.</p>
+          <p className="text-sm text-zinc-500 mt-1">Build financial rails for autonomous AI agents on Arc Chain.</p>
 
           <div className="flex items-center gap-2 mt-4 bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-fit">
             <span className="text-xs text-zinc-600 px-2">Base URL:</span>
@@ -366,7 +366,7 @@ const DevDocs = () => {
         <section id="overview" className="mb-10 scroll-mt-8">
           <h2 className="text-lg font-semibold mb-3">Overview</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            GlobalPay is <strong className="text-white">financial infrastructure for autonomous AI agents on BOT Chain</strong>.
+            GlobalPay is <strong className="text-white">financial infrastructure for autonomous AI agents on Arc Chain</strong>.
             Create a headless wallet for your bot in one request — no human login required. There are two key types:
             a <strong className="text-violet-300">Developer key</strong> (<code className="text-violet-400">gpay_dev_…</code>) that manages agents and platform resources, and an{' '}
             <strong className="text-cyan-300">AI Agent Runtime key</strong> (<code className="text-cyan-400">gpay_sk_…</code>) used by the agent itself to pay, check balances, and read history.
@@ -455,7 +455,7 @@ const DevDocs = () => {
         <section id="agents" className="mb-10 scroll-mt-8">
           <h2 className="text-lg font-semibold mb-3">AI Agents</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            An AI agent is a headless wallet on BOT Chain with its own API key (<code className="text-cyan-400">gpay_sk_…</code>).
+            An AI agent is a headless wallet on Arc Chain with its own API key (<code className="text-cyan-400">gpay_sk_…</code>).
             Create one in a single request — the platform mints a wallet, generates an agent key, and returns
             everything needed to start transacting programmatically. Agent keys are scope-limited to the
             owning agent's own operations.
@@ -498,7 +498,7 @@ const DevDocs = () => {
           <p className="text-sm text-zinc-400 leading-relaxed">
             Publish AI services to the marketplace with metered usage billing. Each service defines
             capabilities (input/output schemas, pricing), and consumers report usage which auto-generates
-            invoices and settles in BOT tokens. Agent-scope keys (<code className="text-cyan-400">gpay_sk_…</code>)
+            invoices and settles in USDC. Agent-scope keys (<code className="text-cyan-400">gpay_sk_…</code>)
             can also publish services and report usage directly.
           </p>
           <div className="mt-4 text-sm text-zinc-400 space-y-1">
@@ -567,7 +567,7 @@ const DevDocs = () => {
           <h2 className="text-lg font-semibold mb-3">Invoice Settlement</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
             Automatic invoice generation from service usage and marketplace revenue. Invoices are settled
-            in BOT tokens.
+            in USDC.
           </p>
           <div className="mt-4 text-sm text-zinc-400 space-y-1">
             <div><code className="text-blue-400">GET /developers/invoices</code> — List invoices (scope: <code className="text-indigo-300">invoices.read</code>)</div>
@@ -579,7 +579,7 @@ const DevDocs = () => {
         <section id="payments" className="mb-10 scroll-mt-8">
           <h2 className="text-lg font-semibold mb-3">Payments</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            Programmatic payments from agent wallets and developer accounts on BOT Chain.
+            Programmatic payments from agent wallets and developer accounts on Arc Chain.
           </p>
           <div className="mt-4 text-sm text-zinc-400 space-y-1">
             <div><code className="text-blue-400">POST /agents/pay</code> — Send payment from agent wallet (scope: <code className="text-indigo-300">payments.send</code>, agent key)</div>
@@ -591,7 +591,7 @@ const DevDocs = () => {
         <section id="wallets" className="mb-10 scroll-mt-8">
           <h2 className="text-lg font-semibold mb-3">Wallets</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
-            Every AI agent gets a headless wallet on BOT Chain, provisioned automatically when the agent
+            Every AI agent gets a headless wallet on Arc Chain, provisioned automatically when the agent
             is created. No human wallet or gas fee required.
           </p>
           <div className="mt-4 text-sm text-zinc-400 space-y-1">
@@ -665,7 +665,7 @@ const DevDocs = () => {
           <h2 className="text-lg font-semibold mb-3">Revenue APIs</h2>
           <p className="text-sm text-zinc-400 leading-relaxed">
             Revenue attribution across API usage, agent transactions, and wallet creation. Revenue is
-            distributed to service publishers as BOT tokens.
+            distributed to service publishers as USDC.
           </p>
           <div className="mt-4 text-sm text-zinc-400 space-y-1">
             <div><code className="text-blue-400">GET /developers/revenue</code> — Revenue dashboard (scope: <code className="text-indigo-300">revenue.read</code>)</div>

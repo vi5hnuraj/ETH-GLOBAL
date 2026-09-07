@@ -112,7 +112,7 @@ const DevAgentListingDetail = () => {
   };
 
   const price = Number(l.priceBOT ?? 0);
-  const priceLabel = l.pricingModel === 'free' ? 'Free' : l.pricingModel === 'enterprise' ? 'Enterprise' : `${price} BOT ${l.pricingModel === 'monthly' ? '/mo' : '/request'}`;
+  const priceLabel = l.pricingModel === 'free' ? 'Free' : l.pricingModel === 'enterprise' ? 'Enterprise' : `${price} USDC ${l.pricingModel === 'monthly' ? '/mo' : '/request'}`;
 
   /* Derived sections from listing data */
   const capabilities = l.capabilities || l.tags || [];

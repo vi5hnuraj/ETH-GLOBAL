@@ -375,7 +375,7 @@ const DevPublishService = () => {
               <div className="grid md:grid-cols-2 gap-5">
                 <div>
                   <label htmlFor="svc-price" className="block text-xs font-medium text-zinc-400 mb-1.5">
-                    Unit price (BOT) <span className="text-red-400">*</span>
+                    Unit price (USDC) <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -388,7 +388,7 @@ const DevPublishService = () => {
                       onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
                       className={`${input} pr-12 ${priceValid ? 'border-emerald-800/60' : ''}`}
                     />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">BOT</span>
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">USDC</span>
                   </div>
                   <p className="text-[11px] text-zinc-500 mt-1.5">
                     Buyers will pay this amount per {form.unitLabel || priceLabel(form.pricingModel)}.
@@ -422,7 +422,7 @@ const DevPublishService = () => {
               <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3 flex items-center justify-between">
                 <span className="text-sm text-zinc-400">Price preview</span>
                 <span className="text-gradient font-black text-lg">
-                  {priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'} BOT <span className="text-xs font-medium text-zinc-500">/ {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
+                  {priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'} USDC <span className="text-xs font-medium text-zinc-500">/ {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
                 </span>
               </div>
             </section>
@@ -472,7 +472,7 @@ const DevPublishService = () => {
                             <p className="font-mono text-[11px] text-zinc-500 truncate">{a.wallet ? `${a.wallet.slice(0, 8)}…${a.wallet.slice(-6)}` : 'no wallet'}</p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-sm font-bold text-white">{a.balance != null ? `${a.balance}` : '—'} <span className="text-[10px] text-zinc-500 font-normal">BOT</span></p>
+                            <p className="text-sm font-bold text-white">{a.balance != null ? `${a.balance}` : '—'} <span className="text-[10px] text-zinc-500 font-normal">USDC</span></p>
                             <p className="text-[11px] text-zinc-500">{activeCountByAgent[a.agentId] || 0} active service{(activeCountByAgent[a.agentId] || 0) === 1 ? '' : 's'}</p>
                           </div>
                           <span className={`ml-2 shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -559,7 +559,7 @@ const DevPublishService = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-gradient font-black text-lg">{priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'}</span>
-                    <span className="text-xs text-zinc-500"> BOT / {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
+                    <span className="text-xs text-zinc-500"> USDC / {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
                   </div>
                   <button
                     type="button"
@@ -581,7 +581,7 @@ const DevPublishService = () => {
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
               <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-medium mb-3">Price preview</p>
               <p className="text-xl font-black text-gradient">
-                {priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'} BOT
+                {priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'} USDC
                 <span className="text-xs font-medium text-zinc-500"> / {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
               </p>
               <p className="text-[11px] text-zinc-500 mt-1.5">{PRICING_META[form.pricingModel]?.title} — {PRICING_META[form.pricingModel]?.desc}</p>

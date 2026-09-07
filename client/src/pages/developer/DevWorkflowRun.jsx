@@ -75,8 +75,8 @@ const DevWorkflowRun = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard icon={<FiActivity size={18} />} label="Status" value={<StatusBadge status={run?.status}>{run?.status}</StatusBadge>} accent="text-emerald-400" />
         <StatCard icon={<FiLayers size={18} />} label="Progress" value={`${run?.currentStep ?? 0}/${run?.totalSteps ?? '—'}`} sub="Steps completed" accent="text-blue-400" />
-        <StatCard icon={<FiDollarSign size={18} />} label="Estimated Cost" value={`${Number(run?.estimatedCostBOT ?? 0).toFixed(4)} BOT`} accent="text-violet-400" />
-        <StatCard icon={<FiTrendingDown size={18} />} label="Actual Cost" value={run?.actualCostBOT != null ? `${Number(run.actualCostBOT).toFixed(4)} BOT` : '—'} accent="text-amber-400" />
+        <StatCard icon={<FiDollarSign size={18} />} label="Estimated Cost" value={`${Number(run?.estimatedCostBOT ?? 0).toFixed(4)} USDC`} accent="text-violet-400" />
+        <StatCard icon={<FiTrendingDown size={18} />} label="Actual Cost" value={run?.actualCostBOT != null ? `${Number(run.actualCostBOT).toFixed(4)} USDC` : '—'} accent="text-amber-400" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
@@ -137,8 +137,8 @@ const DevWorkflowRun = () => {
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] text-zinc-500">
                     {st.providerAgentId && <span className="font-mono">provider {shortId(st.providerAgentId)}</span>}
                     {st.serviceId && <span className="font-mono">service {shortId(st.serviceId)}</span>}
-                    <span>est {Number(st.estimatedCostBOT ?? 0).toFixed(4)} BOT</span>
-                    {st.actualCostBOT != null && <span>actual {Number(st.actualCostBOT).toFixed(4)} BOT</span>}
+                    <span>est {Number(st.estimatedCostBOT ?? 0).toFixed(4)} USDC</span>
+                    {st.actualCostBOT != null && <span>actual {Number(st.actualCostBOT).toFixed(4)} USDC</span>}
                   </div>
                   {(st.sessionId || st.invoiceId) && (
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">

@@ -37,9 +37,6 @@ export const arcMainnet = defineChain({
   testnet: false,
 });
 
-// Alias for backwards compatibility
-export const botchain = arcTestnet;
-
 export const appkit = createAppKit({
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '8fe9b4cfa486d6e1632640d06975e3b7',
   adapters: [new Ethers5Adapter()],

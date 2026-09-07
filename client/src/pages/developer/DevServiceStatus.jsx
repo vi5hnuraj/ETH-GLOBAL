@@ -22,7 +22,7 @@ import Skeleton from '../../components/dev/Skeleton.jsx';
 const COMPONENT_META = {
   api: { label: 'API', icon: FiActivity, detail: (m) => `v${m.api?.version || '0.1.0'} · ${m.api?.environment || 'development'}` },
   database: { label: 'Database', icon: FiDatabase, detail: (m) => `${m.database?.latencyMs ?? 0}ms round-trip` },
-  rpc: { label: 'BOT Chain RPC', icon: FiLink, detail: (m) => `block #${m.rpc?.blockNumber || '—'} · ${m.rpc?.latencyMs ?? 0}ms` },
+  rpc: { label: 'Arc Chain RPC', icon: FiLink, detail: (m) => `block #${m.rpc?.blockNumber || '—'} · ${m.rpc?.latencyMs ?? 0}ms` },
   workers: { label: 'Workers', icon: FiCpu, detail: (m) => Object.keys(m.workers || {}).join(', ') || '—' }
 };
 
@@ -103,7 +103,7 @@ const DevServiceStatus = () => {
   }, [health]);
 
   const incidents = useMemo(() => {
-    const labelMap = { api: 'API', database: 'Database', rpc: 'BOT Chain RPC', workers: 'Workers', mpc: 'MPC' };
+    const labelMap = { api: 'API', database: 'Database', rpc: 'Arc Chain RPC', workers: 'Workers', mpc: 'MPC' };
     return Object.entries(health?.components || {})
       .filter(([, s]) => s === 'down' || s === 'degraded')
       .map(([key, s]) => ({ label: labelMap[key] || humanizeName(key), status: s }));

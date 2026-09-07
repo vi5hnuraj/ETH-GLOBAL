@@ -52,7 +52,7 @@ export const deriveDeveloperStats = (agents, histories) => {
 
   const allTxs = histories.flat();
   const successful = allTxs.filter((t) => (t.status || 'confirmed') !== 'failed');
-  const totalVolumeETH = successful.reduce((s, t) => s + Number(t.amount || 0), 0);
+  const totalVolumeUSDC = successful.reduce((s, t) => s + Number(t.amount || 0), 0);
 
   const dailyMap = {};
   allTxs.forEach((t) => {
@@ -67,7 +67,7 @@ export const deriveDeveloperStats = (agents, histories) => {
     totalAgents,
     activeAgents,
     totalApiRequests: allTxs.reduce((s, t) => s + 1, 0) + agents.length * 10, // estimate
-    totalVolumeETH,
+    totalVolumeUSDC,
     successfulPayments: successful.length,
     walletsCreated: totalAgents,
     daily: Object.entries(dailyMap).sort(([a], [b]) => a.localeCompare(b))

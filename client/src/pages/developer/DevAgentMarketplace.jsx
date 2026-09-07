@@ -63,9 +63,9 @@ const fmtPrice = (l) => {
   const p = Number(l.priceBOT ?? 0);
   if (l.pricingModel === 'free') return 'Free';
   if (l.pricingModel === 'enterprise') return 'Enterprise';
-  if (l.pricingModel === 'monthly') return `${p} BOT/mo`;
-  if (l.pricingModel === 'subscription') return `${p} BOT/${l.billingCycle || 'period'}`;
-  return `${p} BOT/req`;
+  if (l.pricingModel === 'monthly') return `${p} USDC/mo`;
+  if (l.pricingModel === 'subscription') return `${p} USDC/${l.billingCycle || 'period'}`;
+  return `${p} USDC/req`;
 };
 
 const fmtInstalls = (n) => {

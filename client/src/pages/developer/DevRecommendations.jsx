@@ -37,7 +37,7 @@ const CATEGORY_CONFIG = {
 const TRUST_TONE = (t) => (t == null ? 'zinc' : t >= 80 ? 'emerald' : t >= 50 ? 'amber' : 'red');
 
 const PLACEHOLDER_PROMPTS = [
-  'I need an OCR API for invoice processing under 0.001 BOT.',
+  'I need an OCR API for invoice processing under 0.001 USDC.',
   'Find me a cheap inference provider for Llama 3 70B with <100ms latency.',
   'I need image generation for product photos, verified providers only.',
   'Looking for the fastest embeddings API with low latency.',
@@ -116,7 +116,7 @@ const ProviderCard = ({ item, rank, category, onUse }) => {
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
             <span className="text-zinc-400">
               <FiDollarSign size={11} className="inline -mt-0.5 mr-0.5" />
-              {fmt(item.unitPriceBOT)} <span className="text-zinc-600">BOT/{item.unitLabel || 'unit'}</span>
+              {fmt(item.unitPriceBOT)} <span className="text-zinc-600">USDC/{item.unitLabel || 'unit'}</span>
             </span>
             <span className="text-zinc-400">
               <FiClock size={11} className="inline -mt-0.5 mr-0.5" />
@@ -162,7 +162,7 @@ const ProviderCard = ({ item, rank, category, onUse }) => {
             <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">AI Score</p>
           </div>
           <p className="text-xs text-zinc-500">
-            ~{fmt(item.estimatedCostBOT)} <span className="text-zinc-600">BOT est.</span>
+            ~{fmt(item.estimatedCostBOT)} <span className="text-zinc-600">USDC est.</span>
           </p>
           <button
             type="button"
@@ -276,7 +276,7 @@ const DevRecommendations = () => {
         reason: result?.meta?.task,
         source: 'recommend'
       });
-      toast.success(`Session ${s.sessionId} created — ${fmt(s.estimatedCostBOT)} BOT estimated`);
+      toast.success(`Session ${s.sessionId} created — ${fmt(s.estimatedCostBOT)} USDC estimated`);
       setBuyTarget(null);
     } catch (err) {
       toast.error(err.message || 'Failed to create session');
@@ -527,7 +527,7 @@ const DevRecommendations = () => {
                 <p className="text-xs text-emerald-400/60 mt-0.5">
                   Switching from <span className="text-emerald-400/80">{potentialSavings.best.serviceTitle}</span> to{' '}
                   <span className="text-emerald-400/80">{potentialSavings.cheapest.serviceTitle}</span> saves{' '}
-                  <span className="font-semibold text-emerald-300">{fmt(potentialSavings.priceDiff)} BOT</span> per call with acceptable quality.
+                  <span className="font-semibold text-emerald-300">{fmt(potentialSavings.priceDiff)} USDC</span> per call with acceptable quality.
                 </p>
               </div>
             </div>
@@ -581,7 +581,7 @@ const DevRecommendations = () => {
               {result.meta.monthlySpentBOT != null && (
                 <>
                   <span>·</span>
-                  <span>monthly spent: {fmt(result.meta.monthlySpentBOT)} BOT</span>
+                  <span>monthly spent: {fmt(result.meta.monthlySpentBOT)} USDC</span>
                 </>
               )}
             </div>
@@ -604,7 +604,7 @@ const DevRecommendations = () => {
                     <p className="text-[11px] text-zinc-500 mt-0.5">{o.reason}</p>
                   </div>
                   <p className="text-sm font-bold text-emerald-400 shrink-0">
-                    Save ~{fmt(o.estMonthlySavingsBOT)} BOT/mo
+                    Save ~{fmt(o.estMonthlySavingsBOT)} USDC/mo
                   </p>
                 </div>
               ))}
@@ -618,7 +618,7 @@ const DevRecommendations = () => {
         open={!!buyTarget}
         onClose={() => setBuyTarget(null)}
         title={buyTarget ? `Use ${buyTarget.serviceTitle}` : ''}
-        subtitle={buyTarget ? `${buyTarget.provider?.name || buyTarget.provider?.agentId} · ${fmt(buyTarget.unitPriceBOT)} BOT / ${buyTarget.unitLabel || 'unit'}` : ''}
+        subtitle={buyTarget ? `${buyTarget.provider?.name || buyTarget.provider?.agentId} · ${fmt(buyTarget.unitPriceBOT)} USDC / ${buyTarget.unitLabel || 'unit'}` : ''}
         maxWidth="max-w-md"
       >
         <div className="space-y-4">
@@ -646,7 +646,7 @@ const DevRecommendations = () => {
           </div>
           <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-xl px-4 py-3">
             <span className="text-sm text-zinc-400">Estimated cost</span>
-            <span className="text-lg font-black text-gradient">{Number.isFinite(estimateCost()) ? estimateCost().toFixed(4) : '—'} BOT</span>
+            <span className="text-lg font-black text-gradient">{Number.isFinite(estimateCost()) ? estimateCost().toFixed(4) : '—'} USDC</span>
           </div>
           <div className="flex items-center gap-3">
             <button

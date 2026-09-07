@@ -51,7 +51,7 @@ const DevAgentDetail = () => {
     setPaying(true);
     try {
       const res = await developerApi.agentPay(agentId, { to: payTo.trim(), amount: Number(payAmount) });
-      toast.success(`Sent ${res.amount} BOT`);
+      toast.success(`Sent ${res.amount} USDC`);
       setPayTo(''); setPayAmount('');
       await refreshAll();
     } catch (err) {
@@ -111,7 +111,7 @@ const DevAgentDetail = () => {
           <p className="text-sm text-zinc-500">{agent.description || 'No description'}</p>
           <div className="flex items-center gap-4 mt-2">
             <span className="text-[11px] text-zinc-500 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> BOT Chain · {agent.chainId || 677}
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Arc Chain · {agent.chainId || 5042002}
             </span>
             <span className="text-[11px] text-zinc-500">Created {new Date(agent.createdAt).toLocaleDateString()}</span>
           </div>
@@ -161,7 +161,7 @@ const DevAgentDetail = () => {
               <div className="flex items-center justify-between text-xs pt-2 border-t border-zinc-800/50">
                 <span className="text-zinc-500">Balance</span>
                 <span className="text-emerald-400 font-mono font-semibold">
-                  {balance.loading ? '...' : (balance.data?.balance ?? '0 BOT')}
+                  {balance.loading ? '...' : (balance.data?.balance ?? '0 USDC')}
                 </span>
               </div>
             </div>
@@ -180,7 +180,7 @@ const DevAgentDetail = () => {
               <input
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
-                placeholder="BOT"
+                  placeholder="USDC"
                 type="number"
                 inputMode="decimal"
                 className="w-24 bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
@@ -202,7 +202,7 @@ const DevAgentDetail = () => {
             {[
               { label: 'Requests', value: agent.requestCount ?? 0 },
               { label: 'Payments', value: agent.totalPayments ?? 0 },
-              { label: 'Volume', value: `${Number(agent.totalVolumeBOT ?? 0).toFixed(4)}` }
+              { label: 'Volume', value: `${Number(agent.totalVolumeUSDC ?? agent.totalVolumeBOT ?? 0).toFixed(4)} USDC` }
             ].map((s) => (
               <div key={s.label} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-3 text-center">
                 <p className="text-[10px] text-zinc-500 uppercase">{s.label}</p>

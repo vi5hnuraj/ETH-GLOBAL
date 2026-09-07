@@ -54,7 +54,7 @@ const fmtDuration = (sec) => {
 
 const pricingLabel = (svc) => {
   if (!svc) return null;
-  const price = `${fmtBot(svc.unitPriceBOT)} BOT`;
+  const price = `${fmtBot(svc.unitPriceBOT)} USDC`;
   const unit = svc.unitLabel || 'unit';
   switch (svc.pricingModel) {
     case 'subscription': return `${price} / month`;
@@ -196,8 +196,8 @@ const InvoiceSection = ({ invoice, service, onDownload }) => {
     <Card title="Invoice" titleRight={<StatusBadge status={invoice.status === 'paid' ? 'paid' : 'cancelled'} />}>
       <div className="space-y-0">
         <KV k="Usage">{invoice.quantity} {invoice.unit || 'unit'}{invoice.quantity > 1 ? 's' : ''}</KV>
-        {unitPrice != null && <KV k="Unit price">{fmtBot(unitPrice)} {invoice.currency || 'BOT'}</KV>}
-        <KV k="Total"><span className="font-semibold text-white">{fmtBot(invoice.amountBOT)} {invoice.currency || 'BOT'}</span></KV>
+        {unitPrice != null && <KV k="Unit price">{fmtBot(unitPrice)} {invoice.currency || 'USDC'}</KV>}
+        <KV k="Total"><span className="font-semibold text-white">{fmtBot(invoice.amountBOT)} {invoice.currency || 'USDC'}</span></KV>
         <KV k="Payment">{invoice.paidAt ? `Paid ${fmtShort(invoice.paidAt)}` : invoice.status}</KV>
       </div>
       <div className="mt-3 flex items-center gap-2">
@@ -310,7 +310,7 @@ const DevSessionDetail = () => {
     try {
       const r = await developerApi.confirmPrepaidPurchase(s.sessionId);
       if (r.success) {
-        toast.success(`Paid ${fmtBot(r.amountBOT)} BOT — ${r.credits} credits granted.`);
+        toast.success(`Paid ${fmtBot(r.amountBOT)} USDC — ${r.credits} credits granted.`);
       } else {
         toast.error(r.failureReason || 'Payment failed');
       }
@@ -352,7 +352,7 @@ const DevSessionDetail = () => {
       const r = await developerApi.confirmPrepaidPurchase(intent.sessionId);
       const targetId = r.session && (r.session.sessionId || r.session);
       if (r.success) {
-        toast.success(`Paid ${fmtBot(r.amountBOT)} BOT — ${r.credits} credits granted.`);
+        toast.success(`Paid ${fmtBot(r.amountBOT)} USDC — ${r.credits} credits granted.`);
       } else {
         toast.error(r.failureReason || 'Payment failed');
       }
@@ -376,7 +376,7 @@ h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin-top:
 <table><tr><th>Service</th><td>${service?.title || inv.serviceId}</td></tr>
 <tr><th>Usage</th><td>${inv.quantity} ${inv.unit || 'unit'}${inv.quantity > 1 ? 's' : ''}</td></tr>
 <tr><th>Status</th><td>${inv.status}</td></tr>
-<tr><th>Total</th><td class="amount">${fmtBot(inv.amountBOT)} ${inv.currency || 'BOT'}</td></tr></table>
+<tr><th>Total</th><td class="amount">${fmtBot(inv.amountBOT)} ${inv.currency || 'USDC'}</td></tr></table>
 <p class="muted" style="margin-top:28px">Generated ${now.toLocaleString()} · GlobalPay Developer Console</p></body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -421,7 +421,7 @@ h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin-top:
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
             <span>by {providerName}</span>
             <span className="inline-flex items-center gap-1"><FiClock size={11} /> Purchased {fmtWhen(s.createdAt)}</span>
-            <span>Est. {fmtBot(s.estimatedCostBOT)} BOT</span>
+            <span>Est. {fmtBot(s.estimatedCostBOT)} USDC</span>
             <CopyText value={s.sessionId} className="text-zinc-600 hover:text-zinc-300" />
           </div>
         </div>
@@ -469,7 +469,7 @@ h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin-top:
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
           <SectionTitle>Cost</SectionTitle>
           <p className="text-sm font-bold text-white">
-            {s.actualCostBOT != null ? `${fmtBot(s.actualCostBOT)} BOT` : `${fmtBot(s.estimatedCostBOT)} BOT est.`}
+            {s.actualCostBOT != null ? `${fmtBot(s.actualCostBOT)} USDC` : `${fmtBot(s.estimatedCostBOT)} USDC est.`}
           </p>
           <p className="mt-0.5 text-[11px] text-zinc-500">{s.quantity} {s.unit || 'unit'}{Number(s.quantity) > 1 ? 's' : ''}</p>
         </div>

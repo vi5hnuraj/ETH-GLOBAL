@@ -90,7 +90,7 @@ const DevRevenue = () => {
           )}
         </Card>
 
-        <Card title="Top Customers" subtitle="Agents by BOT transaction volume">
+        <Card title="Top Customers" subtitle="Agents by USDC transaction volume">
           {(r.topCustomers || []).length === 0 ? (
             <EmptyState title="No volume yet" description="Your most active agents appear here." />
           ) : (
@@ -102,7 +102,7 @@ const DevRevenue = () => {
                     <code className="font-mono text-xs text-zinc-600">{c.agentId}</code>
                   </div>
                   <div className="text-right shrink-0 ml-3">
-                    <p className="font-semibold text-violet-400">{Number(c.volumeBOT).toFixed(4)} BOT</p>
+                    <p className="font-semibold text-violet-400">{Number(c.volumeBOT).toFixed(4)} USDC</p>
                     <p className="text-[10px] uppercase text-zinc-600">volume</p>
                   </div>
                 </div>

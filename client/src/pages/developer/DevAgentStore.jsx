@@ -30,7 +30,7 @@ const ChartTooltip = ({ active, payload, label }) => {
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 shadow-xl">
       <p className="text-xs text-zinc-400 mb-1">{label}</p>
-      {payload.map((p, i) => <p key={i} className="text-sm font-mono font-medium" style={{ color: p.color }}>{Number(p.value).toFixed(4)} BOT</p>)}
+      {payload.map((p, i) => <p key={i} className="text-sm font-mono font-medium" style={{ color: p.color }}>{Number(p.value).toFixed(4)} USDC</p>)}
     </div>
   );
 };
@@ -185,7 +185,7 @@ const DevAgentStore = () => {
       {/* ═══ KPI STRIP — 4 metrics, dividers ═══ */}
       <div className="flex items-center gap-0 mb-8 border-b border-zinc-800/40 pb-5">
         {[
-          { label: 'Revenue', value: `${Number(m.mrrBOT ?? 0).toFixed(2)}`, unit: 'BOT' },
+          { label: 'Revenue', value: `${Number(m.mrrBOT ?? 0).toFixed(2)}`, unit: 'USDC' },
           { label: 'Installs', value: (m.activeInstalls ?? 0).toLocaleString() },
           { label: 'Subscribers', value: String(m.activeSubscriptions ?? 0) },
           { label: 'API Requests', value: (m.apiCalls30d ?? 0).toLocaleString() },
@@ -328,7 +328,7 @@ const DevAgentStore = () => {
                 </div>
                 <div className="grid sm:grid-cols-2 gap-2 mb-2">
                   <input value={editing.title || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })} placeholder="Title" className={input} />
-                  <input value={editing.priceBOT || ''} onChange={(e) => setEditing({ ...editing, priceBOT: e.target.value })} placeholder="Price BOT" className={input} />
+                  <input value={editing.priceBOT || ''} onChange={(e) => setEditing({ ...editing, priceBOT: e.target.value })} placeholder="Price USDC" className={input} />
                 </div>
                 <textarea value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} rows={2} placeholder="Description" className={`${input} mb-2 resize-none`} />
                 <div className="grid grid-cols-2 gap-2 mb-2">
@@ -531,9 +531,9 @@ const DevAgentStore = () => {
             <h3 className="text-sm font-semibold text-white mb-2">Revenue</h3>
             <div className="space-y-1.5">
               {[
-                { label: 'This Month', value: `${Number(m.revenue30dBOT ?? 0).toFixed(4)} BOT`, color: 'text-emerald-400' },
-                { label: 'MRR', value: `${Number(m.mrrBOT ?? 0).toFixed(4)} BOT`, color: 'text-amber-400' },
-                { label: 'Pending', value: `~${pendingPayout.toFixed(4)} BOT`, color: 'text-violet-400' },
+                { label: 'This Month', value: `${Number(m.revenue30dBOT ?? 0).toFixed(4)} USDC`, color: 'text-emerald-400' },
+                { label: 'MRR', value: `${Number(m.mrrBOT ?? 0).toFixed(4)} USDC`, color: 'text-amber-400' },
+                { label: 'Pending', value: `~${pendingPayout.toFixed(4)} USDC`, color: 'text-violet-400' },
                 { label: 'Churn', value: String(m.churn30d ?? 0), color: m.churn30d > 0 ? 'text-red-400' : 'text-emerald-400' },
               ].map((r) => (
                 <div key={r.label} className="flex items-center justify-between">
@@ -672,7 +672,7 @@ const DevAgentStore = () => {
                   </div>
                   {form.pricingModel !== 'free' && form.pricingModel !== 'enterprise' && (
                     <div className="grid grid-cols-2 gap-2">
-                      <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Price (BOT) *</label><input value={form.priceBOT} onChange={(e) => { set('priceBOT')(e); clearError('priceBOT'); }} placeholder="0.02" className={`${input} ${errors.priceBOT ? 'border-red-500/50' : ''}`} /><FieldError error={errors.priceBOT} /></div>
+                      <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Price (USDC) *</label><input value={form.priceBOT} onChange={(e) => { set('priceBOT')(e); clearError('priceBOT'); }} placeholder="0.02" className={`${input} ${errors.priceBOT ? 'border-red-500/50' : ''}`} /><FieldError error={errors.priceBOT} /></div>
                       <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Billing Cycle</label><select value={form.billingCycle} onChange={set('billingCycle')} className={input}><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="one-time">One-time</option></select></div>
                     </div>
                   )}
@@ -717,7 +717,7 @@ const DevAgentStore = () => {
                         <div className="flex items-center gap-1.5 mt-1.5">
                           <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] rounded font-medium">{form.category.replace(/_/g, ' ')}</span>
                           <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] rounded font-medium">{form.pricingModel.replace(/_/g, ' ')}</span>
-                          {form.priceBOT && <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] rounded font-mono font-medium">{form.priceBOT} BOT</span>}
+                          {form.priceBOT && <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] rounded font-mono font-medium">{form.priceBOT} USDC</span>}
                         </div>
                       </div>
                     </div>

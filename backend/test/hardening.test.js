@@ -51,7 +51,7 @@ test('rpc url list parses env and always yields at least one endpoint', () => {
   for (const u of urls) assert.match(u, /^https?:\/\//);
 });
 
-test('rpc callRpc returns a live block number from BOT Chain', async () => {
+test('rpc callRpc returns a live block number from Arc Chain', async () => {
   const result = await callRpc('eth_blockNumber', []);
   const n = Number(result);
   assert.ok(n > 0, `expected a positive block number, got ${result}`);

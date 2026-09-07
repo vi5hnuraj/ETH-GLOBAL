@@ -192,7 +192,7 @@ const PurchaseRow = ({ session, service, providerName, acting, onPay, onCancel, 
 
       {/* Price */}
       <div className="text-right shrink-0 w-24">
-        <span className="text-sm font-semibold text-white">{fmtBot(amount)} <span className="text-zinc-600 font-normal">BOT</span></span>
+        <span className="text-sm font-semibold text-white">{fmtBot(amount)} <span className="text-zinc-600 font-normal">USDC</span></span>
       </div>
 
       {/* Date */}
@@ -284,7 +284,7 @@ const BulkPurchaseModal = ({ open, sessions, serviceMap, agents, onClose, onConf
             return (
               <div key={s.sessionId} className="flex items-center justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
                 <span className="text-sm text-white truncate">{svc?.title || s.serviceId}</span>
-                <span className="text-xs text-zinc-400 shrink-0 ml-2">{fmtBot(Number(svc?.unitPriceBOT || 0) * Number(s.quantity || 1))} BOT</span>
+                <span className="text-xs text-zinc-400 shrink-0 ml-2">{fmtBot(Number(svc?.unitPriceBOT || 0) * Number(s.quantity || 1))} USDC</span>
               </div>
             );
           })}
@@ -300,14 +300,14 @@ const BulkPurchaseModal = ({ open, sessions, serviceMap, agents, onClose, onConf
             {walletLoading && <p className="text-[11px] text-zinc-500 mt-1">Loading balance…</p>}
             {walletBOT != null && (
               <p className={`text-[11px] mt-1 ${insufficient ? 'text-red-400' : 'text-emerald-400'}`}>
-                Balance: {fmtBot(walletBOT)} BOT {insufficient && '— insufficient'}
+                Balance: {fmtBot(walletBOT)} USDC {insufficient && '— insufficient'}
               </p>
             )}
           </div>
 
           <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg px-4 py-3">
             <span className="text-sm text-zinc-400">Total</span>
-            <span className={`text-lg font-black ${insufficient ? 'text-red-400' : 'text-gradient'}`}>{fmtBot(total)} BOT</span>
+            <span className={`text-lg font-black ${insufficient ? 'text-red-400' : 'text-gradient'}`}>{fmtBot(total)} USDC</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -317,7 +317,7 @@ const BulkPurchaseModal = ({ open, sessions, serviceMap, agents, onClose, onConf
               disabled={busy || !consumerAgentId || insufficient}
               className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50 transition-colors"
             >
-              {busy ? 'Processing…' : `Confirm — ${fmtBot(total)} BOT`}
+              {busy ? 'Processing…' : `Confirm — ${fmtBot(total)} USDC`}
             </button>
             <button type="button" onClick={onClose} disabled={busy} className="px-3 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
           </div>
@@ -426,7 +426,7 @@ const DevSessions = () => {
     setActing(`${session.sessionId}:confirm`);
     try {
       const r = await developerApi.confirmPrepaidPurchase(session.sessionId);
-      if (r.success) toast.success(`Paid ${fmtBot(r.amountBOT)} BOT — ${r.credits} credits granted.`);
+      if (r.success) toast.success(`Paid ${fmtBot(r.amountBOT)} USDC — ${r.credits} credits granted.`);
       else toast.error(r.failureReason || 'Payment failed');
       refresh({ background: true });
     } catch (err) { toast.error(err.message || 'Payment failed'); refresh({ background: true }); }
@@ -449,7 +449,7 @@ const DevSessions = () => {
     try {
       const intent = await developerApi.prepaidIntent({ serviceId: session.serviceId, consumerAgentId: session.consumerAgentId, quantity: session.quantity || '1', reason: 'Retry purchase' });
       const r = await developerApi.confirmPrepaidPurchase(intent.sessionId);
-      if (r.success) toast.success(`Paid ${fmtBot(r.amountBOT)} BOT — ${r.credits} credits granted.`);
+      if (r.success) toast.success(`Paid ${fmtBot(r.amountBOT)} USDC — ${r.credits} credits granted.`);
       else toast.error(r.failureReason || 'Payment failed');
       refresh({ background: true });
     } catch (err) { toast.error(err.message || 'Retry failed'); refresh({ background: true }); }
@@ -613,7 +613,7 @@ const DevSessions = () => {
                   </label>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-gradient">{fmtBot(cartSessions.reduce((s, cs) => s + (Number(serviceMap[cs.serviceId]?.unitPriceBOT || 0) * Number(cs.quantity || 1)), 0))} BOT</span>
+                  <span className="text-sm font-bold text-gradient">{fmtBot(cartSessions.reduce((s, cs) => s + (Number(serviceMap[cs.serviceId]?.unitPriceBOT || 0) * Number(cs.quantity || 1)), 0))} USDC</span>
                   <Link to="/developer/marketplace" className="text-[11px] text-zinc-500 hover:text-white transition-colors">Continue Shopping</Link>
                   {selectedCartIds.size > 0 && (
                     <button type="button" onClick={() => openBulkBuy('selected')} disabled={acting === 'bulk'} className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">

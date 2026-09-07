@@ -79,7 +79,7 @@ h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin-top:
 <tr><th>Provider</th><td>${providerName}</td></tr>
 <tr><th>Usage</th><td>${inv.quantity} ${inv.unit || 'unit'}${inv.quantity > 1 ? 's' : ''}</td></tr>
 <tr><th>Status</th><td>${inv.status === 'pending' ? 'Pending' : inv.status}</td></tr>
-<tr><th>Total</th><td class="amount">${fmtBot(inv.amountBOT)} ${inv.currency || 'BOT'}</td></tr></table>
+<tr><th>Total</th><td class="amount">${fmtBot(inv.amountBOT)} ${inv.currency || 'USDC'}</td></tr></table>
 <p class="muted" style="margin-top:28px">Generated ${fmtWhen(new Date().toISOString())} · GlobalPay Developer Console</p></body></html>`;
   const frame = document.createElement('iframe');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
@@ -182,7 +182,7 @@ const MoreFilters = ({ options, more, onChange, count }) => {
             </div>
           </div>
           <div>
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Amount (BOT)</p>
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Amount (USDC)</p>
             <div className="flex items-center gap-2">
               <input value={more.min} onChange={set('min')} placeholder="Min" inputMode="decimal" aria-label="Minimum amount" className={`${selectCls} w-full`} />
               <input value={more.max} onChange={set('max')} placeholder="Max" inputMode="decimal" aria-label="Maximum amount" className={`${selectCls} w-full`} />
@@ -254,7 +254,7 @@ const InvoiceRow = ({ inv, service, consumerName, providerName }) => {
       <div className="flex items-center gap-4 shrink-0">
         {/* Amount */}
         <div className="text-right min-w-[90px]">
-          <p className="font-mono text-sm font-semibold text-white">{fmtBot(inv.amountBOT)} BOT</p>
+          <p className="font-mono text-sm font-semibold text-white">{fmtBot(inv.amountBOT)} USDC</p>
           <p className="text-[10px] text-zinc-600">{inv.quantity} {inv.unit || 'request'}{inv.quantity > 1 ? 's' : ''}</p>
         </div>
 
@@ -392,7 +392,7 @@ const DevMarketInvoices = () => {
   const exportColumns = [
     { key: 'invoiceId', label: 'Invoice' }, { key: 'serviceId', label: 'Service' },
     { key: 'consumerAgentId', label: 'Consumer' }, { key: 'providerAgentId', label: 'Provider' },
-    { key: 'quantity', label: 'Quantity' }, { key: 'amountBOT', label: 'Amount (BOT)' },
+    { key: 'quantity', label: 'Quantity' }, { key: 'amountBOT', label: 'Amount (USDC)' },
     { key: 'status', label: 'Status' }, { key: 'createdAt', label: 'Created' },
     { key: 'paidAt', label: 'Paid' }, { key: 'txHash', label: 'Tx Hash' }
   ];
@@ -440,10 +440,10 @@ const DevMarketInvoices = () => {
 
       {/* Summary stats — 80px cards */}
       <div className="mb-4 grid grid-cols-2 gap-2.5 lg:grid-cols-5">
-        <CompactStat label="Revenue" value={`${metrics.revenueMonth.toFixed(4)} BOT`} accent="text-emerald-400" />
-        <CompactStat label="Avg Invoice" value={`${metrics.averageInvoice.toFixed(4)} BOT`} accent="text-blue-400" />
-        <CompactStat label="Pending" value={`${metrics.pending.toFixed(4)} BOT`} accent="text-amber-400" />
-        <CompactStat label="Settled" value={`${metrics.totalSettled.toFixed(4)} BOT`} accent="text-emerald-400" />
+        <CompactStat label="Revenue" value={`${metrics.revenueMonth.toFixed(4)} USDC`} accent="text-emerald-400" />
+        <CompactStat label="Avg Invoice" value={`${metrics.averageInvoice.toFixed(4)} USDC`} accent="text-blue-400" />
+        <CompactStat label="Pending" value={`${metrics.pending.toFixed(4)} USDC`} accent="text-amber-400" />
+        <CompactStat label="Settled" value={`${metrics.totalSettled.toFixed(4)} USDC`} accent="text-emerald-400" />
         <CompactStat label="Failed" value={String(metrics.failed)} accent="text-red-400" />
       </div>
 

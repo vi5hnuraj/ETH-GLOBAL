@@ -324,7 +324,7 @@ const AiAgentHub = () => {
                         <p className="text-[10px] uppercase text-zinc-500">Payments</p>
                       </div>
                       <div className="bg-zinc-950/60 rounded-lg p-3 text-center">
-                        <p className="text-2xl font-black text-gradient">{Number(stats.totalVolumeETH).toFixed(4)}</p>
+                        <p className="text-2xl font-black text-gradient">{Number(stats.totalVolumeUSDC || 0).toFixed(4)}</p>
                         <p className="text-[10px] uppercase text-zinc-500">Volume USDC</p>
                       </div>
                     </div>
@@ -339,7 +339,7 @@ const AiAgentHub = () => {
                           {stats.last7Days.map((d) => (
                             <div key={d.date} className="flex justify-between text-xs">
                               <span className="text-zinc-500">{d.date}</span>
-                              <span className="text-zinc-300">{Number(d.volumeETH).toFixed(4)} USDC</span>
+                              <span className="text-zinc-300">{Number(d.volumeUSDC || 0).toFixed(4)} USDC</span>
                             </div>
                           ))}
                         </div>

@@ -121,7 +121,7 @@ const ChartTip = ({ active, payload, label }) => {
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }} className="font-mono">
           {p.name}: {p.name?.toLowerCase().includes('spend') || p.name?.toLowerCase().includes('volume') || p.name?.toLowerCase().includes('cost')
-            ? `${fmt(p.value, 4)} BOT` : fmtInt(p.value)}
+            ? `${fmt(p.value, 4)} USDC` : fmtInt(p.value)}
         </p>
       ))}
     </div>
@@ -228,7 +228,7 @@ const DevAgentConsumer = () => {
     if (errorRate > 5) recs.push({ icon: FiAlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', text: `Error rate is ${fmt(errorRate, 1)}% — investigate failing endpoints.`, action: 'View Errors' });
     if (avgLatency > 500) recs.push({ icon: FiClock, color: 'text-blue-400', bg: 'bg-blue-500/10', text: `Average response time is ${fmtInt(avgLatency)}ms — consider optimizing slow agents.`, action: 'View Performance' });
     if (d.updatesAvailable?.length > 0) recs.push({ icon: FiArrowUpRight, color: 'text-violet-400', bg: 'bg-violet-500/10', text: `${d.updatesAvailable.length} agent update${d.updatesAvailable.length > 1 ? 's' : ''} available.`, action: 'Update Agents' });
-    if (monthlySpend > 0 && billingForecast.projected > monthlySpend * 1.5) recs.push({ icon: FiDollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10', text: `Projected to spend ${fmt(billingForecast.projected, 4)} BOT this month — 50% above current.`, action: 'View Billing' });
+    if (monthlySpend > 0 && billingForecast.projected > monthlySpend * 1.5) recs.push({ icon: FiDollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10', text: `Projected to spend ${fmt(billingForecast.projected, 4)} USDC this month — 50% above current.`, action: 'View Billing' });
     if (activeAgents === 0 && installed.length > 0) recs.push({ icon: FiWifiOff, color: 'text-red-400', bg: 'bg-red-500/10', text: 'All installed agents are inactive. Resume them to restore service.', action: 'Manage Agents' });
     return recs;
   }, [errorRate, avgLatency, d.updatesAvailable, monthlySpend, billingForecast, activeAgents, installed.length]);
@@ -290,7 +290,7 @@ const DevAgentConsumer = () => {
         <KpiCard
           icon={<FiDollarSign size={18} className="text-emerald-400" />}
           label="Monthly Spend"
-          value={`${fmt(monthlySpend, 4)} BOT`}
+          value={`${fmt(monthlySpend, 4)} USDC`}
           accent="bg-emerald-500/10"
           sparkData={spendSpark}
         />
@@ -325,7 +325,7 @@ const DevAgentConsumer = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-zinc-100">Daily Spending</h2>
-              <p className="text-xs text-zinc-500 mt-0.5">BOT volume across all agent invocations</p>
+              <p className="text-xs text-zinc-500 mt-0.5">USDC volume across all agent invocations</p>
             </div>
             <div className="flex items-center gap-4 text-xs text-zinc-500">
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" />Spend</span>
@@ -360,7 +360,7 @@ const DevAgentConsumer = () => {
           </div>
           {/* Summary row below chart */}
           <div className="flex items-center gap-6 mt-3 text-xs text-zinc-500">
-            <span>Volume: <span className="text-zinc-300 font-mono">{botVolume} BOT</span></span>
+            <span>Volume: <span className="text-zinc-300 font-mono">{botVolume} USDC</span></span>
             <span>Payments: <span className="text-zinc-300 font-mono">{fmtInt(a.payments)}</span></span>
             <span>Most Active: <span className="text-zinc-300">{a.mostActiveAgent || '—'}</span></span>
           </div>
@@ -381,7 +381,7 @@ const DevAgentConsumer = () => {
                       <Tooltip content={({ active, payload }) => active && payload?.[0] ? (
                         <div className="bg-zinc-900 border border-zinc-700/60 rounded-xl px-3 py-2 shadow-xl text-xs">
                           <p className="text-zinc-300 font-medium">{payload[0].name}</p>
-                          <p className="text-emerald-400 font-mono">{fmt(payload[0].value, 4)} BOT</p>
+                          <p className="text-emerald-400 font-mono">{fmt(payload[0].value, 4)} USDC</p>
                         </div>
                       ) : null} />
                     </PieChart>
@@ -395,7 +395,7 @@ const DevAgentConsumer = () => {
                       <div key={c.name} className="flex items-center gap-2 text-xs">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                         <span className="text-zinc-400 flex-1 truncate">{c.name}</span>
-                        <span className="text-zinc-300 font-mono">{fmt(c.value, 4)} BOT</span>
+                        <span className="text-zinc-300 font-mono">{fmt(c.value, 4)} USDC</span>
                         <span className="text-zinc-600 w-12 text-right">{pct}%</span>
                       </div>
                     );
@@ -487,11 +487,11 @@ const DevAgentConsumer = () => {
             <div className="flex items-baseline justify-between">
               <div>
                 <p className="text-xs text-zinc-500">Current Spend</p>
-                <p className="text-lg font-bold text-zinc-100 font-mono">{fmt(billingForecast.current, 4)} <span className="text-xs text-zinc-500 font-sans">BOT</span></p>
+                <p className="text-lg font-bold text-zinc-100 font-mono">{fmt(billingForecast.current, 4)} <span className="text-xs text-zinc-500 font-sans">USDC</span></p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-500">Projected</p>
-                <p className="text-lg font-bold text-amber-400 font-mono">{fmt(billingForecast.projected, 4)} <span className="text-xs text-zinc-500 font-sans">BOT</span></p>
+                <p className="text-lg font-bold text-amber-400 font-mono">{fmt(billingForecast.projected, 4)} <span className="text-xs text-zinc-500 font-sans">USDC</span></p>
               </div>
             </div>
             {/* Progress bar */}
@@ -506,8 +506,8 @@ const DevAgentConsumer = () => {
               </div>
             </div>
             <div className="flex items-center justify-between text-xs pt-1">
-              <span className="text-zinc-500">BOT Volume (period)</span>
-              <span className="text-zinc-300 font-mono">{botVolume} BOT</span>
+              <span className="text-zinc-500">USDC Volume (period)</span>
+              <span className="text-zinc-300 font-mono">{botVolume} USDC</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-zinc-500">Payments</span>

@@ -308,7 +308,7 @@ const DevServices = () => {
         <EmptyState
           icon={FiLayers}
           title="Publish your first service."
-          description="List an AI capability on the network and start earning BOT automatically — billing, invoicing and settlement are fully autonomous."
+          description="List an AI capability on the network and start earning USDC automatically — billing, invoicing and settlement are fully autonomous."
           benefits={[
             'Automatic Billing — every usage report mints an invoice',
             'Invoice Generation — metered, idempotent, explorer-verified',
@@ -321,7 +321,7 @@ const DevServices = () => {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <MetricCard icon={FiDollarSign} label="Total Revenue" value={`${fmtBOT(metrics.totalRevenue)} BOT`} sub="Lifetime settled revenue" accent={{ bg: 'bg-emerald-500/10', text: 'text-emerald-400' }} />
+            <MetricCard icon={FiDollarSign} label="Total Revenue" value={`${fmtBOT(metrics.totalRevenue)} USDC`} sub="Lifetime settled revenue" accent={{ bg: 'bg-emerald-500/10', text: 'text-emerald-400' }} />
             <MetricCard icon={FiActivity} label="Total Requests" value={fmtCount(metrics.totalRequests)} sub="Processed usage reports" accent={{ bg: 'bg-blue-500/10', text: 'text-blue-400' }} />
             <MetricCard icon={FiPower} label="Active Services" value={metrics.active} sub={`${services.length} total listed`} accent={{ bg: 'bg-violet-500/10', text: 'text-violet-400' }} />
             <MetricCard icon={FiTrendingUp} label="Health" value={metrics.healthLabel} sub={metrics.healthSub} accent={{ bg: 'bg-amber-500/10', text: 'text-amber-400' }} />
@@ -423,7 +423,7 @@ const DevServices = () => {
                     <div className="grid grid-cols-2 gap-2 text-xs mb-4">
                       <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-2.5">
                         <p className="text-zinc-500 text-[10px] uppercase tracking-wide flex items-center gap-1"><FiDollarSign size={10} /> Revenue</p>
-                        <p className="text-sm font-bold text-gradient mt-0.5">{fmtBOT(s.revenueBOT)} <span className="text-[10px] text-zinc-500 font-normal">BOT</span></p>
+                        <p className="text-sm font-bold text-gradient mt-0.5">{fmtBOT(s.revenueBOT)} <span className="text-[10px] text-zinc-500 font-normal">USDC</span></p>
                       </div>
                       <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-2.5">
                         <p className="text-zinc-500 text-[10px] uppercase tracking-wide flex items-center gap-1"><FiActivity size={10} /> Requests</p>
@@ -432,7 +432,7 @@ const DevServices = () => {
                       <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-2.5">
                         <p className="text-zinc-500 text-[10px] uppercase tracking-wide">Price</p>
                         <p className="text-sm font-bold text-white mt-0.5">
-                          {Number(s.unitPriceBOT ?? s.unitPrice ?? 0).toFixed(4)} <span className="text-[10px] text-zinc-500 font-normal">BOT / {s.unitLabel || 'unit'}</span>
+                          {Number(s.unitPriceBOT ?? s.unitPrice ?? 0).toFixed(4)} <span className="text-[10px] text-zinc-500 font-normal">USDC / {s.unitLabel || 'unit'}</span>
                         </p>
                       </div>
                       <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-2.5">

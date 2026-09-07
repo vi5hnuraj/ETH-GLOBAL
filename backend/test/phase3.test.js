@@ -1,5 +1,5 @@
 /**
- * Phase 3 — BOT Chain core infrastructure hardening tests (node:test).
+ * Phase 3 — Arc Chain core infrastructure hardening tests (node:test).
  *
  *   - Nonce manager: per-wallet serialization, chain re-sync, stale-nonce
  *     detection, nonce advancement after commits.
@@ -219,7 +219,7 @@ test('reconciliation marks stale pending rows failed and never invents statuses'
       agent_id: agent.id,
       destination_address: '0x0000000000000000000000000000000000000000',
       amount: '1000000000000000',
-      token: 'BOT',
+      token: 'USDC',
       tx_hash: `0x${'a'.repeat(64)}`,
       status: 'pending',
       created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString()

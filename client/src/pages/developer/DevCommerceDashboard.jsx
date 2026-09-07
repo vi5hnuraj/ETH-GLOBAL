@@ -23,7 +23,7 @@ const fmtMoney = (v) => {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const fmtBOT = (v, dp = 4) => `${Number(v || 0).toFixed(dp)} BOT`;
+const fmtBOT = (v, dp = 4) => `${Number(v || 0).toFixed(dp)} USDC`;
 
 const timeAgo = (iso) => {
   if (!iso) return 'never';
@@ -78,7 +78,7 @@ const Header = ({ onRefresh, busy }) => (
           Live
         </span>
       </div>
-      <p className="text-sm text-zinc-400 mt-2">Monitor AI agent purchasing across the BOT Chain.</p>
+      <p className="text-sm text-zinc-400 mt-2">Monitor AI agent purchasing across the Arc Chain.</p>
     </div>
     <div className="flex flex-wrap items-center gap-2 shrink-0">
       <RefreshButton onClick={onRefresh} refreshing={busy} />
@@ -240,7 +240,7 @@ const SpendChart = ({ series, total, labels = [] }) => {
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <p className="text-2xl font-semibold tracking-tight text-white tabular-nums">
-          {fmtMoney(total)} <span className="text-xs font-medium text-zinc-500">BOT / mo</span>
+          {fmtMoney(total)} <span className="text-xs font-medium text-zinc-500">USDC / mo</span>
         </p>
         <div className="flex flex-wrap items-center gap-3">
           {series.map((p) => (
@@ -303,11 +303,11 @@ const BudgetUsage = ({ budgetNum, spend, pct }) => {
       <div className="min-w-0 space-y-4">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-zinc-500">Remaining Budget</p>
-          <p className="mt-0.5 text-xl font-semibold text-white tabular-nums">{remaining !== null ? `${fmtMoney(remaining)} BOT` : '—'}</p>
+          <p className="mt-0.5 text-xl font-semibold text-white tabular-nums">{remaining !== null ? `${fmtMoney(remaining)} USDC` : '—'}</p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-zinc-500">Monthly Cap</p>
-          <p className="mt-0.5 text-xl font-semibold text-white tabular-nums">{budgetNum > 0 ? `${fmtMoney(budgetNum)} BOT` : '—'}</p>
+          <p className="mt-0.5 text-xl font-semibold text-white tabular-nums">{budgetNum > 0 ? `${fmtMoney(budgetNum)} USDC` : '—'}</p>
         </div>
       </div>
     </div>
@@ -485,8 +485,8 @@ const DevCommerceDashboard = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi to="/developer/commerce/sessions" icon={<FiActivity size={15} />} iconColor="text-emerald-400" value={activeCount} label="Active Purchases" caption="paid · credits granted" />
         <Kpi to="/developer/commerce/sessions" icon={<FiClock size={15} />} iconColor="text-amber-400" value={pendingPayments} label="Awaiting Payment" caption="confirm payment" />
-        <Kpi to="/developer/marketplace/invoices" icon={<FiDollarSign size={15} />} iconColor="text-blue-400" value={fmtMoney(spendToday)} label="Today's Spend" caption={`${fmtMoney(monthSpend)} BOT this month`} />
-        <Kpi to="/developer/commerce/policy" icon={<FiShield size={15} />} iconColor="text-sky-400" value={budgetRemaining !== null ? fmtMoney(budgetRemaining) : '—'} label="Budget Remaining" caption={budgetNum > 0 ? `of ${fmtMoney(budgetNum)} BOT cap` : 'no cap set'} />
+        <Kpi to="/developer/marketplace/invoices" icon={<FiDollarSign size={15} />} iconColor="text-blue-400" value={fmtMoney(spendToday)} label="Today's Spend" caption={`${fmtMoney(monthSpend)} USDC this month`} />
+        <Kpi to="/developer/commerce/policy" icon={<FiShield size={15} />} iconColor="text-sky-400" value={budgetRemaining !== null ? fmtMoney(budgetRemaining) : '—'} label="Budget Remaining" caption={budgetNum > 0 ? `of ${fmtMoney(budgetNum)} USDC cap` : 'no cap set'} />
       </div>
 
       <div className="grid grid-cols-12 gap-4">

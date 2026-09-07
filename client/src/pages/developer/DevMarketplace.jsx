@@ -191,7 +191,7 @@ const DevMarketplace = () => {
     try {
       const r = await developerApi.confirmPrepaidPurchase(pendingSession.sessionId);
       if (r.success) {
-        toast.success(`Paid ${Number(r.amountBOT || 0).toFixed(4)} BOT — invoice ${r.invoice?.invoiceId} paid, ${r.credits} credits granted.`);
+        toast.success(`Paid ${Number(r.amountBOT || 0).toFixed(4)} USDC — invoice ${r.invoice?.invoiceId} paid, ${r.credits} credits granted.`);
         // Show access details if available
         if (r.accessKey || r.endpointUrl) {
           setAccessDetails({
@@ -269,7 +269,7 @@ const DevMarketplace = () => {
         <StatCard icon={<FiShoppingBag size={18} />} label="Listed Services" value={allServices.length} accent="text-blue-400" sub="Across all providers" />
         <StatCard icon={<FiStar size={18} />} label="Categories" value={CATEGORY_CHIPS.length - 1} accent="text-violet-400" sub="Browseable now" />
         <StatCard icon={<FiCpu size={18} />} label="Providers" value={providers.length} accent="text-emerald-400" sub="Publishing agents" />
-        <StatCard icon={<FiZap size={18} />} label="Lowest Price" value={allServices.length ? `${Number(Math.min(...allServices.map((s) => s.unitPriceBOT))).toFixed(4)} BOT` : '—'} accent="text-amber-400" sub="Per listed unit" />
+        <StatCard icon={<FiZap size={18} />} label="Lowest Price" value={allServices.length ? `${Number(Math.min(...allServices.map((s) => s.unitPriceBOT))).toFixed(4)} USDC` : '—'} accent="text-amber-400" sub="Per listed unit" />
       </div>
 
       {!catalogLoaded && loading ? (
@@ -334,7 +334,7 @@ const DevMarketplace = () => {
                 {PRICING_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
               <div className="flex items-center gap-2">
-                <input value={maxPrice} onChange={(e) => { setMaxPrice(e.target.value); resetPage(); }} placeholder="Max BOT" inputMode="decimal" aria-label="Maximum price in BOT" className={`${input} w-full`} />
+                <input value={maxPrice} onChange={(e) => { setMaxPrice(e.target.value); resetPage(); }} placeholder="Max USDC" inputMode="decimal" aria-label="Maximum price in USDC" className={`${input} w-full`} />
                 <select value={sort} onChange={(e) => { setSort(e.target.value); resetPage(); }} aria-label="Sort services" className={input}>
                   {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
@@ -345,7 +345,7 @@ const DevMarketplace = () => {
               <EmptyState
                 icon={FiShoppingBag}
                 title="No services published yet."
-                description="Publish your first AI service and start earning BOT automatically — or explore what the network already offers."
+                description="Publish your first AI service and start earning USDC automatically — or explore what the network already offers."
                 primary={{ label: 'Publish Service', href: '/developer/marketplace/services', icon: <FiPlus size={13} /> }}
                 secondary={{ label: 'Browse Documentation', href: '/developer/docs', icon: <FiBookOpen size={13} /> }}
               />
@@ -392,7 +392,7 @@ const DevMarketplace = () => {
 
             {!pendingSession ? (
               <>
-                <p className="text-xs text-zinc-500 mb-4">{MODEL_LABEL[buying.pricingModel] || 'Prepaid credits'} · {Number(buying.unitPriceBOT ?? buying.unitPrice).toFixed(4)} BOT / {buying.unitLabel || 'unit'}</p>
+                <p className="text-xs text-zinc-500 mb-4">{MODEL_LABEL[buying.pricingModel] || 'Prepaid credits'} · {Number(buying.unitPriceBOT ?? buying.unitPrice).toFixed(4)} USDC / {buying.unitLabel || 'unit'}</p>
 
                 <div className="space-y-4">
                   <div>
@@ -407,7 +407,7 @@ const DevMarketplace = () => {
                       <p className="text-[11px] text-red-400 mt-1.5">{walletErr}</p>
                     ) : wallet ? (
                       <p className={`text-[11px] mt-1.5 ${insufficient ? 'text-red-400' : 'text-emerald-400'}`}>
-                        Wallet balance: <span className="font-mono">{Number(walletBOT).toFixed(4)} BOT</span>
+                        Wallet balance: <span className="font-mono">{Number(walletBOT).toFixed(4)} USDC</span>
                         {insufficient && ' — insufficient for this purchase'}
                       </p>
                     ) : null)}
@@ -446,11 +446,11 @@ const DevMarketplace = () => {
 
                   <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg px-4 py-3">
                     <span className="text-sm text-zinc-400">Total due now</span>
-                    <span className={`text-lg font-black ${insufficient ? 'text-red-400' : 'text-gradient'}`}>{Number.isFinite(costEstimate) ? costEstimate.toFixed(4) : '—'} BOT</span>
+                    <span className={`text-lg font-black ${insufficient ? 'text-red-400' : 'text-gradient'}`}>{Number.isFinite(costEstimate) ? costEstimate.toFixed(4) : '—'} USDC</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <button type="button" onClick={createIntent} disabled={buyingBusy || insufficient} className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50">
-                      {buyingBusy ? 'Preparing…' : `Review purchase — ${Number.isFinite(costEstimate) ? costEstimate.toFixed(4) : '0.0000'} BOT`}
+                      {buyingBusy ? 'Preparing…' : `Review purchase — ${Number.isFinite(costEstimate) ? costEstimate.toFixed(4) : '0.0000'} USDC`}
                     </button>
                     <button type="button" onClick={closeBuy} disabled={buyingBusy} className="px-3 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
                   </div>
@@ -469,11 +469,11 @@ const DevMarketplace = () => {
                 </div>
                 <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800 rounded-lg px-4 py-3">
                   <span className="text-sm text-zinc-400">Total debited from {buyForm.consumerAgentId || 'consumer'} wallet</span>
-                  <span className="text-lg font-black text-gradient">{Number(pendingSession.estimatedCostBOT || 0).toFixed(4)} BOT</span>
+                  <span className="text-lg font-black text-gradient">{Number(pendingSession.estimatedCostBOT || 0).toFixed(4)} USDC</span>
                 </div>
                 {wallet && (
                   <p className={`text-[11px] ${insufficient ? 'text-red-400' : 'text-emerald-400'}`}>
-                    Wallet balance: <span className="font-mono">{Number(walletBOT).toFixed(4)} BOT</span>
+                    Wallet balance: <span className="font-mono">{Number(walletBOT).toFixed(4)} USDC</span>
                     {insufficient && ' — insufficient for this purchase, payment will fail.'}
                   </p>
                 )}
@@ -483,7 +483,7 @@ const DevMarketplace = () => {
                   </button>
                   <button type="button" onClick={closeBuy} disabled={confirmBusy} className="px-3 py-2 text-sm text-zinc-400 hover:text-white">Back</button>
                 </div>
-                <p className="text-[11px] text-zinc-600">By confirming you authorize a one-time charge of {Number(pendingSession.estimatedCostBOT || 0).toFixed(4)} BOT from the consumer agent wallet to {buying.provider?.name || 'the provider'}. If the wallet cannot cover it, no invoice is created and no credits are granted.</p>
+                <p className="text-[11px] text-zinc-600">By confirming you authorize a one-time charge of {Number(pendingSession.estimatedCostBOT || 0).toFixed(4)} USDC from the consumer agent wallet to {buying.provider?.name || 'the provider'}. If the wallet cannot cover it, no invoice is created and no credits are granted.</p>
               </div>
             )}
           </div>
@@ -555,7 +555,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
     <div className="flex items-center justify-between">
       <div>
         <span className="text-gradient font-black text-lg">{Number(s.unitPriceBOT ?? s.unitPrice).toFixed(4)}</span>
-        <span className="text-xs text-zinc-500"> BOT / {s.unitLabel || 'unit'}</span>
+        <span className="text-xs text-zinc-500"> USDC / {s.unitLabel || 'unit'}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={onBuy} className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">

@@ -135,15 +135,15 @@ const DevServiceDetail = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card title="Unit price" className="!p-4">
-          <p className="text-2xl font-black text-gradient">{service.unitPriceBOT ?? Number(service.unitPrice)} BOT</p>
+          <p className="text-2xl font-black text-gradient">{service.unitPriceBOT ?? Number(service.unitPrice)} USDC</p>
           <p className="text-[11px] text-zinc-500 mt-1">per {service.unitLabel || 'unit'}</p>
         </Card>
         <Card title="Status" className="!p-4">
           <Pill tone={service.isActive ? 'emerald' : 'zinc'} dot>{service.isActive ? 'Active' : 'Draft'}</Pill>
-          <p className="text-[11px] text-zinc-500 mt-2">{service.supportedCurrencies?.join(', ') || 'BOT'}</p>
+          <p className="text-[11px] text-zinc-500 mt-2">{service.supportedCurrencies?.join(', ') || 'USDC'}</p>
         </Card>
         <Card title="Revenue" className="!p-4">
-          <p className="text-2xl font-black text-emerald-400">{Number(revenue.revenueBOT || 0).toFixed(4)} BOT</p>
+          <p className="text-2xl font-black text-emerald-400">{Number(revenue.revenueBOT || 0).toFixed(4)} USDC</p>
           <p className="text-[11px] text-zinc-500 mt-1">settled {Number(revenue.paid || 0).toFixed(4)} · pending {Number(revenue.pending || 0).toFixed(4)}</p>
         </Card>
         <Card title="Consumers" className="!p-4">
@@ -187,11 +187,11 @@ const DevServiceDetail = () => {
             </div>
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Unit price</span>
-              <span className="text-xs text-zinc-200 font-mono">{service.unitPriceBOT ?? Number(service.unitPrice)} BOT / {service.unitLabel || 'unit'}</span>
+              <span className="text-xs text-zinc-200 font-mono">{service.unitPriceBOT ?? Number(service.unitPrice)} USDC / {service.unitLabel || 'unit'}</span>
             </div>
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Currencies</span>
-              <span className="text-xs text-zinc-200 font-mono">{(service.supportedCurrencies || ['BOT']).join(', ')}</span>
+              <span className="text-xs text-zinc-200 font-mono">{(service.supportedCurrencies || ['USDC']).join(', ')}</span>
             </div>
             <p className="text-xs text-zinc-600 pt-2">Every usage report against this service creates an invoice for the consumer agent and settles automatically from its MPC wallet.</p>
           </div>
@@ -232,7 +232,7 @@ const DevServiceDetail = () => {
               {consumers.map((c) => (
                 <div key={c.agentId} className="flex items-center justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-4 py-2.5">
                   <span className="font-mono text-xs text-zinc-300 flex items-center gap-1.5 min-w-0" title={c.agentId}><FiUsers size={12} /><span className="truncate">{c.agentId}</span></span>
-                  <span className="text-sm font-bold text-white">{c.amountBOT.toFixed(4)} BOT <span className="text-[10px] text-zinc-500 font-normal">× {c.count}</span></span>
+                  <span className="text-sm font-bold text-white">{c.amountBOT.toFixed(4)} USDC <span className="text-[10px] text-zinc-500 font-normal">× {c.count}</span></span>
                 </div>
               ))}
             </div>
@@ -247,7 +247,7 @@ const DevServiceDetail = () => {
               {relatedInvoices.slice(0, 30).map((inv) => (
                 <Link key={inv.invoiceId} to={`/developer/marketplace/invoices/${inv.invoiceId}`} className="flex items-center justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2 hover:border-zinc-700 transition-colors">
                   <span className="font-mono text-[11px] text-zinc-400 flex items-center gap-1"><FiCheckCircle size={11} className={inv.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'} /> {inv.invoiceId}</span>
-                  <span className="text-xs text-zinc-300">{inv.amountBOT} BOT · <span className={inv.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}>{inv.status}</span></span>
+                  <span className="text-xs text-zinc-300">{inv.amountBOT} USDC · <span className={inv.status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}>{inv.status}</span></span>
                 </Link>
               ))}
             </div>

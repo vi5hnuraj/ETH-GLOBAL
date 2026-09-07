@@ -148,7 +148,7 @@ const DevMarketplaceRevenue = () => {
           title="No revenue yet"
           description="Publish a service and receive your first payment."
           benefits={[
-            'Publish a service with a BOT price',
+            'Publish a service with a USDC price',
             'Consumer agents discover and purchase it',
             'Invoices settle automatically on-chain',
             'Revenue appears here after settlement'
@@ -180,7 +180,7 @@ const DevMarketplaceRevenue = () => {
           {
             icon: <FiDollarSign size={14} />,
             label: 'Total Revenue',
-            value: `${fmtBot(totalPaidBOT)} BOT`,
+            value: `${fmtBot(totalPaidBOT)} USDC`,
             sub: growth !== null
               ? <span className={growth >= 0 ? 'text-emerald-400' : 'text-red-400'}>{growth >= 0 ? '+' : ''}{growth}%</span>
               : null,
@@ -189,14 +189,14 @@ const DevMarketplaceRevenue = () => {
           {
             icon: <FiClock size={14} />,
             label: 'Pending',
-            value: `${fmtBot(totalPendingBOT)} BOT`,
+            value: `${fmtBot(totalPendingBOT)} USDC`,
             sub: `${analytics.pendingCount ?? 0} invoice${(analytics.pendingCount ?? 0) === 1 ? '' : 's'}`,
             accent: 'text-amber-400'
           },
           {
             icon: <FiCheckCircle size={14} />,
             label: 'Paid',
-            value: `${fmtBot(totalPaidBOT)} BOT`,
+            value: `${fmtBot(totalPaidBOT)} USDC`,
             sub: `${analytics.paidCount ?? 0} invoice${(analytics.paidCount ?? 0) === 1 ? '' : 's'}`,
             accent: 'text-blue-400'
           },
@@ -239,7 +239,7 @@ const DevMarketplaceRevenue = () => {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Revenue Trend</h3>
-              <p className="text-[11px] text-zinc-600 mt-0.5">{fmtBot(chartTotal)} BOT this period</p>
+              <p className="text-[11px] text-zinc-600 mt-0.5">{fmtBot(chartTotal)} USDC this period</p>
             </div>
           </div>
           {chartData.length === 0 ? (
@@ -259,7 +259,7 @@ const DevMarketplaceRevenue = () => {
                   <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
                   <XAxis dataKey="name" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} width={50} />
-                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(v) => [`${fmtBot(v)} BOT`, 'Revenue']} />
+                  <Tooltip contentStyle={CHART_TOOLTIP} formatter={(v) => [`${fmtBot(v)} USDC`, 'Revenue']} />
                   <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fill="url(#revGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -296,7 +296,7 @@ const DevMarketplaceRevenue = () => {
               {/* Avg invoice */}
               <div className="flex items-center justify-between py-1.5">
                 <span className="text-[11px] text-zinc-500">Avg Invoice</span>
-                <span className="font-mono text-xs font-semibold text-white">{fmtBot(analytics.averageInvoiceBOT ?? 0)} BOT</span>
+                <span className="font-mono text-xs font-semibold text-white">{fmtBot(analytics.averageInvoiceBOT ?? 0)} USDC</span>
               </div>
               {/* Settlement */}
               <div className="flex items-center justify-between py-1.5">
@@ -345,7 +345,7 @@ const DevMarketplaceRevenue = () => {
                       <p className="text-sm font-semibold text-white truncate" title={s.displayName || s.serviceId}>
                         {s.displayName || 'Untitled Service'}
                       </p>
-                      <span className="font-mono text-xs font-semibold text-white shrink-0">{fmtBot(s.revenueBOT)} BOT</span>
+                      <span className="font-mono text-xs font-semibold text-white shrink-0">{fmtBot(s.revenueBOT)} USDC</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {s.providerName && (
@@ -388,7 +388,7 @@ const DevMarketplaceRevenue = () => {
                       <p className="text-sm font-semibold text-white truncate" title={c.displayName || c.agentId}>
                         {c.displayName || 'Unknown Customer'}
                       </p>
-                      <span className="font-mono text-xs font-semibold text-white shrink-0">{fmtBot(c.revenueBOT)} BOT</span>
+                      <span className="font-mono text-xs font-semibold text-white shrink-0">{fmtBot(c.revenueBOT)} USDC</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {c.orgName && (
@@ -459,7 +459,7 @@ const DevMarketplaceRevenue = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-zinc-300 truncate">Payment settled · {inv.serviceId}</p>
                     </div>
-                    <span className="font-mono text-[11px] font-semibold text-white shrink-0">{fmtBot(inv.amountBOT)} BOT</span>
+                    <span className="font-mono text-[11px] font-semibold text-white shrink-0">{fmtBot(inv.amountBOT)} USDC</span>
                     <span className="text-[10px] text-zinc-600 shrink-0">{timeAgo}</span>
                   </div>
                 );

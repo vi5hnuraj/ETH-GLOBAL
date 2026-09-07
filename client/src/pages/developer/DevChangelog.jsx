@@ -75,7 +75,7 @@ const CHANGELOG = [
       {
         label: 'Agent Wallets',
         items: [
-          'Headless BOT Chain wallet provisioning on agent creation',
+          'Headless Arc wallet provisioning on agent creation',
           'One-time agent API keys (gpay_sk_…) with automatic rotation',
           'Balance, history, and stats endpoints for agent wallets'
         ]

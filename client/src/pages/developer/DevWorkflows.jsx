@@ -264,8 +264,8 @@ const DevWorkflows = () => {
                         <td className="py-3 pr-4 text-xs text-zinc-400">{r.templateName || '—'}</td>
                         <td className="py-3 pr-4"><StatusBadge status={r.status}>{r.status}</StatusBadge></td>
                         <td className="py-3 pr-4 text-xs text-zinc-400">{r.currentStep ?? 0}/{r.totalSteps ?? '—'}</td>
-                        <td className="py-3 pr-4 text-right font-mono text-xs text-zinc-300">{Number(r.estimatedCostBOT ?? 0).toFixed(4)} BOT</td>
-                        <td className="py-3 pr-4 text-right font-mono text-xs text-zinc-300">{r.actualCostBOT != null ? `${Number(r.actualCostBOT).toFixed(4)} BOT` : '—'}</td>
+                        <td className="py-3 pr-4 text-right font-mono text-xs text-zinc-300">{Number(r.estimatedCostBOT ?? 0).toFixed(4)} USDC</td>
+                        <td className="py-3 pr-4 text-right font-mono text-xs text-zinc-300">{r.actualCostBOT != null ? `${Number(r.actualCostBOT).toFixed(4)} USDC` : '—'}</td>
                         <td className="py-3 text-right text-xs text-zinc-500">{r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
                       </tr>
                     ))}

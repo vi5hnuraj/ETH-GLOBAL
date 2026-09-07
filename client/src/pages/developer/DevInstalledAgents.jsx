@@ -74,7 +74,7 @@ const fmtPrice = (s) => {
   if (!s) return null;
   const p = Number(s.priceBOT ?? 0);
   if (s.pricingModel === 'free') return 'Free';
-  return `${p} BOT ${s.pricingModel === 'monthly' ? '/mo' : s.pricingModel === 'subscription' ? `/${s.billingCycle || 'period'}` : '/req'}`;
+  return `${p} USDC ${s.pricingModel === 'monthly' ? '/mo' : s.pricingModel === 'subscription' ? `/${s.billingCycle || 'period'}` : '/req'}`;
 };
 
 /* ─── Metric Card ─── */
@@ -439,7 +439,7 @@ const DevInstalledAgents = () => {
           iconColor="from-amber-600/40 to-amber-800/40"
           label="Monthly Spend"
           value={`${Number(monthlySpend).toFixed(4)}`}
-          sub="BOT this month"
+          sub="USDC this month"
         />
         <MetricCard
           icon={<FiActivity size={18} className="text-blue-400" />}
