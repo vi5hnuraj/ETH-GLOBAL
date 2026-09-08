@@ -1,0 +1,36 @@
+type Payment @entity(immutable: false) {
+  id: Bytes!
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  payer: Bytes!
+  payee: Bytes!
+  amount: BigInt!
+  paymentType: Int!
+  status: String!
+  releaseTime: BigInt!
+  invoiceReference: InvoiceReference
+  settlement: Settlement!
+}
+
+type Settlement @entity(immutable: false) {
+  id: Bytes!
+  payment: Payment!
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  payer: Bytes!
+  payee: Bytes!
+  amount: BigInt!
+  status: String!
+  settledAt: BigInt
+}
+
+type InvoiceReference @entity(immutable: true) {
+  id: Bytes!
+  payment: Payment!
+  reference: Bytes!
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
