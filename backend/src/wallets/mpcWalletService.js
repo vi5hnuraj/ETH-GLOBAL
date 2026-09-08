@@ -405,6 +405,36 @@ export const createMpcWalletService = () => {
       };
     },
 
+    async sendContractCall({ walletId, to, data, wei = '0', gasLimit = 180000, idempotencyKey }) {
+      if (!walletId) throw new Error('walletId is required for MPC contract call');
+      const chainId = resolveChainId();
+      assertBroadcastAllowed(chainId);
+      assertMpcSigningAllowed();
+      if (isProduction() && !idempotencyKey) {
+        throw new Error('An idempotency key is required before an MPC signing request can be sent.');
+      }
+      const priced = await transferGasPriceWei();
+      const url = `${mpcServiceUrl()}/api/v1/wallets/${walletId}/send`;
+      const body = {
+        to,
+        value: String(wei),
+        data,
+        chainId,
+        gasLimit,
+        gasPrice: priced.toString(),
+        idempotencyKey
+      };
+      const headers = {};
+      if (chainId === 5042001) headers['X-Mainnet-Approval'] = mainnetApprovalToken();
+      const res = await requestMpc(url, { method: 'POST', body, headers });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`External MPC contract call failed: ${res.status} ${errText}`);
+      }
+      const result = await res.json();
+      return { txHash: result.txHash, to, amount: String(wei), provider: 'mpc' };
+    },
+
     /**
      * Send a split payment to multiple recipients in ONE transaction.
      * 

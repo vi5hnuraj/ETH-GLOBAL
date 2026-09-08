@@ -1,4 +1,5 @@
 import express from 'express';
+import agentApiKeyMiddleware from '../middleware/agentApiKeyMiddleware.js';
 import {
   getArcConfig,
   getArcNetworkStatus,
@@ -42,13 +43,14 @@ router.get('/balance/:address', async (req, res) => {
  * POST /api/arc/agent/policy
  * Circle Agent Stack: Spending policy evaluation
  */
-router.post('/agent/policy', async (req, res) => {
+router.post('/agent/policy', agentApiKeyMiddleware, async (req, res) => {
   try {
-    const { agentId, amountUsdc, recipientAddress } = req.body;
+    const { amountUsdc, recipientAddress } = req.body;
+    const agentId = req.body.agentId || req.agent?.agent_id;
     const policy = await checkAgentSpendingPolicy({ agentId, amountUsdc, recipientAddress });
     res.json({ success: true, policy });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(err.status || 400).json({ success: false, error: err.message });
   }
 });
 
@@ -56,9 +58,10 @@ router.post('/agent/policy', async (req, res) => {
  * POST /api/arc/escrow
  * Programmable conditional escrow on Arc
  */
-router.post('/escrow', async (req, res) => {
+router.post('/escrow', agentApiKeyMiddleware, async (req, res) => {
   try {
-    const { agentId, payerAddress, payeeAddress, amountUsdc, conditions, expiresInHours } = req.body;
+    const { payerAddress, payeeAddress, amountUsdc, conditions, expiresInHours } = req.body;
+    const agentId = req.body.agentId || req.agent?.agent_id;
     const result = await createProgrammableEscrow({
       agentId,
       payerAddress,
@@ -69,17 +72,18 @@ router.post('/escrow', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(err.status || 400).json({ success: false, error: err.message });
   }
 });
 
 /**
  * POST /api/arc/nanopayment
- * Agent-to-Agent USDC micropayment on Arc
+ * Agent-to-Agent USDC micropayment on Arc (real MPC-signed transfer)
  */
-router.post('/nanopayment', async (req, res) => {
+router.post('/nanopayment', agentApiKeyMiddleware, async (req, res) => {
   try {
-    const { payerAgentId, recipientAddress, amountUsdc, serviceName, invocationId } = req.body;
+    const { recipientAddress, amountUsdc, serviceName, invocationId } = req.body;
+    const payerAgentId = req.body.payerAgentId || req.agent?.agent_id;
     const receipt = await executeNanopayment({
       payerAgentId,
       recipientAddress,
@@ -89,7 +93,7 @@ router.post('/nanopayment', async (req, res) => {
     });
     res.json({ success: true, receipt });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(err.status || 400).json({ success: false, error: err.message });
   }
 });
 
@@ -97,7 +101,7 @@ router.post('/nanopayment', async (req, res) => {
  * POST /api/arc/bridge
  * Cross-chain USDC flow via Circle Gateway / CCTP
  */
-router.post('/bridge', async (req, res) => {
+router.post('/bridge', agentApiKeyMiddleware, async (req, res) => {
   try {
     const { sourceChain, destinationChain, amountUsdc, recipientAddress } = req.body;
     const result = await routeCrosschainUsdc({
@@ -108,7 +112,7 @@ router.post('/bridge', async (req, res) => {
     });
     res.json({ success: true, ...result });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    res.status(err.status || 400).json({ success: false, error: err.message, code: err.code || undefined });
   }
 });
 

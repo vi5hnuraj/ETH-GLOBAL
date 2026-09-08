@@ -211,6 +211,9 @@ export const createProgrammableEscrow = async ({
 
 /**
  * Execute Agent-to-Agent Nanopayment / Micro-Settlement on Arc
+ *
+ * Performs a REAL on-chain USDC transfer from the payer agent's MPC wallet
+ * to the recipient. Never fabricates transaction data.
  */
 export const executeNanopayment = async ({
   payerAgentId,
@@ -219,35 +222,63 @@ export const executeNanopayment = async ({
   serviceName,
   invocationId
 }) => {
+  if (!recipientAddress || !isAddress(recipientAddress)) {
+    throw Object.assign(new Error('Invalid recipient address for nanopayment.'), { status: 400 });
+  }
+
   const policy = await checkAgentSpendingPolicy({
     agentId: payerAgentId,
     amountUsdc,
     recipientAddress
   });
-
   if (!policy.allowed) {
-    throw new Error(`Nanopayment blocked by Arc Agent Policy: ${policy.reason}`);
+    throw Object.assign(new Error(`Nanopayment blocked by Arc Agent Policy: ${policy.reason}`), { status: 403 });
   }
 
-  const txHash = `0x${crypto.randomBytes(32).toString('hex')}`; // On Arc testnet, signed and broadcasted
+  // Resolve the payer agent's wallet — fail closed if agent has no on-chain wallet.
+  const { data: agent, error: agentErr } = await supabase
+    .from('ai_agents')
+    .select('id, agent_id, wallet_id, wallet_address, encrypted_private_key')
+    .or(`agent_id.eq.${payerAgentId},id.eq.${payerAgentId}`)
+    .maybeSingle();
+  if (agentErr || !agent || !agent.wallet_id) {
+    throw Object.assign(new Error('Cannot execute nanopayment: payer agent has no linked MPC wallet. Use the marketplace prepaid settlement path instead.'), { status: 400 });
+  }
+
+  const { getWalletService } = await import('../wallets/walletService.js');
+  const walletService = getWalletService();
+  const valueWei = ethers.parseEther(String(amountUsdc));
+
+  const result = await walletService.sendPayment({
+    walletId: agent.wallet_id,
+    encryptedPrivateKey: agent.encrypted_private_key,
+    to: recipientAddress,
+    wei: valueWei.toString()
+  });
+
   const paymentReceipt = {
-    txHash,
-    payerAgentId,
+    txHash: result.txHash,
+    payerAgentId: agent.agent_id,
+    payerAddress: agent.wallet_address,
     recipientAddress,
     amountUsdc: String(amountUsdc),
     serviceName: serviceName || 'agent_inference_job',
     invocationId: invocationId || `inv_${Date.now()}`,
     chainId: getArcConfig().chainId,
     settledAt: new Date().toISOString(),
-    explorerUrl: `${getArcConfig().explorerUrl}/tx/${txHash}`
+    explorerUrl: `${getArcConfig().explorerUrl}/tx/${result.txHash}`,
+    onChain: true
   };
 
-  logger.info('[ARC NANOPAYMENT] Executed autonomous agent settlement:', paymentReceipt);
+  logger.info('[ARC NANOPAYMENT] Real on-chain settlement:', paymentReceipt);
   return paymentReceipt;
 };
 
 /**
- * Cross-chain Programmable Money Flow via Circle Gateway / CCTP Simulation
+ * Cross-chain USDC flow via Circle Gateway / CCTP
+ *
+ * Fail-closed: refuses to fabricate settlement data. When Circle Gateway
+ * integration is live, replace this with a real attestation verification.
  */
 export const routeCrosschainUsdc = async ({
   sourceChain,
@@ -255,19 +286,8 @@ export const routeCrosschainUsdc = async ({
   amountUsdc,
   recipientAddress
 }) => {
-  const messageBytes = `0x${crypto.randomBytes(64).toString('hex')}`;
-  const attestation = `0x${crypto.randomBytes(65).toString('hex')}`;
-
-  return {
-    transferId: `cctp_${crypto.randomBytes(8).toString('hex')}`,
-    sourceChain,
-    destinationChain,
-    amountUsdc,
-    recipientAddress,
-    status: 'settled_on_arc',
-    cctpMessage: messageBytes,
-    circleAttestation: attestation,
-    settledGasToken: 'USDC',
-    targetNetwork: 'Arc Testnet (Chain ID 5042002)'
-  };
+  throw Object.assign(
+    new Error('Circle Gateway / CCTP bridging is not implemented. This endpoint returns no fabricated settlement data. Use the marketplace prepaid settlement path for Arc-native USDC transfers.'),
+    { status: 501, code: 'CCTP_NOT_IMPLEMENTED' }
+  );
 };
