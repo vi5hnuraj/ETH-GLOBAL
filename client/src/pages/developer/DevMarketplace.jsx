@@ -567,12 +567,34 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
       </div>
     </div>
     {s.provider && (
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <p className="text-[11px] text-zinc-600 font-mono truncate" title={s.provider.wallet}>
-          {s.provider.name || s.provider.agentId}
-        </p>
-        {s.providerOrg && (
-          <VerificationBadge level={s.providerOrg.verificationLevel} size="sm" />
+      <div className="mt-3 space-y-2 border-t border-zinc-800/50 pt-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-zinc-600 font-mono truncate" title={s.provider.wallet}>
+            {s.provider.name || s.provider.agentId}
+          </p>
+        </div>
+        {/* Three-sponsor badges: World + Graph + Arc */}
+        <div className="flex flex-wrap gap-1.5">
+          {s.humanBacked && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold text-violet-400">
+              ✓ Human Verified (World)
+            </span>
+          )}
+          {s.reputation?.trustScore != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              Trust {s.reputation.trustScore} (Graph)
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+            Paid via Arc
+          </span>
+        </div>
+        {s.reputation && (
+          <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+            <span title="Settlements">{s.reputation.totalSettlements ?? 0} settlements</span>
+            <span title="Success Rate">{s.reputation.successRate != null ? `${(s.reputation.successRate * 100).toFixed(0)}% success` : 'N/A'}</span>
+            {s.reputation.settlementVolume != null && <span title="Revenue">Earned {Number(s.reputation.settlementVolume).toFixed(2)} USDC</span>}
+          </div>
         )}
       </div>
     )}

@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FiArrowLeft, FiArrowRight, FiCheck, FiCheckCircle, FiCpu,
-  FiShoppingBag, FiTrendingUp
+  FiShoppingBag, FiTrendingUp, FiShield
 } from 'react-icons/fi';
 import useApi from '../../hooks/useApi';
 import developerApi from '../../utils/developerApi';
@@ -202,6 +202,34 @@ const DevPublishService = () => {
           message={servicesState.error?.message || 'Service not found.'}
           onRetry={() => servicesState.refresh()}
         />
+      </div>
+    );
+  }
+
+  // World AgentKit verification gate — must verify before publishing
+  const primaryAgent = agents[0];
+  if (primaryAgent && !primaryAgent.worldVerified && !editing) {
+    return (
+      <div className="max-w-[1100px] mx-auto">
+        <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-violet-600/20">
+            <FiShield size={28} className="text-violet-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white">World Verification Required</h2>
+          <p className="mt-2 max-w-md mx-auto text-sm text-zinc-400">
+            You must verify your identity with World ID before publishing AI services.
+            This ensures every marketplace provider is backed by a real human.
+          </p>
+          <button
+            onClick={() => navigate('/developer/world-verification')}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-500"
+          >
+            <FiShield size={16} /> Verify with World
+          </button>
+          <p className="mt-3 text-xs text-zinc-500">
+            After verification, you can publish services and other agents will see your "Human Verified" badge.
+          </p>
+        </div>
       </div>
     );
   }

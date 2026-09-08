@@ -60,7 +60,19 @@ const DevAgentStore = () => {
   const setBool = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
   const reloadAll = () => { refresh({ background: true }); publishable.refresh({ background: true }); };
 
-  const openWizard = (prefillAgent) => {
+  const openWizard = async (prefillAgent) => {
+    // World AgentKit verification gate — must verify before publishing
+    if (!prefillAgent) {
+      try {
+        const agentsRes = await developerApi.agents({ perPage: 1 });
+        const agent = agentsRes?.agents?.[0];
+        if (agent && !agent.worldVerified) {
+          toast.error('World verification required before publishing. Verify your identity with World ID.', { duration: 5000 });
+          navigate('/developer/world-verification');
+          return;
+        }
+      } catch { /* proceed anyway if check fails */ }
+    }
     setForm({ ...emptyForm }); setAgentId(prefillAgent?.agentId || '');
     setWizardStep(prefillAgent ? 1 : 0); setWizardOpen(true);
     publishable.refresh({ background: true });
