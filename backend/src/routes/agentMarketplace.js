@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { resolveOrganization, requirePermission } from '../middleware/organizationMiddleware.js';
+import { requireWorldVerification } from '../middleware/worldVerificationGate.js';
 import { requireScope } from '../middleware/requireScopeMiddleware.js';
 import { SCOPES } from '../config/scopes.js';
 import {
@@ -43,7 +44,7 @@ const guard = (scope, permission) => {
 // ---- Publish / manage (provider side) ----
 router.get('/agent-marketplace/agents-publishable', ...guard(SCOPES.AGENTS_READ, 'services.read'), devPublishableAgents);
 router.get('/agent-marketplace/listings', ...guard(SCOPES.SERVICES_READ, 'services.read'), devMyListings);
-router.post('/agent-marketplace/agents/:agentId/publish', ...guard(SCOPES.SERVICES_CREATE, 'services.manage'), devPublishAgent);
+router.post('/agent-marketplace/agents/:agentId/publish', ...guard(SCOPES.SERVICES_CREATE, 'services.manage'), requireWorldVerification, devPublishAgent);
 router.patch('/agent-marketplace/listing/:listingId', ...guard(SCOPES.SERVICES_UPDATE, 'services.manage'), devUpdateListing);
 router.delete('/agent-marketplace/listing/:listingId', ...guard(SCOPES.SERVICES_DELETE, 'services.manage'), devDeleteListing);
 router.post('/agent-marketplace/listing/:listingId/versions', ...guard(SCOPES.SERVICES_UPDATE, 'services.manage'), devPublishVersion);
