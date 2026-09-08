@@ -252,6 +252,20 @@ export const developerApi = {
   commerceGraph: () => request('/developers/commerce/graph').then((r) => r.graph),
   commerceMonthlyReport: () => request('/developers/commerce/reports/monthly').then((r) => r.report),
   commerceCompliance: () => request('/developers/commerce/compliance').then((r) => r.logs),
+  graphStatus: () => request('/developers/graph/status'),
+  providerAnalysis: (providerIds) => request('/developers/graph/provider-analysis', { method: 'POST', body: JSON.stringify({ providerIds }) }),
+  graphAsk: (question, providerIds) => request('/developers/graph/ask', { method: 'POST', body: JSON.stringify({ question, providerIds }) }),
+  autonomousCommerce: (body) => request('/developers/commerce/autonomous', { method: 'POST', body: JSON.stringify(body) }),
+  assistantChat: (body) => request('/developers/assistant/chat', { method: 'POST', body: JSON.stringify(body), timeout: 120000 }),
+
+  // ---- World AgentKit ----
+  worldVerify: (agentId) => request('/developers/world/verify', { method: 'POST', body: JSON.stringify({ agentId }) }),
+  worldStatus: (agentId) => request(`/developers/world/status/${agentId}`),
+  worldLookup: (walletAddress) => request('/developers/world/lookup', { method: 'POST', body: JSON.stringify({ walletAddress }) }),
+  worldAgents: () => request('/developers/world/agents'),
+
+  // ---- Autonomous Demo ----
+  runDemo: () => request('/developers/demo/autonomous', { method: 'POST', timeout: 120000 }),
 
   // ---- Organizations + RBAC ----
   organizations: () => request('/developers/orgs').then((r) => r.organizations),

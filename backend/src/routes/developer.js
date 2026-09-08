@@ -76,6 +76,12 @@ import {
   devMonthlyReport,
   devCompliance
 } from '../controllers/commerceController.js';
+import { devGraphStatus, devProviderAnalysis, devGraphAsk, devAutonomousCommerce } from '../controllers/commerceController.js';
+import { chat as assistantChat } from '../controllers/aiAssistantController.js';
+import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents } from '../controllers/worldController.js';
+import worldRoutes from './world.js';
+import { requireWorldVerification } from '../middleware/worldVerificationGate.js';
+import { runDemo } from '../controllers/demoController.js';
 import {
   validate,
   createServiceSchema,
@@ -203,10 +209,17 @@ router.get('/marketplace', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), u
   router.get('/commerce/optimization', ...guard([SCOPES.BILLING_MANAGE, SCOPES.BILLING_READ], 'commerce.read'), usageMiddleware, devOptimization);
   router.get('/commerce/graph', ...guard([SCOPES.BILLING_MANAGE, SCOPES.BILLING_READ], 'commerce.read'), usageMiddleware, devGraph);
   router.get('/commerce/reports/monthly', ...guard([SCOPES.BILLING_MANAGE, SCOPES.BILLING_READ], 'commerce.read'), usageMiddleware, devMonthlyReport);
-  router.get('/commerce/compliance', ...guard([SCOPES.SETTINGS_MANAGE, SCOPES.SETTINGS_READ], 'commerce.read'), usageMiddleware, devCompliance);
+   router.get('/commerce/compliance', ...guard([SCOPES.SETTINGS_MANAGE, SCOPES.SETTINGS_READ], 'commerce.read'), usageMiddleware, devCompliance);
+   router.get('/graph/status', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphStatus);
+   router.post('/graph/provider-analysis', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devProviderAnalysis);
+   router.post('/graph/ask', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphAsk);
+   router.post('/commerce/autonomous', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), usageMiddleware, devAutonomousCommerce);
+
+// ==================== AI Assistant ====================
+router.post('/assistant/chat', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), usageMiddleware, assistantChat);
 
 router.get('/services', ...guard(SCOPES.SERVICES_READ, 'services.read'), usageMiddleware, devListServices);
-router.post('/services', ...guard(SCOPES.SERVICES_CREATE, 'services.manage'), usageMiddleware, validate(devCreateServiceSchema), devCreateService);
+router.post('/services', ...guard(SCOPES.SERVICES_CREATE, 'services.manage'), usageMiddleware, requireWorldVerification, validate(devCreateServiceSchema), devCreateService);
 router.patch('/services/:serviceId', ...guard(SCOPES.SERVICES_UPDATE, 'services.manage'), usageMiddleware, validate(devUpdateServiceSchema), devUpdateService);
 router.delete('/services/:serviceId', ...guard(SCOPES.SERVICES_DELETE, 'services.manage'), usageMiddleware, validate(devUpdateServiceSchema), devDeleteService);
 
@@ -217,5 +230,14 @@ router.post('/usage-reports', ...guard(SCOPES.USAGE_WRITE, 'usage.report'), usag
 router.get('/invoices', ...guard(SCOPES.INVOICES_READ, 'invoices.read'), usageMiddleware, devListInvoices);
 router.get('/invoices/:invoiceId', ...guard(SCOPES.INVOICES_READ, 'invoices.read'), usageMiddleware, devGetInvoice);
 router.post('/invoices/:invoiceId/pay', ...guard(SCOPES.INVOICES_WRITE, 'invoices.pay'), usageMiddleware, validate(payInvoiceSchema), devPayInvoice);
+
+// ==================== Autonomous Demo ====================
+router.post('/demo/autonomous', usageMiddleware, runDemo);
+
+// ==================== World AgentKit ====================
+router.post('/world/verify', usageMiddleware, worldVerify);
+router.get('/world/status/:agentId', usageMiddleware, worldStatus);
+router.post('/world/lookup', usageMiddleware, worldLookup);
+router.get('/world/agents', usageMiddleware, worldListAgents);
 
 export default router;

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   FiGrid, FiCpu, FiCode, FiBarChart2, FiCreditCard, FiBookOpen, FiSettings,
   FiActivity, FiDollarSign, FiTerminal, FiRefreshCw, FiShoppingBag, FiPackage, FiFileText, FiTrendingDown, FiGlobe, FiGitBranch, FiRepeat,
-  FiBox, FiLayers, FiStar, FiUsers, FiShield, FiZap, FiDownload, FiPieChart, FiKey, FiServer, FiPlus, FiUpload, FiBell, FiAlertTriangle
+  FiBox, FiLayers, FiStar, FiUsers, FiShield, FiZap, FiDownload, FiPieChart, FiKey, FiServer, FiPlus, FiUpload, FiBell, FiAlertTriangle, FiMessageSquare
 } from 'react-icons/fi';
 import useSetup from '../../hooks/useSetup';
 import SetupRequired from '../../components/dev/SetupRequired';
@@ -32,14 +32,15 @@ const NAV_GROUPS = [
       { to: '/developer/webhooks', label: 'Webhooks', icon: FiRefreshCw },
       { to: '/developer/playground', label: 'Playground', icon: FiTerminal },
       { to: '/developer/marketplace/services', label: 'Services', icon: FiPackage, end: true },
-      { to: '/developer/marketplace/services/publish', label: 'Publish', icon: FiPlus, end: true },
+      { to: '/developer/marketplace/services/publish', label: 'Publish Service', icon: FiPlus, end: true },
       { to: '/developer/status', label: 'Status', icon: FiActivity }
     ]
   },
   {
     label: 'Automate',
     items: [
-      { to: '/developer/agents', label: 'AI Agents', icon: FiCpu },
+      { to: '/developer/agents/profile', label: 'Agent Dashboard', icon: FiCpu },
+      { to: '/developer/agents', label: 'Agent Studio', icon: FiCpu },
       { to: '/developer/network/workflows', label: 'Workflows', icon: FiGitBranch },
     ]
   },
@@ -53,14 +54,18 @@ const NAV_GROUPS = [
       { to: '/developer/marketplace/revenue', label: 'Revenue', icon: FiBarChart2 },
       { to: '/developer/agent-marketplace', label: 'Agent Store', icon: FiShoppingBag, end: true },
       { to: '/developer/agent-marketplace/installed', label: 'Installed', icon: FiDownload, end: true },
-      { to: '/developer/agent-marketplace/store', label: 'Publisher Hub', icon: FiUpload, end: true },
+      { to: '/developer/agent-marketplace/store', label: 'Publish Agent', icon: FiUpload, end: true },
       { to: '/developer/agent-marketplace/consumer', label: 'Usage', icon: FiBarChart2, end: true }
     ]
   },
   {
     label: 'Insights',
     items: [
-      { to: '/developer/analytics', label: 'Analytics', icon: FiBarChart2 },
+        { to: '/developer/analytics', label: 'Analytics', icon: FiBarChart2 },
+        { to: '/developer/graph-intelligence', label: 'Trust Engine', icon: FiShield },
+        { to: '/developer/commerce/autonomous', label: 'Autonomous Commerce', icon: FiZap },
+        { to: '/developer/assistant', label: 'AI Assistant', icon: FiMessageSquare },
+        { to: '/developer/world-verification', label: 'Agent Identity', icon: FiGlobe },
       { to: '/developer/network/analytics', label: 'Network', icon: FiRepeat },
       { to: '/developer/usage', label: 'API Usage', icon: FiActivity }
     ]

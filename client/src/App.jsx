@@ -40,10 +40,15 @@ const AiRemittanceAgent = React.lazy(() => import('./components/Bank/AiRemittanc
 const DevPlatform = React.lazy(() => import('./pages/developer/DevPlatform.jsx'));
 const DevDashboard = React.lazy(() => import('./pages/developer/DevDashboard.jsx'));
 const DevAgents = React.lazy(() => import('./pages/developer/DevAgents.jsx'));
+const DevAgentProfile = React.lazy(() => import('./pages/developer/DevAgentProfile.jsx'));
 const DevAgentDetail = React.lazy(() => import('./pages/developer/DevAgentDetail.jsx'));
 const DevApi = React.lazy(() => import('./pages/developer/DevApi.jsx'));
 const DevUsage = React.lazy(() => import('./pages/developer/DevUsage.jsx'));
 const DevAnalytics = React.lazy(() => import('./pages/developer/DevAnalytics.jsx'));
+const DevGraphIntelligence = React.lazy(() => import('./pages/developer/DevGraphIntelligence.jsx'));
+const DevAutonomousCommerce = React.lazy(() => import('./pages/developer/DevAutonomousCommerce.jsx'));
+const DevAiAssistant = React.lazy(() => import('./pages/developer/DevAiAssistant.jsx'));
+const DevWorldVerification = React.lazy(() => import('./pages/developer/DevWorldVerification.jsx'));
 const DevRevenue = React.lazy(() => import('./pages/developer/DevRevenue.jsx'));
 const DevBilling = React.lazy(() => import('./pages/developer/DevBilling.jsx'));
 const DevDocs = React.lazy(() => import('./pages/developer/DevDocs.jsx'));
@@ -155,10 +160,15 @@ const App = () => {
             <Route path="/developer" element={<DevPlatform />}>
               <Route index element={<DevDashboard />} />
               <Route path="agents" element={<DevAgents />} />
+              <Route path="agents/profile" element={<DevAgentProfile />} />
               <Route path="agents/:agentId" element={<DevAgentDetail />} />
               <Route path="api" element={<DevApi />} />
               <Route path="usage" element={<DevUsage />} />
               <Route path="analytics" element={<DevAnalytics />} />
+              <Route path="graph-intelligence" element={<DevGraphIntelligence />} />
+              <Route path="commerce/autonomous" element={<DevAutonomousCommerce />} />
+              <Route path="assistant" element={<DevAiAssistant />} />
+              <Route path="world-verification" element={<DevWorldVerification />} />
               <Route path="revenue" element={<DevRevenue />} />
               <Route path="billing" element={<DevBilling />} />
               <Route path="docs" element={<DevDocs />} />
