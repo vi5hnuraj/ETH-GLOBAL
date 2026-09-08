@@ -14,6 +14,7 @@ import {
   executeNanopayment,
   routeCrosschainUsdc
 } from './arcService.js';
+import { askTrustEngine } from './graphIntelligenceService.js';
 
 /**
  * Tool Definitions for Groq / LLM Tool Calling Architecture
@@ -226,6 +227,18 @@ export const toolDefinitions = [
       properties: {
         agentId: { type: "string", description: "AI Agent ID" }
       }
+    }
+  },
+  {
+    name: "queryProviderHealth",
+    description: "Evaluate AI service providers using blockchain settlement intelligence before an agent spends USDC.",
+    parameters: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "Provider question, such as which OCR provider is safest" },
+        providerIds: { type: "array", items: { type: "string" }, description: "Optional provider agent IDs to compare" }
+      },
+      required: ["question"]
     }
   }
 ];
@@ -1162,19 +1175,23 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
     }
 
     case "bridgeUsdcViaGateway": {
-      const { sourceChain, amountUsdc } = args;
-      const bridgeRes = await routeCrosschainUsdc({
-        sourceChain,
-        destinationChain: 'arc-testnet',
-        amountUsdc,
-        recipientAddress: user?.internalWalletAddress || user?.internal_wallet_address || '0xUser'
-      });
-      return {
-        tool: "bridgeUsdcViaGateway",
-        success: true,
-        bridgeRes,
-        message: `🌉 Circle Gateway / CCTP Bridge Initiated:\n• Route: ${sourceChain} ➔ Arc Testnet\n• Amount: ${amountUsdc} USDC\n• Transfer ID: ${bridgeRes.transferId}\n• Status: Settled in Native USDC`
-      };
+      try {
+        const { sourceChain, amountUsdc } = args;
+        const bridgeRes = await routeCrosschainUsdc({
+          sourceChain,
+          destinationChain: 'arc-testnet',
+          amountUsdc,
+          recipientAddress: user?.internalWalletAddress || user?.internal_wallet_address || '0xUser'
+        });
+        return {
+          tool: "bridgeUsdcViaGateway",
+          success: true,
+          bridgeRes,
+          message: `🌉 Circle Gateway / CCTP Bridge Initiated:\n• Route: ${sourceChain} ➔ Arc Testnet\n• Amount: ${amountUsdc} USDC\n• Transfer ID: ${bridgeRes.transferId}\n• Status: Settled in Native USDC`
+        };
+      } catch (err) {
+        return { tool: "bridgeUsdcViaGateway", success: false, message: `❌ Bridge not available: ${err.message}. Use the marketplace prepaid settlement path for Arc-native USDC transfers.` };
+      }
     }
 
     case "getAgentSpendingPolicy": {
@@ -1188,6 +1205,22 @@ export const executeTool = async (name, args, user, accessToken, opts = {}) => {
         policy,
         message: `🛡️ Arc Agent Spending Policy:\n• Daily Limit: 2500 USDC\n• Max Single Tx: 500 USDC\n• Remaining Budget: ${policy.remainingDailyBudget || 2500} USDC\n• Status: Active`
       };
+    }
+
+    case "queryProviderHealth": {
+      try {
+        const result = await askTrustEngine(args?.question || 'Which provider is safest?', args?.providerIds);
+        return {
+          tool: 'queryProviderHealth',
+          success: true,
+          ...result,
+          message: result.answer || (result.providers?.[0]
+            ? `Trust Engine recommends ${result.providers[0].providerId} with a ${result.providers[0].trustScore}/100 trust score (confidence ${(result.providers[0].confidence * 100).toFixed(0)}%, risk ${result.providers[0].riskLevel}).`
+            : 'No provider settlement activity was available for comparison.')
+        };
+      } catch (err) {
+        return { tool: 'queryProviderHealth', success: false, message: `Trust Engine failed: ${err.message}` };
+      }
     }
 
     default:

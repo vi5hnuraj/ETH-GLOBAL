@@ -26,6 +26,8 @@ import {
   confirmPrepaidPurchase
 } from '../services/commerceService.js';
 import { ok, handleError } from '../utils/respond.js';
+import { analyzeProviders, analyzeProvider, askTrustEngine, getGraphStatus } from '../services/graphIntelligenceService.js';
+import { executeAgentGoal } from '../services/agentDecisionEngine.js';
 
 const getAgentByCode = async (agentId) => {
   const { data, error } = await supabase.from('ai_agents').select('*').eq('agent_id', agentId).maybeSingle();
@@ -412,6 +414,53 @@ export const devCompliance = async (req, res) => {
     return ok(res, { logs });
   } catch (err) {
     return handleError(res, err, 'commerce');
+  }
+};
+
+export const devGraphStatus = async (_req, res) => {
+  try {
+    return ok(res, await getGraphStatus());
+  } catch (err) {
+    return handleError(res, err, 'graph');
+  }
+};
+
+export const devProviderAnalysis = async (req, res) => {
+  try {
+    const providerIds = Array.isArray(req.body?.providerIds) ? req.body.providerIds : [];
+    const providers = providerIds.length
+      ? (await Promise.all(providerIds.map(analyzeProvider))).filter(Boolean).sort((a, b) => b.trustScore - a.trustScore)
+      : await analyzeProviders({});
+    return ok(res, { providers, recommendation: providers[0] || null });
+  } catch (err) {
+    return handleError(res, err, 'graph');
+  }
+};
+
+export const devGraphAsk = async (req, res) => {
+  try {
+    return ok(res, await askTrustEngine(String(req.body?.question || 'Which providers are safest?'), req.body?.providerIds));
+  } catch (err) {
+    return handleError(res, err, 'graph');
+  }
+};
+
+export const devAutonomousCommerce = async (req, res) => {
+  try {
+    const consumer = await requireOwnedAgent({
+      developerId: req.developerId,
+      organizationId: req.organization?.id,
+      agentId: req.body.consumerAgentId
+    });
+    const result = await executeAgentGoal({
+      ...req.body,
+      consumerAgent: consumer,
+      developerId: req.developerId,
+      organizationId: req.organization?.id
+    });
+    return ok(res, result);
+  } catch (err) {
+    return handleError(res, err, 'autonomous-commerce');
   }
 };
 

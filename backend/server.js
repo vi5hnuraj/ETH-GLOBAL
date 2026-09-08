@@ -30,6 +30,7 @@ import { startScheduledPaymentWorker } from './src/workers/scheduledPaymentWorke
 import { startWebhookRetryWorker } from './src/workers/webhookRetryWorker.js';
 import { startAgentTransactionRecoveryWorker } from './src/workers/agentTransactionRecoveryWorker.js';
 import { startTrustScoreWorker } from './src/workers/trustScoreWorker.js';
+import { startGraphIntelligenceWorker } from './src/workers/graphIntelligenceWorker.js';
 import { metricsMiddleware, register } from './src/utils/metrics.js';
 import { initErrorTracker, expressErrorHandler } from './src/utils/errorTracker.js';
 import logger from './src/utils/logger.js';import { assertMpcProductionConfiguration } from './src/mpc/mpcRuntime.js';
@@ -165,6 +166,7 @@ if (process.env.NODE_ENV !== 'test') {
   startWebhookRetryWorker();
   startAgentTransactionRecoveryWorker();
   startTrustScoreWorker(); // V3: objective trust score + relationship refresh
+  startGraphIntelligenceWorker(); // Continuous Graph monitoring + provider reputation refresh
 }
 
 // ✅ Structured request logging with correlation ids (never logs bodies/secrets)

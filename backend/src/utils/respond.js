@@ -18,6 +18,9 @@ export const handleError = (res, err, context = 'request') => {
   if (err.code === 'INVITATION_EXPIRED' || err.code === 'INVALID_INVITATION') {
     return res.status(400).json({ success: false, message: err.message, code: err.code });
   }
+  if (err.code === 'GRAPH_UNAVAILABLE') {
+    return res.status(503).json({ success: false, message: err.message, code: err.code });
+  }
   if (err.code === 'ORG_HAS_RESOURCES' || err.code === 'SLUG_TAKEN' || err.code === 'DUPLICATE_INVITATION' || err.code === 'ALREADY_MEMBER' || err.code === 'OWNER_IMMUTABLE' || err.code === 'ORG_NOT_FOUND' || err.code === 'ORG_FORBIDDEN' || err.code === 'ROLE_FORBIDDEN' || err.code === 'SCOPE_FORBIDDEN') {
     return res.status(err.status || 400).json({ success: false, message: err.message, code: err.code });
   }

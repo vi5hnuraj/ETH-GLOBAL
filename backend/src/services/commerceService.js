@@ -25,10 +25,22 @@ import { getPool } from '../utils/db.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
 import logger from '../utils/logger.js';
+import { analyzeProvider, verifySettlement, isGraphConfigured } from './graphIntelligenceService.js';
+import { getPaymentEntity } from './graphIntelligenceService.js';
 const EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/';
 const REPUTATION_TTL_MS = Number(process.env.REPUTATION_TTL_MS || 15 * 60 * 1000);
 
 export const genId = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
+
+const waitForGraphPayment = async (paymentId, timeoutMs = 60000) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const payment = await getPaymentEntity(paymentId);
+    if (payment?.status === 'RELEASED') return { verified: true, settlement: payment, source: 'The Graph' };
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+  return { verified: false, reason: 'GRAPH_INDEXING_PENDING', source: 'The Graph' };
+};
 
 const httpError = (status, message, code) => {
   const err = new Error(message);
@@ -539,17 +551,21 @@ export const enrichServices = async (services) => {
   const serviceIds = services.map((s) => s.id).filter(Boolean);
   const agentIds = services.map((s) => s.agent_id).filter(Boolean);
 
-  const [{ data: caps }, { data: reps }] = await Promise.all([
+  const [{ data: caps }, { data: reps }, { data: agents }] = await Promise.all([
     supabase.from('provider_capabilities').select('*').in('service_id', serviceIds),
-    supabase.from('provider_reputation').select('*').in('provider_agent_id', agentIds)
+    supabase.from('provider_reputation').select('*').in('provider_agent_id', agentIds),
+    supabase.from('ai_agents').select('id, human_backed, world_verified').in('id', agentIds)
   ]);
   const capMap = new Map((caps || []).map((c) => [c.service_id, c]));
   const repMap = new Map((reps || []).map((r) => [r.provider_agent_id, r]));
+  const agentMap = new Map((agents || []).map((a) => [a.id, a]));
 
   return services.map((s) => ({
     ...s,
     capabilities: toPublicCapabilities(capMap.get(s.id) || null),
-    reputation: toPublicReputation(repMap.get(s.agent_id) || null)
+    reputation: toPublicReputation(repMap.get(s.agent_id) || null),
+    humanBacked: agentMap.get(s.agent_id)?.human_backed || false,
+    worldVerified: agentMap.get(s.agent_id)?.world_verified || false
   }));
 };
 
@@ -584,6 +600,9 @@ const hasModel = (supported, model) => {
 };
 
 export const recommendProviders = async ({ developerId, organizationId, consumerAgent, task, requirements }) => {
+  if (!isGraphConfigured()) {
+    throw httpError(503, 'The Graph provider is required for provider recommendations. Configure GRAPH_GATEWAY_URL and GRAPH_API_KEY.', 'GRAPH_REQUIRED');
+  }
   const req = inferRequirement(task, requirements);
   const policy = await getPolicyByOrg(organizationId);
 
@@ -635,6 +654,9 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     const regions = cap.supportedRegions || [];
     const priceBOT = Number(s.unit_price || 0);
     const trust = rep.trustScore ?? null;
+    // The Graph-powered Trust Engine is the primary provider signal. The
+    // existing reputation score remains a local fallback for unindexed data.
+    const graphTrust = providerCode ? await analyzeProvider(providerCode) : null;
     const uptime = cap.uptimePct ?? null;
     const latency = cap.averageLatencyMs ?? null;
     const quantity = req.quantity && Number(req.quantity) > 0 ? String(req.quantity) : '1';
@@ -660,7 +682,7 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     if (req.model && !hasModel(cap.supportedModels, req.model)) { block('capability'); continue; }
     if (req.capability && cap.capabilities && !cap.capabilities[req.capability]) { block('capability'); continue; }
 
-    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust, uptime, latency, estWei });
+    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust: graphTrust ? trust : null, graphTrust, uptime, latency, estWei });
   }
 
   // Scoring
@@ -668,7 +690,13 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
   const maxLatency = candidates.reduce((m, c) => Math.max(m, c.latency || 0), 0) || 1;
   const score = (c) => {
     const costScore = Math.min((1 - c.priceBOT / maxPrice) * 100, 100);
-    const trustScore = c.trust ?? 40;
+     const chainSuccess = c.graphTrust?.successfulPayments || 0;
+     const chainFailures = c.graphTrust?.failedPayments || 0;
+     const chainTotal = chainSuccess + chainFailures;
+     const chainSuccessRate = chainTotal ? (chainSuccess / chainTotal) * 100 : 0;
+     const chainActivity = c.graphTrust?.recentActivity ? 100 : 0;
+     const chainVolume = Math.min(100, (c.graphTrust?.settlementVolume || 0) * 10);
+     const trustScore = c.graphTrust ? (chainSuccessRate * 0.55 + chainActivity * 0.25 + chainVolume * 0.20) : (c.trust ?? 0);
     const latencyScore = c.latency ? Math.min((1 - c.latency / maxLatency) * 100, 100) : 60;
     const availScore = c.uptime ?? 90;
     const regionScore = p && p.preferredRegions.length && c.regions.length
@@ -677,11 +705,11 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     const ratingScore = (c.cap.averageRating ?? 3.5) / 5 * 100;
     return Math.round((
       costScore * 0.30
-      + trustScore * 0.25
+       + trustScore * 0.35
       + latencyScore * 0.15
       + availScore * 0.15
       + regionScore * 0.05
-      + ratingScore * 0.10
+       + ratingScore * 0.00
     ) * 100) / 100;
   };
 
@@ -728,8 +756,11 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
       estimatedCostBOT: formatEtherSafe(c.estWei),
       estimatedQuantity: req.quantity ? String(req.quantity) : '1',
       estimatedCompletionMs: estMs(c),
-      reasons: reasons(c)
-    })),
+       reasons: reasons(c)
+       ,trustScore: Math.round(trustScore * 100) / 100
+       ,trustSource: c.graphTrust?.source || 'GlobalPay database'
+       ,graphLive: c.graphTrust?.graphLive === true
+     })),
     filters,
     meta: {
       task,
@@ -799,6 +830,13 @@ export const createSession = async ({
   }
   if (!provider) throw httpError(404, 'Provider agent not found.');
 
+  // Trust Engine preflight: inspect provider activity before creating a paid
+  // intent. The existing Arc settlement remains the only payment path.
+  if (!isGraphConfigured()) {
+    throw httpError(503, 'The Graph provider is required before an agent can purchase a service.', 'GRAPH_REQUIRED');
+  }
+  const trust = await analyzeProvider(live.agent_code);
+
   const estWei = await chargeWei(live.unit_price, String(quantity));
   const estBOT = formatEtherSafe(estWei);
 
@@ -841,7 +879,7 @@ export const createSession = async ({
       status,
       approval_required: false,
       confidence_score: confidenceScore ?? null,
-      reason: reason || 'Prepaid purchase',
+       reason: reason || (trust ? `Trust Engine: ${trust.recommendation}` : 'Prepaid purchase'),
       source: source || 'manual'
     })
     .select()
@@ -922,6 +960,11 @@ export const createPrepaidIntent = async ({ developerId, organizationId, consume
   }
   if (!provider) throw httpError(404, 'Provider agent not found.');
 
+  if (!isGraphConfigured()) {
+    throw httpError(503, 'The Graph provider is required before an agent can purchase a service.', 'GRAPH_REQUIRED');
+  }
+  const trust = await analyzeProvider(live.agent_code);
+
   const estWei = await chargeWei(live.unit_price, String(quantity));
   const estBOT = formatEtherSafe(estWei);
 
@@ -944,7 +987,7 @@ export const createPrepaidIntent = async ({ developerId, organizationId, consume
       status: 'awaiting_payment',
       approval_required: false,
       confidence_score: null,
-      reason: reason || 'Prepaid purchase',
+       reason: reason || (trust ? `Trust Engine: ${trust.recommendation}` : 'Prepaid purchase'),
       source: 'prepaid'
     })
     .select()
@@ -959,7 +1002,7 @@ export const createPrepaidIntent = async ({ developerId, organizationId, consume
     action: 'session.created',
     resourceType: 'purchase_session',
     resourceId: sessionId,
-    metadata: { serviceId: live.service_id, providerAgentId: live.agent_code, estimatedBOT: estBOT, prepaid: true }
+     metadata: { serviceId: live.service_id, providerAgentId: live.agent_code, estimatedBOT: estBOT, prepaid: true, trustScore: trust?.trustScore ?? null, trustSource: trust?.source || null }
   });
   dispatchEvent('purchase.session.created', {
     sessionId,
@@ -1069,32 +1112,32 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
   const hasPlatformFee = treasuryAddress && platformFeeWei > 0n;
 
   let result;
+  let paymentId;
+  let invoiceReference;
+  let createTxHash;
+  let releaseTxHash;
   try {
-    // MPC SPLIT PAYMENT: Send to provider + treasury in ONE transaction
-    // This saves gas fees and is faster than 2 separate transactions.
-    if (hasPlatformFee && walletService.sendSplitPayment) {
-      // Use split payment (1 transaction for both recipients)
-      result = await walletService.sendSplitPayment({
-        walletId: consumer.wallet_id,
-        recipients: [
-          { address: provider.wallet_address, amountWei: providerAmountWei.toString(), label: 'provider' },
-          { address: treasuryAddress, amountWei: platformFeeWei.toString(), label: 'platform_fee' }
-        ],
-        idempotencyKey: `split:${session.session_id}`
-      });
-      logger.info(`[COMMERCE] Split payment executed: ${formatEtherSafe(providerAmountWei)} USDC to provider + ${formatEtherSafe(platformFeeWei)} USDC to treasury (${PLATFORM_FEES.marketplace}%)`);
-    } else {
-      // Fallback: Send full amount to provider (no fee collected)
-      result = await walletService.sendPayment({
-        walletId: consumer.wallet_id,
-        to: provider.wallet_address,
-        wei: amountWei,
-        idempotencyKey: `prepaid:${session.session_id}`
-      });
-      if (hasPlatformFee) {
-        logger.warn(`[COMMERCE] Split payment not available, sending full amount to provider`);
-      }
-    }
+    const managerAddress = process.env.GLOBAL_PAY_MANAGER_ADDRESS || '0x775Ab463A19E51072C61bAe94A0931E00F7caa42';
+    paymentId = ethers.keccak256(ethers.toUtf8Bytes(`globalpay:purchase:${session.session_id}`));
+    invoiceReference = ethers.keccak256(ethers.toUtf8Bytes(`globalpay:invoice:${session.session_id}`));
+    const managerInterface = new ethers.Interface(['function settleInvoice(bytes32 id,address receiver,bytes32 invoiceRef) payable']);
+    const releaseInterface = new ethers.Interface(['function release(bytes32 id)']);
+    const create = await walletService.sendContractCall({
+      walletId: consumer.wallet_id,
+      to: managerAddress,
+      data: managerInterface.encodeFunctionData('settleInvoice', [paymentId, provider.wallet_address, invoiceReference]),
+      wei: amountWei,
+      idempotencyKey: `invoice-create:${session.session_id}`
+    });
+    createTxHash = create.txHash;
+    const release = await walletService.sendContractCall({
+      walletId: consumer.wallet_id,
+      to: managerAddress,
+      data: releaseInterface.encodeFunctionData('release', [paymentId]),
+      idempotencyKey: `invoice-release:${session.session_id}`
+    });
+    releaseTxHash = release.txHash;
+    result = { ...release, txHash: releaseTxHash, confirmed: true };
   } catch (err) {
     const failedSession = await setSessionPaymentFailed(session, `Payment failed: ${err.message}`, provider);
     return {
@@ -1111,6 +1154,19 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
 
   const txHash = result.txHash;
   const paidAt = new Date().toISOString();
+  const settlementVerification = await waitForGraphPayment(paymentId);
+  if (!settlementVerification.verified) {
+    const failedSession = await setSessionPaymentFailed(session, 'GRAPH_INDEXING_PENDING', provider);
+    return { success: false, failed: true, failureReason: 'GRAPH_INDEXING_PENDING', session: toPublicSession(failedSession), invoice: null, credits: 0 };
+  }
+  // Feed the completed Arc action back into GlobalPay's local reputation
+  // engine so the next Trust Engine decision observes the outcome.
+  let providerReputation = null;
+  try {
+    providerReputation = toPublicReputation(await ensureFreshReputation(provider, { force: true }));
+  } catch (err) {
+    logger.warn('[COMMERCE] post-settlement reputation refresh:', err.message);
+  }
 
   // c) Payment confirmed → create usage + invoice (status paid) + credits.
   const { generateUsageId, generateInvoiceId } = await import('./marketplaceService.js');
@@ -1152,11 +1208,15 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
       amount_wei: amountWei,
       currency: 'USDC',
       status: 'paid',
-      tx_hash: txHash,
+        tx_hash: txHash,
       paid_at: paidAt,
-      metadata: {
-        prepaid: true,
-        session_id: session.session_id,
+        metadata: {
+          prepaid: true,
+          session_id: session.session_id,
+          payment_id: paymentId,
+          invoice_reference: invoiceReference,
+          create_tx_hash: createTxHash,
+          release_tx_hash: releaseTxHash,
         usage_id: usageId,
         platform_fee_wei: hasPlatformFee ? platformFeeWei.toString() : '0',
         platform_fee_pct: hasPlatformFee ? PLATFORM_FEES.marketplace : 0,
@@ -1204,10 +1264,10 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
 
   // d) Grant credits: session paid + credits == purchased quantity, then active.
   const paidSession = await transitionSession(session, 'paid', {
-    actual_cost_wei: amountWei,
+     actual_cost_wei: amountWei,
     invoice_id: invoiceRow.id,
     invoice_code: invoiceId,
-    payment_tx_hash: txHash,
+     payment_tx_hash: txHash,
     completed_at: paidAt
   });
   const activeSession = await transitionSession(paidSession, 'active');
@@ -1220,7 +1280,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     action: 'invoice.paid',
     resourceType: 'service_invoice',
     resourceId: invoiceId,
-    metadata: { serviceId: live.service_id, amountBOT, txHash, prepaid: true }
+     metadata: { serviceId: live.service_id, amountBOT, txHash, prepaid: true, settlementVerification, providerReputation }
   });
   dispatchEvent('invoice.paid', {
     invoiceId,
@@ -1234,6 +1294,8 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     sessionId: session.session_id,
     invoiceId,
     txHash,
+    settlementVerification,
+    providerReputation,
     credits: String(session.quantity)
   }, { developerId: session.developer_id, organizationId: session.organization_id });
 
@@ -1276,6 +1338,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     credits: String(session.quantity),
     amountBOT,
     txHash,
+    providerReputation,
     paidAt,
     accessKey,
     endpointUrl: live.endpoint_url || null,

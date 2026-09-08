@@ -433,6 +433,25 @@ export const listMarketplace = async ({ search, category, sort, order, page = 1,
     }
   }
 
+  // When the Supabase gateway degraded to anon the direct-DB fallback returned
+  // raw rows without the ai_agents join. Enrich them so provider.wallet is
+  // always available for the Trust Engine / autonomous commerce decision.
+  if (rows.length && !rows[0].ai_agents) {
+    const agentIds = [...new Set(rows.map((s) => s.agent_code).filter(Boolean))];
+    if (agentIds.length) {
+      try {
+        const { rows: agents } = await getPool().query(
+          'SELECT agent_id, agent_name, wallet_address, organization_id FROM ai_agents WHERE agent_id = ANY($1)',
+          [agentIds]
+        );
+        const agentMap = Object.fromEntries(agents.map((a) => [a.agent_id, a]));
+        rows = rows.map((s) => ({ ...s, ai_agents: agentMap[s.agent_code] || null }));
+      } catch (err) {
+        logger.warn('[MARKETPLACE] Agent enrichment fallback failed:', err.message);
+      }
+    }
+  }
+
   // Resolve org names for provider display
   const orgIds = [...new Set(rows.filter((s) => s.ai_agents?.organization_id).map((s) => s.ai_agents.organization_id))];
   let orgMap = {};
