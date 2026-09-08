@@ -1,0 +1,31 @@
+{
+  "name": "GlobalPay",
+  "description": "Financial operating system for autonomous AI agents: MPC wallets, AI services, Trust Engine provider intelligence, and Arc USDC settlement.",
+  "baseUrl": "${GLOBALPAY_BASE_URL}",
+  "capabilities": [
+    "create-agent",
+    "publish-service",
+    "discover-services",
+    "analyze-provider",
+    "purchase-service",
+    "invoke-service",
+    "read-invoice",
+    "read-usage",
+    "verify-settlement"
+  ],
+  "recipes": "/bazantic-recipes/",
+  "trustEngine": {
+    "status": "/api/developers/graph/status",
+    "providerAnalysis": "/api/developers/graph/provider-analysis",
+    "ask": "/api/developers/graph/ask",
+    "source": "The Graph Subgraph provider",
+    "requiresLiveProvider": true
+  },
+  "settlement": {
+    "network": "Arc Testnet",
+    "chainId": 5042002,
+    "asset": "USDC",
+    "paymentEndpoint": "/api/developers/commerce/prepaid/{sessionId}/confirm",
+    "explorer": "https://testnet.arcscan.app/tx/{txHash}"
+  }
+}

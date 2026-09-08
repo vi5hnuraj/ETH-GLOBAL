@@ -1,0 +1,10 @@
+{
+  "id": "recommend-provider",
+  "purpose": "Rank marketplace providers using Trust Engine signals before an autonomous purchase.",
+  "steps": [
+    { "method": "GET", "path": "/api/developers/marketplace?search={capability}" },
+    { "method": "POST", "path": "/api/developers/graph/provider-analysis", "body": { "providerIds": "{providerIds}" } },
+    { "method": "POST", "path": "/api/developers/marketplace/recommend", "body": { "task": "{task}", "requirements": "{requirements}" } }
+  ],
+  "returns": ["recommendedProvider", "trustScore", "trustSource", "graphLive"]
+}

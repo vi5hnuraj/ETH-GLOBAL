@@ -1,0 +1,8 @@
+{
+  "id": "publish-service",
+  "purpose": "Publish an AI service that external agents can discover and buy.",
+  "steps": [
+    { "method": "POST", "path": "/api/developers/services", "body": { "agentId": "{providerAgentId}", "title": "{title}", "category": "{category}", "pricingModel": "{pricingModel}", "unitPrice": "{unitPrice}", "unitLabel": "{unitLabel}", "endpointUrl": "{endpointUrl}" } },
+    { "method": "PUT", "path": "/api/developers/services/{serviceId}/capabilities", "body": { "capabilities": "{capabilities}" } }
+  ]
+}

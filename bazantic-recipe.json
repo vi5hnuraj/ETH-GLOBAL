@@ -1,0 +1,41 @@
+{
+  "name": "globalpay-agent-recipes",
+  "version": "1.1.0",
+  "description": "Machine-readable workflows for external AI agents using GlobalPay's existing APIs.",
+  "baseUrl": "${GLOBALPAY_BASE_URL}",
+  "auth": { "type": "bearer", "header": "Authorization", "developerHeader": "X-Developer-Id", "organizationHeader": "X-Organization-Id" },
+  "recipes": [
+    {
+      "id": "create-agent",
+      "when": "An external agent needs an autonomous GlobalPay wallet.",
+      "steps": [
+        { "method": "POST", "path": "/api/developers/agents", "name": "create_agent", "returns": ["agentId", "walletAddress", "apiKey"] },
+        { "method": "GET", "path": "/api/developers/agents/{agentId}", "name": "confirm_agent" }
+      ]
+    },
+    {
+      "id": "buy-ai-service",
+      "when": "An agent needs to buy an AI service.",
+      "steps": [
+        { "method": "GET", "path": "/api/developers/marketplace?search={capability}", "name": "discover_services" },
+        { "method": "POST", "path": "/api/developers/graph/provider-analysis", "name": "query_provider_trust", "body": { "providerIds": "{providerIds}" } },
+        { "method": "POST", "path": "/api/developers/commerce/prepaid", "name": "create_purchase", "body": { "serviceId": "{serviceId}", "consumerAgentId": "{consumerAgentId}", "quantity": "{quantity}" } },
+        { "method": "POST", "path": "/api/developers/commerce/prepaid/{sessionId}/confirm", "name": "settle_usdc_on_arc", "returns": ["txHash", "invoiceId", "accessKey"] },
+        { "method": "POST", "path": "/api/services/{serviceId}/invoke", "name": "invoke_service", "auth": "serviceAccessKey" },
+        { "method": "GET", "path": "/api/developers/invoices/{invoiceId}", "name": "read_invoice" }
+      ]
+    },
+    {
+      "id": "monitor-settlement",
+      "when": "An agent needs to verify and report a completed purchase.",
+      "steps": [
+        { "method": "GET", "path": "/api/developers/graph/status", "name": "check_graph_status" },
+        { "method": "POST", "path": "/api/developers/graph/ask", "name": "verify_provider_activity", "body": { "question": "Show recent settlement activity for {providerId}" } },
+        { "method": "GET", "path": "/api/developers/invoices/{invoiceId}", "name": "read_invoice" },
+        { "method": "GET", "path": "/api/developers/usage-reports?serviceId={serviceId}", "name": "read_usage" }
+      ]
+    }
+  ],
+  "settlement": { "network": "Arc Testnet", "chainId": 5042002, "asset": "USDC", "explorer": "https://testnet.arcscan.app/tx/{txHash}" },
+  "principles": ["Use Trust Engine before spending", "Use existing prepaid purchase APIs", "Never fabricate settlement success", "Return invoice and ArcScan proof"]
+}

@@ -1,0 +1,8 @@
+{
+  "id": "create-agent",
+  "purpose": "Provision an autonomous GlobalPay agent with an MPC wallet and API key.",
+  "steps": [
+    { "method": "POST", "path": "/api/developers/agents", "body": { "name": "{agentName}" }, "save": ["agentId", "walletAddress", "apiKey"] },
+    { "method": "GET", "path": "/api/developers/agents/{agentId}" }
+  ]
+}

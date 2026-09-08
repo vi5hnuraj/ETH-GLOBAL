@@ -1,0 +1,12 @@
+{
+  "id": "buy-service",
+  "purpose": "Choose a provider with Trust Engine intelligence, settle USDC on Arc, and invoke a service.",
+  "steps": [
+    { "method": "GET", "path": "/api/developers/marketplace?search={capability}" },
+    { "method": "POST", "path": "/api/developers/graph/provider-analysis", "body": { "providerIds": "{providerIds}" } },
+    { "method": "POST", "path": "/api/developers/commerce/prepaid", "body": { "serviceId": "{serviceId}", "consumerAgentId": "{consumerAgentId}", "quantity": "{quantity}" } },
+    { "method": "POST", "path": "/api/developers/commerce/prepaid/{sessionId}/confirm", "returns": ["txHash", "invoiceId", "accessKey", "settlementVerification", "providerReputation"] },
+    { "method": "POST", "path": "/api/services/{serviceId}/invoke", "auth": "serviceAccessKey" }
+  ],
+  "rule": "Never settle before provider analysis has completed."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "verify-payment",
+  "purpose": "Verify a completed purchase, report Arc proof, and read resulting usage.",
+  "steps": [
+    { "method": "GET", "path": "/api/developers/graph/status" },
+    { "method": "POST", "path": "/api/developers/graph/ask", "body": { "question": "Verify settlement activity for {providerId}" } },
+    { "method": "GET", "path": "/api/developers/invoices/{invoiceId}" },
+    { "method": "GET", "path": "/api/developers/usage-reports?serviceId={serviceId}" }
+  ],
+  "returns": ["invoice", "usage", "txHash", "arcScanUrl", "providerReputation"]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "monitor-provider",
+  "purpose": "Monitor provider health using indexed settlement activity and GlobalPay reputation.",
+  "steps": [
+    { "method": "POST", "path": "/api/developers/graph/ask", "body": { "question": "Is provider {providerId} active and trustworthy?" } },
+    { "method": "GET", "path": "/api/services/{serviceId}/health" },
+    { "method": "GET", "path": "/api/developers/marketplace/{serviceId}" }
+  ]
+}

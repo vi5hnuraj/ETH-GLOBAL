@@ -1,0 +1,18 @@
+{
+  "id": "ai-assistant",
+  "purpose": "Natural-language interface to GlobalPay: discover providers, reason over Graph evidence, execute Arc settlements, and verify results.",
+  "steps": [
+    { "method": "POST", "path": "/api/developers/assistant/chat", "body": { "message": "{userMessage}", "consumerAgentId": "{agentId}" }, "returns": ["message", "answer", "steps", "data"] }
+  ],
+  "intents": {
+    "purchase_safest": "Buy the safest {capability} provider",
+    "purchase_cheapest": "Buy the cheapest {capability} provider",
+    "find_safest": "Who is the safest provider?",
+    "find_earners": "Who earned the most USDC?",
+    "find_risky": "Show risky providers",
+    "verify_payment": "Verify my last payment",
+    "show_balance": "Show my balance",
+    "help": "What can you do?"
+  },
+  "rule": "Every decision must be backed by The Graph settlement history. Never fabricate trust scores."
+}

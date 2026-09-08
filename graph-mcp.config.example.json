@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "globalpay-subgraph": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "--header",
+        "Authorization:${GRAPH_MCP_AUTH_HEADER}",
+        "https://subgraphs.mcp.thegraph.com/sse"
+      ],
+      "env": {
+        "GRAPH_MCP_AUTH_HEADER": "Bearer ${GRAPH_API_KEY}"
+      }
+    }
+  }
+}
