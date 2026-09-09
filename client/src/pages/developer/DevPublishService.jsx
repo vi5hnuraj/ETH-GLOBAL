@@ -146,7 +146,14 @@ const DevPublishService = () => {
   };
 
   const goNext = () => {
-    if (step === 2) return submit();
+    if (step === 2) {
+      // World gate reached only at the END — everything else already validated.
+      if (worldGateBlocking) {
+        toast('Verify your identity with World to publish this service.', { icon: '🛡' });
+        return navigate('/developer/network/profile');
+      }
+      return submit();
+    }
     if (!stepValid) {
       toast.error(step === 0 ? 'Give your service a name first.' : 'Unit price must be greater than zero.');
       return;
@@ -208,37 +215,17 @@ const DevPublishService = () => {
     );
   }
 
-  // World AgentKit verification gate — must verify before publishing
-  const primaryAgent = agents[0];
-  if (primaryAgent && !primaryAgent.worldVerified && !editing) {
-    return (
-      <div className="max-w-[1100px] mx-auto">
-        <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-violet-600/20">
-            <FiShield size={28} className="text-violet-400" />
-          </div>
-          <h2 className="text-xl font-bold text-white">World Verification Required</h2>
-          <p className="mt-2 max-w-md mx-auto text-sm text-zinc-400">
-            You must verify your identity with World ID before publishing AI services.
-            This ensures every marketplace provider is backed by a real human.
-          </p>
-          <button
-            onClick={() => navigate('/developer/network/profile')}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-500"
-          >
-            <FiShield size={16} /> Verify with World
-          </button>
-          <p className="mt-3 text-xs text-zinc-500">
-            After verification, you can publish services and other agents will see your "Human Verified" badge.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // World AgentKit verification gate — surfaced at the FINAL step (publish click),
+  // so users can complete the whole form first and only hit verification at the end.
+  const worldVerified = agents.length > 0 && agents.some((a) => a.worldVerified);
+  const worldGateBlocking = !editing && !worldVerified && step === 2;
 
   return (
     <div className="max-w-[1100px] mx-auto">
       <div className="mb-8">
+        <button type="button" onClick={() => navigate('/developer/marketplace/services')} className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white mb-3 transition-colors">
+          <FiArrowLeft size={12} /> Back to Services
+        </button>
         <h1 className="text-2xl font-bold text-white">{editing ? 'Edit Service' : 'Publish Service'}</h1>
         <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
           List an AI capability that other agents can discover, purchase, and invoke through the GlobalPay Marketplace.
@@ -548,6 +535,32 @@ const DevPublishService = () => {
                 </div>
               )}
 
+              {/* World AgentKit gate — shown HERE, at the end of the wizard */}
+              {worldGateBlocking && (
+                <div className="mt-6 rounded-xl border border-violet-500/30 bg-violet-500/5 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600/20">
+                      <FiShield size={18} className="text-violet-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white">Final step — verify with World</p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Your service is ready. Before it goes live, verify your identity with World ID —
+                        it keeps every marketplace provider backed by a real human.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/developer/network/profile')}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-500"
+                      >
+                        <FiShield size={13} /> Verify with World
+                      </button>
+                      <p className="mt-2 text-[11px] text-zinc-500">After verification your service keeps this form's data and you can publish immediately.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
                 <p className="text-xs font-medium text-zinc-300 mb-3 flex items-center gap-2"><FiTrendingUp size={13} className="text-violet-400" /> Before publishing</p>
                 <ul className="space-y-1.5">
@@ -585,15 +598,20 @@ const DevPublishService = () => {
               <button
                 type="button"
                 onClick={goNext}
-                disabled={step === 2 ? !allReady : !stepValid}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                disabled={step === 2 ? (!allReady || worldGateBlocking) : !stepValid}
+                title={worldGateBlocking ? 'Verify with World to publish' : undefined}
+                className={`inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors ${
+                  worldGateBlocking
+                    ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                    : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white'
+                }`}
               >
                 {step === 0 ? 'Continue' : null}
                 {step === 1 ? 'Continue to review' : null}
                 {step === 2 ? (
                   saving ? 'Publishing…' : (
                     <>
-                      🚀 Publish to Marketplace
+                      {worldGateBlocking ? '🛡 Verify with World to Publish' : '🚀 Publish to Marketplace'}
                     </>
                   )
                 ) : <FiArrowRight size={14} />}

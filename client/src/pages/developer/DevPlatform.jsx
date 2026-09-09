@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   FiGrid, FiCpu, FiCode, FiBarChart2, FiCreditCard, FiBookOpen, FiSettings,
-  FiActivity, FiDollarSign, FiTerminal, FiRefreshCw, FiShoppingBag, FiPackage, FiFileText, FiTrendingDown, FiGlobe, FiGitBranch, FiRepeat,
-  FiBox, FiLayers, FiStar, FiUsers, FiShield, FiZap, FiDownload, FiPieChart, FiKey, FiServer, FiPlus, FiUpload, FiBell, FiAlertTriangle, FiMessageSquare
+  FiActivity, FiDollarSign, FiTerminal, FiRefreshCw, FiShoppingBag, FiPackage, FiFileText, FiTrendingDown, FiGlobe, FiGitBranch,
+  FiBox, FiLayers, FiStar, FiUsers, FiShield, FiZap, FiDownload, FiPieChart, FiKey, FiServer, FiUpload, FiBell, FiAlertTriangle, FiMessageSquare
 } from 'react-icons/fi';
 import useSetup from '../../hooks/useSetup';
 import SetupRequired from '../../components/dev/SetupRequired';
@@ -32,7 +32,6 @@ const NAV_GROUPS = [
       { to: '/developer/webhooks', label: 'Webhooks', icon: FiRefreshCw },
       { to: '/developer/playground', label: 'Playground', icon: FiTerminal },
       { to: '/developer/marketplace/services', label: 'Services', icon: FiPackage, end: true },
-      { to: '/developer/marketplace/services/publish', label: 'Publish Service', icon: FiPlus, end: true },
       { to: '/developer/status', label: 'Status', icon: FiActivity },
       { to: '/developer/x402', label: 'x402 APIs', icon: FiDollarSign }
     ]
@@ -65,7 +64,6 @@ const NAV_GROUPS = [
         { to: '/developer/graph-intelligence', label: 'Trust Engine', icon: FiShield },
         { to: '/developer/commerce/autonomous', label: 'Autonomous Commerce', icon: FiZap },
         { to: '/developer/assistant', label: 'AI Assistant', icon: FiMessageSquare },
-      { to: '/developer/network/analytics', label: 'Network', icon: FiRepeat },
       { to: '/developer/usage', label: 'API Usage', icon: FiActivity }
     ]
   },
