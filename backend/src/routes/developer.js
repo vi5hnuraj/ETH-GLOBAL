@@ -41,7 +41,11 @@ import {
   remove,
   deliveries,
   retry,
-  verify
+  verify,
+  stats,
+  rotate,
+  delivery,
+  replay
 } from '../controllers/webhookController.js';
 import {
   devCreateService,
@@ -176,6 +180,10 @@ router.put('/webhooks/:id', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_UP
 router.delete('/webhooks/:id', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_DELETE], 'webhooks.manage'), usageMiddleware, remove);
 router.get('/webhooks/deliveries', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_READ], 'webhooks.read'), usageMiddleware, deliveries);
 router.post('/webhooks/deliveries/:id/retry', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_READ], 'webhooks.manage'), usageMiddleware, retry);  router.post('/webhooks/verify', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_READ], 'webhooks.read'), usageMiddleware, verify);
+router.get('/webhooks/stats', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_READ], 'webhooks.read'), usageMiddleware, stats);
+router.get('/webhooks/deliveries/:id', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_READ], 'webhooks.read'), usageMiddleware, delivery);
+router.post('/webhooks/deliveries/:id/replay', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_CREATE], 'webhooks.manage'), usageMiddleware, replay);
+router.post('/webhooks/:id/rotate', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_UPDATE], 'webhooks.manage'), usageMiddleware, rotate);
 
   // Test endpoint: trigger a test webhook delivery
   router.post('/webhooks/test', ...guard([SCOPES.WEBHOOKS_MANAGE, SCOPES.WEBHOOKS_CREATE], 'webhooks.manage'), usageMiddleware, async (req, res) => {

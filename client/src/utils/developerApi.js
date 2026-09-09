@@ -210,7 +210,12 @@ export const developerApi = {
   updateWebhook: (id, body) => request(`/developers/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteWebhook: (id) => request(`/developers/webhooks/${id}`, { method: 'DELETE' }),
   webhookDeliveries: (params) => request(`/developers/webhooks/deliveries?${qs(params)}`).then((r) => r.deliveries),
+  webhookDelivery: (id) => request(`/developers/webhooks/deliveries/${id}`).then((r) => r.delivery),
   retryWebhookDelivery: (id) => request(`/developers/webhooks/deliveries/${id}/retry`, { method: 'POST' }),
+  replayWebhookDelivery: (id) => request(`/developers/webhooks/deliveries/${id}/replay`, { method: 'POST' }),
+  webhookStats: () => request('/developers/webhooks/stats').then((r) => r.stats),
+  rotateWebhookSecret: (id) => request(`/developers/webhooks/${id}/rotate`, { method: 'POST' }),
+  testWebhook: (body) => request('/developers/webhooks/test', { method: 'POST', body: JSON.stringify(body) }),
   verifyWebhookSignature: (body) => request('/developers/webhooks/verify', { method: 'POST', body: JSON.stringify(body) }),
 
   // ---- Service Marketplace ----

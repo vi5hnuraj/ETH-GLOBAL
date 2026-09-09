@@ -276,6 +276,9 @@ export const retryDelivery = async ({ developerId, organizationId, deliveryId })
       attempts,
       response_status: result.responseStatus,
       error_message: result.errorMessage || null,
+      request_id: result.requestId || null,
+      signature: result.signature || null,
+      response_body: result.responseBody || null,
       duration_ms: result.durationMs || null,
       last_attempt_at: new Date().toISOString(),
       next_attempt_at: failed && attempts < MAX_DELIVERY_ATTEMPTS
@@ -301,10 +304,15 @@ export const retryDelivery = async ({ developerId, organizationId, deliveryId })
 
 const deliver = async (endpoint, event, payload) => {
   const timestamp = Math.floor(Date.now() / 1000).toString();
+  const signature = signPayload(endpoint.secret_key, payload, timestamp);
+  const requestId = 'req_' + crypto.randomBytes(12).toString('hex');
   const headers = {
     'Content-Type': 'application/json',
+    'x-globalpay-request-id': requestId,
+    'x-globalpay-event': event,
+    'x-globalpay-webhook-id': endpoint.id,
     [TIMESTAMP_HEADER]: timestamp,
-    [SIGNATURE_HEADER]: signPayload(endpoint.secret_key, payload, timestamp)
+    [SIGNATURE_HEADER]: signature
   };
   const started = Date.now();
 
@@ -315,9 +323,11 @@ const deliver = async (endpoint, event, payload) => {
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS)
     });
-    return { ok: res.ok, responseStatus: res.status, durationMs: Date.now() - started };
+    let responseBody = null;
+    try { responseBody = (await res.text()).slice(0, 2000); } catch { /* body unreadable */ }
+    return { ok: res.ok, responseStatus: res.status, durationMs: Date.now() - started, requestId, signature, timestamp, responseBody };
   } catch (err) {
-    return { ok: false, responseStatus: 0, durationMs: Date.now() - started, errorMessage: err.message };
+    return { ok: false, responseStatus: 0, durationMs: Date.now() - started, requestId, signature, timestamp, errorMessage: err.message };
   }
 };
 
@@ -334,6 +344,9 @@ const recordDelivery = async (endpoint, event, payload, result, attempts = 1) =>
       attempts,
       response_status: result.responseStatus,
       error_message: result.errorMessage || null,
+      request_id: result.requestId || null,
+      signature: result.signature || null,
+      response_body: result.responseBody || null,
       duration_ms: result.durationMs || null,
       last_attempt_at: new Date().toISOString(),
       next_attempt_at: failed && attempts < MAX_DELIVERY_ATTEMPTS
@@ -412,3 +425,130 @@ export const dispatchEvent = (event, payload, ctx) => {
 };
 
 export { generateSecret };
+
+// ==================== Console: stats, rotation, delivery detail ====================
+
+/**
+ * Aggregated webhook statistics for the developer console dashboard.
+ * All numbers derive from live webhook_deliveries / webhook_endpoints rows.
+ */
+export const getWebhookStats = async (organizationId) => {
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const [eps, del24] = await Promise.all([
+    supabase.from('webhook_endpoints').select('id,is_active').eq('organization_id', organizationId),
+    supabase.from('webhook_deliveries').select('status,response_status,duration_ms,dead_letter,created_at').eq('organization_id', organizationId).gte('created_at', since)
+  ]);
+  const endpoints = eps.data || [];
+  const deliveries = del24.data || [];
+  const okCount = deliveries.filter((d) => d.status === 'delivered').length;
+  const failedCount = deliveries.filter((d) => d.status === 'failed').length;
+  const durations = deliveries.map((d) => d.duration_ms).filter((n) => Number.isFinite(n) && n > 0);
+  const avgLatencyMs = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+  const retryQueue = deliveries.filter((d) => d.status === 'failed' && !d.dead_letter).length;
+  return {
+    endpointsTotal: endpoints.length,
+    endpointsActive: endpoints.filter((e) => e.is_active).length,
+    deliveries24h: deliveries.length,
+    successRate24h: deliveries.length ? Number((okCount / deliveries.length).toFixed(4)) : null,
+    failed24h: failedCount,
+    deadLettered24h: deliveries.filter((d) => d.dead_letter).length,
+    avgLatencyMs,
+    retryQueue
+  };
+};
+
+/**
+ * Rotate an endpoint's signing secret. The previous secret stops verifying
+ * immediately; return the new secret exactly once.
+ */
+export const rotateEndpointSecret = async ({ developerId, organizationId, id }) => {
+  const secretKey = generateSecret();
+  const { data, error } = await supabase
+    .from('webhook_endpoints')
+    .update({ secret_key: secretKey, secret_rotated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('organization_id', organizationId)
+    .select()
+    .single();
+  if (error) throw error;
+  if (!data) throw Object.assign(new Error('Webhook endpoint not found.'), { status: 404 });
+  await audit({
+    developerId, organizationId,
+    action: 'webhook.secret_rotated',
+    resourceType: 'webhook_endpoint',
+    resourceId: id,
+    metadata: { url: data.url }
+  });
+  return { id: data.id, secretKey: data.secret_key, rotatedAt: data.secret_rotated_at };
+};
+
+/**
+ * Full detail for one delivery (headers we sent, signature, response body).
+ */
+export const getDelivery = async ({ organizationId, deliveryId }) => {
+  const { data: d, error } = await supabase
+    .from('webhook_deliveries')
+    .select('*, webhook_endpoints(url, description, secret_key)')
+    .eq('id', deliveryId)
+    .eq('organization_id', organizationId)
+    .single();
+  if (error) throw error;
+  if (!d) throw Object.assign(new Error('Delivery not found.'), { status: 404 });
+  return {
+    id: d.id,
+    endpointId: d.endpoint_id,
+    endpointUrl: d.webhook_endpoints?.url || null,
+    event: d.event,
+    payload: d.payload,
+    status: d.status,
+    attempts: d.attempts,
+    responseStatus: d.response_status,
+    responseHeaders: { 'content-type': 'application/json' },
+    responseBody: d.response_body || null,
+    errorMessage: d.error_message || null,
+    requestId: d.request_id || null,
+    signature: d.signature || null,
+    signatureHeader: 'x-globalpay-signature',
+    timestampHeader: 'x-globalpay-timestamp',
+    durationMs: d.duration_ms,
+    nextAttemptAt: d.next_attempt_at,
+    deadLetter: d.dead_letter,
+    lastAttemptAt: d.last_attempt_at,
+    createdAt: d.created_at,
+    sentHeaders: {
+      'Content-Type': 'application/json',
+      'x-globalpay-event': d.event,
+      'x-globalpay-request-id': d.request_id || null,
+      'x-globalpay-timestamp': d.last_attempt_at ? Math.floor(new Date(d.last_attempt_at).getTime() / 1000).toString() : null,
+      'x-globalpay-signature': d.signature ? `${d.signature}` : null
+    }
+  };
+};
+
+/**
+ * Replay a delivery: re-dispatch the same event/payload to the endpoint now,
+ * recording a NEW delivery row (attempt history preserved on the original).
+ */
+export const replayDelivery = async ({ developerId, organizationId, deliveryId }) => {
+  const { data: d, error } = await supabase
+    .from('webhook_deliveries')
+    .select('*, webhook_endpoints(*)')
+    .eq('id', deliveryId)
+    .eq('organization_id', organizationId)
+    .single();
+  if (error) throw error;
+  if (!d) throw Object.assign(new Error('Delivery not found.'), { status: 404 });
+  if (!d.webhook_endpoints) throw Object.assign(new Error('Endpoint no longer exists.'), { status: 404 });
+  if (!d.webhook_endpoints.is_active) throw Object.assign(new Error('Endpoint is disabled — enable it before replaying.'), { status: 409 });
+
+  const result = await deliver(d.webhook_endpoints, d.event, d.payload);
+  await recordDelivery(d.webhook_endpoints, d.event, d.payload, result, 1);
+  await audit({
+    developerId, organizationId,
+    action: 'webhook.delivery_replayed',
+    resourceType: 'webhook_delivery',
+    resourceId: deliveryId,
+    metadata: { ok: result.ok, responseStatus: result.responseStatus }
+  });
+  return { ok: result.ok, responseStatus: result.responseStatus, durationMs: result.durationMs };
+};

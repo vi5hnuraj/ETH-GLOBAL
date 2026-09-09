@@ -10,6 +10,10 @@ import {
   listDeliveries,
   retryDelivery,
   verifySignature,
+  getWebhookStats,
+  rotateEndpointSecret,
+  getDelivery,
+  replayDelivery,
   SUPPORTED_EVENTS
 } from '../services/webhookService.js';
 import { ok, handleError } from '../utils/respond.js';
@@ -98,6 +102,42 @@ export const retry = async (req, res) => {
   try {
     if (!req.organization) return res.status(403).json({ success: false, message: 'Organization not resolved.' });
     ok(res, await retryDelivery({ developerId: req.developerId, organizationId: req.organization.id, deliveryId: req.params.id }));
+  } catch (err) {
+    handleError(res, err, 'webhooks');
+  }
+};
+
+export const stats = async (req, res) => {
+  try {
+    if (!req.organization) return res.status(403).json({ success: false, message: 'Organization not resolved.' });
+    ok(res, { stats: await getWebhookStats(req.organization.id) });
+  } catch (err) {
+    handleError(res, err, 'webhooks');
+  }
+};
+
+export const rotate = async (req, res) => {
+  try {
+    if (!req.organization) return res.status(403).json({ success: false, message: 'Organization not resolved.' });
+    ok(res, await rotateEndpointSecret({ developerId: req.developerId, organizationId: req.organization.id, id: req.params.id }));
+  } catch (err) {
+    handleError(res, err, 'webhooks');
+  }
+};
+
+export const delivery = async (req, res) => {
+  try {
+    if (!req.organization) return res.status(403).json({ success: false, message: 'Organization not resolved.' });
+    ok(res, { delivery: await getDelivery({ organizationId: req.organization.id, deliveryId: req.params.id }) });
+  } catch (err) {
+    handleError(res, err, 'webhooks');
+  }
+};
+
+export const replay = async (req, res) => {
+  try {
+    if (!req.organization) return res.status(403).json({ success: false, message: 'Organization not resolved.' });
+    ok(res, await replayDelivery({ developerId: req.developerId, organizationId: req.organization.id, deliveryId: req.params.id }));
   } catch (err) {
     handleError(res, err, 'webhooks');
   }
