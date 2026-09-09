@@ -62,9 +62,10 @@ export const listMyOrgs = async (req, res) => {
       }
     }
     if (!orgs || orgs.length === 0) {
-      // Only create personal org for valid UUID users
+      // Development fallback identities also need a visible personal workspace
+      // so the console OrgSwitcher does not render an empty organization list.
       const creatorId = (jwtId && UUID_RE.test(jwtId)) ? jwtId : devId;
-      if (UUID_RE.test(creatorId)) {
+      if (UUID_RE.test(creatorId) || process.env.NODE_ENV !== 'production') {
         await ensurePersonalOrg(creatorId);
         orgs = await listMyOrganizations(creatorId);
       }

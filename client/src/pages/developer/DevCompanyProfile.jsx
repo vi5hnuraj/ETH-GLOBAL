@@ -52,6 +52,23 @@ const parseList = (v) => {
   return [];
 };
 
+const SponsorCard = ({ title, sponsor, icon: Icon, tone = 'blue', children }) => (
+  <Card className={`border-${tone}-500/20 bg-${tone}-500/5`}>
+    <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center gap-2"><Icon size={15} className={`text-${tone}-400`} /><h3 className="text-sm font-semibold text-white">{title}</h3></div>
+      <span className={`rounded-full border border-${tone}-500/20 px-2 py-0.5 text-[10px] text-${tone}-300`}>{sponsor}</span>
+    </div>
+    {children}
+  </Card>
+);
+
+const DataRow = ({ label, value, mono = false }) => (
+  <div className="flex items-center justify-between gap-3 border-b border-zinc-800/50 py-2 last:border-0">
+    <span className="text-xs text-zinc-500">{label}</span>
+    <span className={`max-w-[65%] truncate text-right text-xs text-zinc-200 ${mono ? 'font-mono' : ''}`}>{value ?? '—'}</span>
+  </div>
+);
+
 /* ─── Compact verification banner ─── */
 const VerificationBanner = ({ level, verifiedAt, compact = false }) => {
   const isVerified = level === 'verified_company' || level === 'enterprise' || level === 'government_partner';
@@ -198,6 +215,14 @@ const ProfileEmpty = ({ onCreate }) => (
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 const DevCompanyProfile = () => {
   const { data: profile, loading, error, refresh, refreshing } = useApi({ fetcher: () => developerApi.networkProfile() });
+  const agentsState = useApi({ fetcher: () => developerApi.agents({ perPage: 100 }) });
+  const graphState = useApi({ fetcher: developerApi.graphStatus });
+  const agents = agentsState.data?.agents || [];
+  const primaryAgent = agents[0] || null;
+  const worldState = useApi({ fetcher: () => primaryAgent ? developerApi.worldStatus(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
+  const balanceState = useApi({ fetcher: () => primaryAgent ? developerApi.agentBalance(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
+  const reputationState = useApi({ fetcher: () => primaryAgent?.walletAddress ? developerApi.providerAnalysis([primaryAgent.walletAddress]) : Promise.resolve({ providers: [] }), deps: [primaryAgent?.walletAddress] });
+  const servicesState = useApi({ fetcher: () => developerApi.services({ perPage: 100 }), deps: [primaryAgent?.agentId] });
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(null);
@@ -212,14 +237,9 @@ const DevCompanyProfile = () => {
 
   const initForm = useCallback((p = {}) => {
     const f = {
-      name: p.name || '', category: p.industry || '', headquarters: p.country || '',
+      name: p.name || '', category: p.industry || '',
       website: p.website || '', logoUrl: p.logoUrl || '', description: p.description || '',
-      supportEmail: p.supportEmail || '', contactEmail: p.contactEmail || '',
-      docsUrl: p.docsUrl || '', githubUrl: p.githubUrl || '',
-      founded: p.founded || '', companySize: p.companySize || '',
-      certifications: parseList(p.certifications).join(', '),
-      supportedRegions: parseList(p.supportedRegions).join(', '),
-      supportSla: p.supportSla || '', isPublic: !!p.isPublic,
+      githubUrl: p.githubUrl || '',
     };
     setForm(f);
     originalFormRef.current = f;
@@ -255,31 +275,22 @@ const DevCompanyProfile = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Organization name is required';
     if (!form.category) errs.category = 'Category is required';
-    if (!form.headquarters.trim()) errs.headquarters = 'Headquarters is required';
     if (form.website && !validateUrl(form.website)) errs.website = 'Enter a valid URL';
-    if (form.supportEmail && !validateEmail(form.supportEmail)) errs.supportEmail = 'Enter a valid email';
-    if (form.contactEmail && !validateEmail(form.contactEmail)) errs.contactEmail = 'Enter a valid email';
-    if (form.docsUrl && !validateUrl(form.docsUrl)) errs.docsUrl = 'Enter a valid URL';
     if (form.githubUrl && !validateUrl(form.githubUrl)) errs.githubUrl = 'Enter a valid URL';
     if (form.description.length > ABOUT_MAX) errs.description = `Maximum ${ABOUT_MAX} characters`;
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }, [form]);
 
-  const canSave = useMemo(() => form && form.name.trim() && form.category && form.headquarters.trim(), [form]);
+  const canSave = useMemo(() => form && form.name.trim() && form.category && form.description.trim(), [form]);
 
   const save = useCallback(async () => {
     if (!form || !validate()) return;
     setSaving(true);
     try {
-      const split = (v) => v.split(',').map(x => x.trim()).filter(Boolean);
-      const patch = {
+       const patch = {
         name: form.name, description: form.description, industry: form.category,
-        country: form.headquarters, website: form.website, logoUrl: form.logoUrl,
-        supportEmail: form.supportEmail, contactEmail: form.contactEmail,
-        docsUrl: form.docsUrl, githubUrl: form.githubUrl, founded: form.founded,
-        companySize: form.companySize, certifications: split(form.certifications),
-        supportedRegions: split(form.supportedRegions), supportSla: form.supportSla, isPublic: form.isPublic,
+        website: form.website, logoUrl: form.logoUrl, githubUrl: form.githubUrl
       };
       // Auto-create organization if none exists yet
       let orgId = getOrganizationId();
@@ -312,6 +323,16 @@ const DevCompanyProfile = () => {
   }
 
   const p = profile || {};
+  const world = worldState.data || {};
+  const wallet = balanceState.data || {};
+  const graphProvider = reputationState.data?.providers?.[0] || null;
+  const ownedServices = (servicesState.data?.services || []).filter((service) => service.agentId === primaryAgent?.agentId);
+  const isWorldVerified = Boolean(world.verified || primaryAgent?.worldVerified);
+  const profileStatus = !isWorldVerified ? 'Verification Required' : ownedServices.length ? 'Published' : 'Ready to Publish';
+  const latestSettlement = graphProvider?.payments?.[0] || null;
+  const graphStatus = graphState.data || {};
+  const indexedBlock = graphStatus.indexedBlock || '—';
+  const explorerUrl = latestSettlement?.transactionHash ? `https://testnet.arcscan.app/tx/${latestSettlement.transactionHash}` : null;
 
   /* ━━━ Empty ━━━ */
   if (missing && !editing) {
@@ -320,10 +341,6 @@ const DevCompanyProfile = () => {
 
   /* ━━━ Edit mode ━━━ */
   if (editing && form) {
-    const editFilled = [form.name, form.category, form.headquarters, form.website, form.logoUrl, form.description, form.supportEmail, form.contactEmail].filter(Boolean).length;
-    const editTotal = 8;
-    const editPct = Math.round((editFilled / editTotal) * 100);
-
     return (
       <div className="flex flex-col min-h-0">
         <div className="flex-none">
@@ -336,13 +353,6 @@ const DevCompanyProfile = () => {
               </button>
             }
           />
-          {/* Edit progress bar */}
-          <div className="flex items-center gap-3 px-1 mb-4">
-            <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full transition-all duration-300" style={{ width: `${editPct}%` }} />
-            </div>
-            <span className="text-[11px] text-zinc-500 tabular-nums shrink-0">{editFilled}/{editTotal} fields</span>
-          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pb-20">
@@ -361,9 +371,6 @@ const DevCompanyProfile = () => {
                       <option value="">Select category...</option>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                  </Field>
-                  <Field label="Headquarters" required error={errors.headquarters}>
-                    <input value={form.headquarters} onChange={set('headquarters')} placeholder="San Francisco, CA" className={errors.headquarters ? inputErr : inputCls} />
                   </Field>
                   <Field label="Website" error={errors.website}>
                     <input value={form.website} onChange={set('website')} placeholder="https://yourcompany.com" className={errors.website ? inputErr : inputCls} />
@@ -400,66 +407,17 @@ const DevCompanyProfile = () => {
 
                 {/* Description */}
                 <Field label="About Organization" className="mt-3" error={errors.description}>
-                  <textarea rows={3} value={form.description} onChange={set('description')} placeholder="What your organization does, your expertise, and why buyers should trust you..." className={`${errors.description ? inputErr : inputCls} resize-none`} maxLength={ABOUT_MAX + 50} />
+                  <textarea rows={3} value={form.description} onChange={set('description')} placeholder="Describe your AI services, expertise, and what buyers can expect." className={`${errors.description ? inputErr : inputCls} resize-none`} maxLength={ABOUT_MAX + 50} />
                   <div className="flex justify-end mt-0.5">
                     <span className={`text-[10px] ${form.description.length > ABOUT_MAX ? 'text-red-400' : form.description.length > ABOUT_MAX * 0.9 ? 'text-amber-400' : 'text-zinc-600'}`}>{form.description.length}/{ABOUT_MAX}</span>
                   </div>
                 </Field>
 
-                <div className="mt-4 pt-3 border-t border-zinc-800/50">
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium mb-3">Optional details</p>
-                </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="Support Email" error={errors.supportEmail}>
-                    <input type="email" value={form.supportEmail} onChange={set('supportEmail')} placeholder="support@yourcompany.com" className={errors.supportEmail ? inputErr : inputCls} />
-                  </Field>
-                  <Field label="Contact Email" error={errors.contactEmail}>
-                    <input type="email" value={form.contactEmail} onChange={set('contactEmail')} placeholder="hello@yourcompany.com" className={errors.contactEmail ? inputErr : inputCls} />
-                  </Field>
-                  <Field label="Documentation" error={errors.docsUrl}>
-                    <input value={form.docsUrl} onChange={set('docsUrl')} placeholder="https://docs.yourcompany.com" className={errors.docsUrl ? inputErr : inputCls} />
-                  </Field>
                   <Field label="GitHub" error={errors.githubUrl}>
                     <input value={form.githubUrl} onChange={set('githubUrl')} placeholder="https://github.com/your-org" className={errors.githubUrl ? inputErr : inputCls} />
                   </Field>
-                  <Field label="Founded">
-                    <input value={form.founded} onChange={set('founded')} placeholder="2024" className={inputCls} />
-                  </Field>
-                  <Field label="Company Size">
-                    <select value={form.companySize} onChange={set('companySize')} className={inputCls}>
-                      <option value="">Select size...</option>
-                      {COMPANY_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </Field>
                 </div>
-              </Card>
-
-              {/* Section 2: Marketplace Information */}
-              <Card>
-                <SectionHead icon={FiBriefcase} title="Marketplace Information" />
-                <Field label="Compliance & Certifications">
-                  <input value={form.certifications} onChange={set('certifications')} placeholder="SOC 2, GDPR, ISO 27001 (comma-separated)" className={inputCls} />
-                  <p className={HELPER}>Comma-separated compliance standards</p>
-                </Field>
-                <div className="grid sm:grid-cols-2 gap-3 mt-3">
-                  <Field label="Service Regions">
-                    <input value={form.supportedRegions} onChange={set('supportedRegions')} placeholder="US, EU, APAC (comma-separated)" className={inputCls} />
-                    <p className={HELPER}>Geographic regions for your services</p>
-                  </Field>
-                  <Field label="Support SLA">
-                    <select value={form.supportSla} onChange={set('supportSla')} className={inputCls}>
-                      <option value="">Select SLA...</option>
-                      {SLA_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </Field>
-                </div>
-                <label className="flex items-start gap-3 mt-4 p-3 bg-zinc-800/30 border border-zinc-800 rounded-lg cursor-pointer">
-                  <input type="checkbox" checked={form.isPublic} onChange={setBool('isPublic')} className="accent-blue-500 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-sm text-zinc-200 font-medium">List organization in GlobalPay Marketplace</span>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">Visible to buyers and partners across the network.</p>
-                  </div>
-                </label>
               </Card>
 
 
@@ -478,11 +436,6 @@ const DevCompanyProfile = () => {
             Cancel
           </button>
           <div className="flex items-center gap-3">
-            {p.slug && (
-              <a href={`/api/platform/orgs/${p.slug}`} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-blue-400 transition-colors">
-                <FiExternalLink size={12} /> Preview Public Profile
-              </a>
-            )}
             <button
               type="button" onClick={save} disabled={saving || !canSave}
               className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -499,38 +452,15 @@ const DevCompanyProfile = () => {
   }
 
   /* ━━━ View mode ━━━ */
-  // Calculate profile completion
-  const filledFields = [
-    p.name, p.industry, p.country, p.website, p.description,
-    p.supportEmail, p.contactEmail, p.docsUrl, p.githubUrl,
-    p.founded, p.companySize, p.logoUrl
-  ].filter(Boolean).length;
-  const totalFields = 12;
-  const completionPct = Math.round((filledFields / totalFields) * 100);
-  const isIncomplete = completionPct < 60;
-
-  // Build only-filled fields for compact display
+  const isIncomplete = !p.name || !p.industry || !p.website || !p.description;
   const orgFields = [
     ['Organization Name', p.name],
     ['Category', p.industry],
-    ['Headquarters', p.country],
     ['Website', p.website, p.website],
-    ['Support Email', p.supportEmail, p.supportEmail ? `mailto:${p.supportEmail}` : undefined],
-    ['Contact Email', p.contactEmail, p.contactEmail ? `mailto:${p.contactEmail}` : undefined],
-    ['Documentation', p.docsUrl, p.docsUrl],
     ['GitHub', p.githubUrl, p.githubUrl],
-    ['Founded', p.founded],
-    ['Company Size', p.companySize],
   ].filter(([, val]) => val);
 
   const aboutField = p.description;
-
-  const marketplaceFields = [
-    ['Certifications', p.certifications?.length ? p.certifications.join(', ') : null],
-    ['Service Regions', p.supportedRegions?.length ? p.supportedRegions.join(', ') : null],
-    ['Support SLA', p.supportSla],
-    ['Marketplace Listing', p.isPublic ? 'Listed' : 'Not listed'],
-  ].filter(([, val]) => val);
 
   return (
     <div>
@@ -547,23 +477,10 @@ const DevCompanyProfile = () => {
         }
       />
 
-      {/* Completion banner */}
+      {/* Lightweight completion banner */}
       {isIncomplete && (
         <div className="mb-4 p-4 rounded-xl bg-gradient-to-r from-blue-950/40 to-violet-950/40 border border-blue-900/30">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <FiBriefcase size={14} className="text-blue-400" />
-              <span className="text-sm font-medium text-zinc-200">Profile {completionPct}% complete</span>
-              <span className="text-[11px] text-zinc-500">— {filledFields} of {totalFields} fields</span>
-            </div>
-            <button type="button" onClick={startEdit} className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors">
-              Complete now →
-            </button>
-          </div>
-          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-1.5">A complete profile builds trust with buyers and improves marketplace visibility.</p>
+          <div className="flex items-center justify-between gap-3"><p className="text-sm text-zinc-300">Complete your profile to improve marketplace visibility.</p><button type="button" onClick={startEdit} className="text-xs font-medium text-blue-400 hover:text-blue-300">Complete profile →</button></div>
         </div>
       )}
 
@@ -583,85 +500,76 @@ const DevCompanyProfile = () => {
               <VerificationBadge level={p.verificationLevel} size="sm" />
               {p.isPublic ? <Pill tone="emerald" dot>Public</Pill> : <Pill tone="zinc" dot>Private</Pill>}
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
-              {p.industry && <span className="flex items-center gap-1.5"><FiBriefcase size={11} className="text-zinc-500" />{p.industry}</span>}
-              {p.country && <span className="flex items-center gap-1.5"><FiMapPin size={11} className="text-zinc-500" />{p.country}</span>}
-              {p.website && <a href={p.website} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-400 hover:underline"><FiLink size={11} />{p.website.replace(/^https?:\/\//, '')}</a>}
-              {p.companySize && <span className="flex items-center gap-1.5"><FiUsers size={11} className="text-zinc-500" />{p.companySize}</span>}
-              {p.founded && <span className="flex items-center gap-1.5"><FiCalendar size={11} className="text-zinc-500" />Est. {p.founded}</span>}
-            </div>
+            {p.website && <a href={p.website} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline"><FiLink size={11} />{p.website.replace(/^https?:\/\//, '')}</a>}
           </div>
         </div>
       </Card>
 
-      {/* Two-column layout: Info + Metrics/Verification */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Organization Details — only show filled fields */}
-          {(orgFields.length > 0 || aboutField) && (
-            <Card>
-              <SectionHead icon={FiBriefcase} title="Organization Information" />
-              {orgFields.length > 0 && (
-                <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
-                  {orgFields.map(([label, val, href]) => (
-                    <InfoRow key={label} label={label} value={val} href={href} />
-                  ))}
-                </div>
-              )}
-              {aboutField && (
-                <div className="mt-3 pt-3 border-t border-zinc-800/50">
-                  <InfoRow label="About" value={aboutField} />
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Marketplace — only show filled fields */}
-          {marketplaceFields.length > 0 && (
-            <Card>
-              <SectionHead icon={FiBriefcase} title="Marketplace Information" />
-              <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
-                {marketplaceFields.map(([label, val]) => (
-                  <InfoRow key={label} label={label} value={val} />
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Empty state if nothing is filled beyond the auto-created name */}
-          {orgFields.length <= 1 && !aboutField && !marketplaceFields.length && (
-            <Card>
-              <div className="text-center py-8">
-                <FiBriefcase size={24} className="mx-auto text-zinc-600 mb-2" />
-                <p className="text-sm text-zinc-400 mb-3">Your profile only has a name. Add more details to build trust with buyers.</p>
-                <button type="button" onClick={startEdit} className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                  <FiPlus size={14} /> Complete Your Profile
-                </button>
-              </div>
-            </Card>
-          )}
+      <Card className="mb-4 border-cyan-500/20 bg-gradient-to-r from-violet-950/20 via-zinc-900/60 to-cyan-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div><p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Autonomous Commerce Status</p><p className="mt-1 text-lg font-semibold text-white">{profileStatus}</p></div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className={`rounded-full border px-3 py-1.5 ${isWorldVerified ? 'border-violet-500/30 bg-violet-500/10 text-violet-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'}`}>{isWorldVerified ? '✓ World Identity' : '○ World Verification'}</span>
+            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-cyan-300">✓ Arc Wallet</span>
+            <span className={`rounded-full border px-3 py-1.5 ${graphStatus.graphLive ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-zinc-700 text-zinc-500'}`}>{graphStatus.graphLive ? '✓ Graph Indexed' : '○ Graph Pending'}</span>
+          </div>
         </div>
+      </Card>
 
-        {/* Right column: Status + Metrics — only if there's something to show */}
-        <div className="space-y-4">
-          <Card>
-            <div className="space-y-3">
-              <VerificationBanner level={p.verificationLevel} verifiedAt={p.verifiedAt} compact />
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500">Visibility</span>
-                {p.isPublic ? <Pill tone="emerald" dot>Public</Pill> : <Pill tone="zinc" dot>Private</Pill>}
-              </div>
-              {p.updatedAt && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-500">Updated</span>
-                  <span className="text-zinc-300 tabular-nums">{fmtDate(p.updatedAt)}</span>
-                </div>
-              )}
-            </div>
-          </Card>
-          <MetricsGrid profile={p} />
-        </div>
+      {/* Sponsor identity, reputation, and settlement truth live together here. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <SponsorCard title="Identity Verification" sponsor="World AgentKit" icon={FiShield} tone="violet">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            {isWorldVerified ? <><FiCheckCircle className="text-emerald-400" /> Human Verified</> : <><FiClock className="text-amber-400" /> Verification Required</>}
+          </div>
+          <DataRow label="World Verified" value={isWorldVerified ? 'Yes' : 'No'} />
+          <DataRow label="AgentBook Registered" value={world.agentBookId ? 'Yes' : 'No'} mono />
+          <DataRow label="Verification Date" value={world.verifiedAt ? fmtDate(world.verifiedAt) : null} />
+          <DataRow label="Method" value={world.verificationMethod || null} />
+          <DataRow label="Human-backed Agent" value={world.humanBacked ? 'Yes' : 'No'} />
+          {!isWorldVerified && <button type="button" onClick={() => developerApi.worldVerify(primaryAgent?.agentId).then(() => worldState.refresh()).catch((err) => toast.error(err.message))} disabled={!primaryAgent} className="mt-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">Verify with World</button>}
+          {isWorldVerified && <div className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-400"><FiCheckCircle size={13} /> Verified</div>}
+          <p className="mt-3 text-[10px] leading-relaxed text-zinc-500">World controls publishing authorization only. It never changes the Graph reputation score.</p>
+        </SponsorCard>
+
+        <SponsorCard title="Marketplace Reputation" sponsor="The Graph" icon={FiActivity} tone="emerald">
+          {graphProvider?.paymentCount > 0 ? <><div className="mb-3 flex items-baseline justify-between"><span className="text-xs text-zinc-500">Graph Trust Score</span><span className="text-2xl font-bold text-emerald-400">{graphProvider.trustScore}</span></div><DataRow label="Successful Settlements" value={graphProvider.successfulPayments} /><DataRow label="Success Rate" value={graphProvider.successRate != null ? `${(Number(graphProvider.successRate) * 100).toFixed(1)}%` : null} /><DataRow label="Settlement Volume" value={graphProvider.settlementVolume != null ? `${Number(graphProvider.settlementVolume).toFixed(4)} USDC` : null} /><DataRow label="Unique Buyers" value={graphProvider.uniquePayers} /><DataRow label="Repeat Buyers" value={graphProvider.repeatCustomers} /><DataRow label="Risk Level" value={graphProvider.riskLevel} /><DataRow label="Last Settlement" value={graphProvider.lastSettlement ? fmtDate(graphProvider.lastSettlement) : null} /></> : <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs leading-relaxed text-zinc-500">No marketplace reputation yet.<br />Complete your first successful settlement to build reputation.</div>}
+          <p className="mt-3 text-[10px] leading-relaxed text-zinc-500">Indexed block: {indexedBlock} · Subgraph: {graphStatus.graphLive ? 'Live' : 'Unavailable'}</p>
+        </SponsorCard>
+
+        <SponsorCard title="Settlement Wallet" sponsor="Arc" icon={FiDollarSign} tone="cyan">
+          <DataRow label="Wallet Address" value={primaryAgent?.walletAddress} mono />
+          {primaryAgent?.walletAddress && <DataRow label="Wallet Address" value={primaryAgent.walletAddress} mono />}
+          <DataRow label="Network" value="Arc Testnet · 5042002" />
+          {wallet.balance != null && <DataRow label="USDC Balance" value={`${Number(wallet.balance).toFixed(6)} USDC`} />}
+          {primaryAgent?.walletAddress && <a href={`https://testnet.arcscan.app/address/${primaryAgent.walletAddress}`} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-center rounded-lg border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10">View wallet on ArcScan <FiExternalLink className="ml-2" size={12} /></a>}
+          {latestSettlement?.transactionHash && <a href={explorerUrl} target="_blank" rel="noreferrer" className="mt-2 block truncate text-center font-mono text-[10px] text-cyan-400 hover:underline">Latest tx: {latestSettlement.transactionHash}</a>}
+        </SponsorCard>
       </div>
+
+      <Card>
+        <SectionHead icon={FiActivity} title="Sponsor Activity" />
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"><p className="text-xs font-semibold text-violet-300">World AgentKit</p><p className="mt-1 text-xs text-zinc-400">{isWorldVerified ? 'Human verified and publishing enabled.' : 'Verification required before publishing.'}</p></div>
+          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3"><p className="text-xs font-semibold text-cyan-300">Arc</p><p className="mt-1 text-xs text-zinc-400">{latestSettlement?.transactionHash ? `PaymentReleased · ${latestSettlement.transactionHash.slice(0, 12)}…` : 'No settlement transaction indexed for this wallet.'}</p></div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3"><p className="text-xs font-semibold text-emerald-300">The Graph</p><p className="mt-1 text-xs text-zinc-400">{graphStatus.graphLive ? `Indexed at block ${indexedBlock}. Reputation is live.` : 'Waiting for live indexed data.'}</p></div>
+        </div>
+        {latestSettlement?.transactionHash && <p className="mt-3 text-xs text-zinc-500">Indexed evidence: <a href={explorerUrl} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">View transaction on ArcScan</a></p>}
+      </Card>
+
+      <Card>
+        <SectionHead icon={FiActivity} title="Marketplace Status" />
+        <div className="flex flex-wrap items-center gap-2">{['Draft', 'Verification Required', 'Ready to Publish', 'Published', 'Top Provider'].map((state) => <span key={state} className={`rounded-full border px-3 py-1.5 text-xs ${state === profileStatus ? 'border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-300' : 'border-zinc-800 text-zinc-600'}`}>{state}</span>)}</div>
+        {!isWorldVerified && <p className="mt-3 text-xs text-amber-300">Verify with World before publishing AI services.</p>}
+      </Card>
+
+      {ownedServices.length > 0 && <Card><SectionHead icon={FiPackage} title="Published Services" /><div className="space-y-2">{ownedServices.map((service) => <div key={service.serviceId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"><div><p className="text-sm font-semibold text-white">{service.title}</p><p className="text-xs text-zinc-500">{service.category} · {service.unitPrice} USDC / {service.unitLabel || 'unit'}</p></div><span className="text-xs text-zinc-400">Graph settlements: {graphProvider?.paymentCount ?? 0}</span></div>)}</div></Card>}
+
+      <Card>
+        <SectionHead icon={FiBriefcase} title="About" />
+        <p className="text-sm leading-relaxed text-zinc-300">{aboutField || 'No organization description yet. Describe your AI services, expertise, and what buyers can expect.'}</p>
+        <div className="mt-4 grid gap-x-8 gap-y-2 sm:grid-cols-2">{orgFields.map(([label, val, href]) => <InfoRow key={label} label={label} value={val} href={href} />)}</div>
+      </Card>
     </div>
   );
 };

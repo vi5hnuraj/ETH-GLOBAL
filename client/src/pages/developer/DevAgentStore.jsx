@@ -68,7 +68,7 @@ const DevAgentStore = () => {
         const agent = agentsRes?.agents?.[0];
         if (agent && !agent.worldVerified) {
           toast.error('World verification required before publishing. Verify your identity with World ID.', { duration: 5000 });
-          navigate('/developer/world-verification');
+          navigate('/developer/network/profile');
           return;
         }
       } catch { /* proceed anyway if check fails */ }

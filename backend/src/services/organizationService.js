@@ -270,8 +270,9 @@ export const backfillDeveloper = async (developerId, organizationId) => {
 export const ensurePersonalOrg = async (developerId) => {
   const devId = developerId || DEFAULT_DEVELOPER_ID;
 
-  // Never create orgs for non-UUID dev IDs (dev_xxxxx random IDs from old browser sessions)
-  if (!UUID_RE.test(devId)) {
+  // Non-UUID identities are permitted only for the local/development console
+  // fallback; production must use a real authenticated UUID.
+  if (!UUID_RE.test(devId) && process.env.NODE_ENV === 'production') {
     logger.warn('[ensurePersonalOrg] rejected non-UUID devId:', devId);
     return null;
   }

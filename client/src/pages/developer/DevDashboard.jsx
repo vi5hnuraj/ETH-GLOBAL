@@ -118,6 +118,14 @@ const DevDashboard = () => {
   ];
 
   const isFirstTime = (d.totalAgents || 0) === 0 && (d.servicesPublished || 0) === 0;
+  const lifecycle = [
+    { label: 'Create Agent', done: Number(d.totalAgents || 0) > 0, to: '/developer/agents', sponsor: 'GlobalPay' },
+    { label: 'Arc Wallet', done: Number(d.walletsCreated || 0) > 0, to: '/developer/agents', sponsor: 'Arc' },
+    { label: 'Verify Identity', done: Number(d.verifiedAgents || 0) > 0, to: '/developer/network/profile', sponsor: 'World' },
+    { label: 'Publish Service', done: Number(d.servicesPublished || 0) > 0, to: '/developer/marketplace/services/publish', sponsor: 'GlobalPay' },
+    { label: 'First Payment', done: Number(d.successfulPayments || 0) > 0, to: '/developer/commerce/sessions', sponsor: 'Arc' },
+    { label: 'Graph Reputation', done: Number(d.successfulPayments || 0) > 0, to: '/developer/graph-intelligence', sponsor: 'The Graph' }
+  ];
 
   return (
     <div>
@@ -135,6 +143,14 @@ const DevDashboard = () => {
           <FiRefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> Refresh
         </button>
       </header>
+
+      <Card className="mb-6 border-blue-500/20 bg-gradient-to-r from-blue-950/20 via-zinc-900/50 to-violet-950/20">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div><p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Agent lifecycle</p><h2 className="mt-1 text-lg font-semibold text-white">From wallet creation to marketplace reputation</h2></div>
+          <a href="/developer/commerce/autonomous" className="text-xs font-medium text-blue-400 hover:text-blue-300">Run autonomous commerce →</a>
+        </div>
+        <div className="grid gap-2 md:grid-cols-6">{lifecycle.map((stage) => <a key={stage.label} href={stage.to} className={`relative rounded-xl border p-3 transition-colors ${stage.done ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-400/50' : 'border-zinc-800 bg-zinc-950/30 hover:border-zinc-600'}`}><div className={`mb-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${stage.done ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-500'}`}>{stage.done ? '✓' : '○'}</div><p className={`text-xs font-semibold ${stage.done ? 'text-zinc-200' : 'text-zinc-500'}`}>{stage.label}</p><p className="mt-1 text-[10px] text-zinc-600">{stage.sponsor}</p></a>)}</div>
+      </Card>
 
       {/* Welcome banner — first time only */}
       {isFirstTime && (
