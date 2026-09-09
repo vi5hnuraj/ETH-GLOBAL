@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiPlus, FiRefreshCw, FiTrash2, FiSettings, FiSearch, FiCopy, FiDollarSign, FiClock, FiCpu,
-  FiPauseCircle, FiPlayCircle, FiKey, FiGrid, FiList
+  FiPauseCircle, FiPlayCircle, FiKey, FiShield, FiLock, FiTrendingUp
 } from 'react-icons/fi';
 import developerApi from '../../utils/developerApi';
 import agentsApi from '../../utils/agentsApi';
@@ -22,8 +22,7 @@ const CATEGORIES = ['Automation', 'Research', 'Finance', 'OCR', 'Translation', '
 
 const DevAgents = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState({ search: '', status: '', page: 1, perPage: 10 });
-  const [viewMode, setViewMode] = useState('grid');
+  const [filters, setFilters] = useState({ search: '', status: '', page: 1, perPage: 12 });
 
   const { data, loading, error, refresh, refreshing } = useApi({
     fetcher: () => developerApi.agents(filters),
@@ -31,6 +30,27 @@ const DevAgents = () => {
   });
 
   const agents = data?.agents || [];
+
+  /* Sponsor intel for the per-card badges — all agents in 3 bulk calls, no N+1 */
+  const worldListState = useApi({ fetcher: () => developerApi.worldAgents(), deps: [] });
+  /* One Graph snapshot → trust intel for every provider (backend caches; no per-agent N+1) */
+  const trustAllState = useApi({ fetcher: () => developerApi.providerAnalysis([]), deps: [] });
+
+  const worldMap = useMemo(() => {
+    const m = {};
+    for (const x of worldListState.data?.agents || []) m[x.agentId] = x;
+    return m;
+  }, [worldListState.data]);
+
+  const trustMap = useMemo(() => {
+    const m = {};
+    for (const p of trustAllState.data?.providers || []) m[String(p.providerId || '').toLowerCase()] = p;
+    return m;
+  }, [trustAllState.data]);
+
+  const worldFor = (agentId) => worldMap[agentId] || null;
+  const trustFor = (wallet) => trustMap[String(wallet || '').toLowerCase()] || null;
+
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -191,43 +211,10 @@ const DevAgents = () => {
             <option value="revoked" className="bg-[#05070B] text-zinc-300">Revoked</option>
           </select>
           <span className="text-xs text-zinc-500 font-medium bg-zinc-900/40 border border-zinc-800/60 px-2.5 py-1 rounded-full">{data?.total ?? 0} total</span>
-
-          {/* View Toggle */}
-          <div className="flex border border-zinc-800/80 rounded-xl overflow-hidden p-0.5 bg-[#05070B] ml-auto shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
-            <button
-              onClick={() => setViewMode('grid')}
-              type="button"
-              aria-pressed={viewMode === 'grid'}
-              aria-label="Grid view"
-              className={`p-1.5 rounded-lg transition-all duration-200 ${
-                viewMode === 'grid'
-                  ? 'bg-zinc-800 text-white shadow'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-              title="Grid Cards"
-            >
-              <FiGrid size={15} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              type="button"
-              aria-pressed={viewMode === 'list'}
-              aria-label="List view"
-              className={`p-1.5 rounded-lg transition-all duration-200 ${
-                viewMode === 'list'
-                  ? 'bg-zinc-800 text-white shadow'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-              title="Compact List"
-            >
-              <FiList size={15} />
-            </button>
-          </div>
         </div>
 
         {/* Content Area */}
         {loading && !data ? (
-          viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 space-y-4 animate-pulse">
@@ -248,10 +235,7 @@ const DevAgents = () => {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="py-8"><Skeleton className="h-10 w-full rounded-lg" lines={4} /></div>
-          )
-          ) : !error && agents.length === 0 ? (
+        ) : !error && agents.length === 0 ? (
           <div className="py-8 border border-zinc-800/60 rounded-2xl bg-zinc-900/20">
             <EmptyState
               icon={<FiCpu size={28} />}
@@ -267,7 +251,6 @@ const DevAgents = () => {
             />
           </div>
         ) : (
-          viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {agents.map((a) => {
                 const catColors = { automation: 'from-amber-500/20 to-orange-600/20', research: 'from-purple-500/20 to-pink-600/20', ocr: 'from-blue-500/20 to-cyan-600/20', translation: 'from-emerald-500/20 to-teal-600/20', voice: 'from-violet-500/20 to-indigo-600/20', gpu: 'from-cyan-500/20 to-blue-600/20', finance: 'from-green-500/20 to-emerald-600/20' };
@@ -294,7 +277,7 @@ const DevAgents = () => {
                     </div>
 
                     {/* Quick info row */}
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center flex-wrap gap-1.5 mb-4">
                       <div className="flex items-center gap-1.5 text-[11px] text-cyan-400">
                         <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                         Arc Testnet
@@ -305,6 +288,40 @@ const DevAgents = () => {
                         <><div className="w-px h-3 bg-zinc-800" /><span className="text-[11px] text-emerald-400 font-mono font-semibold">{balances[a.agentId]}</span></>
                       )}
                     </div>
+
+                    {/* Sponsor badges: World verification + Graph trust at a glance */}
+                    {(() => {
+                      const w = worldFor(a.agentId);
+                      const t = trustFor(a.wallet);
+                      return (
+                        <div className="flex items-center flex-wrap gap-1.5 mb-4">
+                          {w?.worldVerified ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-violet-300" title="World-verified human publisher">
+                              <FiShield size={9} /> Human Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800/60 border border-zinc-700/60 px-2 py-0.5 text-[10px] text-zinc-500" title="Not World-verified — can buy but not publish">
+                              <FiLock size={9} /> Unverified
+                            </span>
+                          )}
+                          {t && t.paymentCount > 0 ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                                t.riskLevel === 'high' ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                                : t.riskLevel === 'medium' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}
+                              title={`The Graph: ${t.paymentCount} settlement(s), ${Math.round((t.successRate ?? 0) * 100)}% success`}
+                            >
+                              <FiTrendingUp size={9} /> Trust {t.trustScore}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800/60 border border-zinc-700/60 px-2 py-0.5 text-[10px] text-zinc-600" title="No Graph settlement history yet">
+                              <FiTrendingUp size={9} /> No trust data
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Wallet + API key compact row */}
                     <div className="flex items-center gap-2 mb-4">
@@ -352,78 +369,6 @@ const DevAgents = () => {
                 );
               })}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase text-zinc-500 border-b border-zinc-800">
-                    <th className="pb-3 pr-4">Agent</th>
-                    <th className="pb-3 pr-4">Wallet</th>
-                    <th className="pb-3 pr-4">Chain</th>
-                    <th className="pb-3 pr-4">API Key</th>
-                    <th className="pb-3 pr-4">Status</th>
-                    <th className="pb-3 pr-4">Requests</th>
-                    <th className="pb-3 pr-4">Payments</th>
-                    <th className="pb-3 pr-4">Volume</th>
-                    <th className="pb-3 pr-4">Last Activity</th>
-                    <th className="pb-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agents.map((a) => (
-                    <tr key={a.agentId} className="border-b border-zinc-800/60 hover:bg-zinc-900/40 transition-colors">
-                      <td className="py-3 pr-4">
-                        <Link to={`/developer/agents/${a.agentId}`} className="font-semibold text-zinc-200 hover:text-blue-400 transition-colors">
-                          {a.name}
-                        </Link>
-                        <p className="text-xs text-zinc-500 max-w-[200px] truncate mt-0.5">{a.description || 'No description'}</p>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-1.5">
-                          <code className="font-mono text-xs text-zinc-400 bg-zinc-900/40 px-1.5 py-0.5 rounded border border-zinc-800">{a.wallet.slice(0, 8)}…{a.wallet.slice(-6)}</code>
-                          <button onClick={() => { navigator.clipboard?.writeText(a.wallet); toast.success('Wallet copied'); }} type="button" className="text-zinc-500 hover:text-white" title="Copy wallet" aria-label="Copy wallet"><FiCopy size={12} /></button>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                          {a.chainId ? `Arc · ${a.chainId}` : 'Arc Testnet · 5042002'}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-1.5">
-                          <code className="font-mono text-xs text-zinc-500">{a.apiKeyPrefix}••••</code>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4"><StatusBadge status={a.status} /></td>
-                      <td className="py-3 pr-4 text-zinc-300 font-medium">{a.requestCount}</td>
-                      <td className="py-3 pr-4 text-zinc-300 font-medium">{a.paymentCount}</td>
-                      <td className="py-3 pr-4 font-mono text-xs text-cyan-400 font-semibold">{Number(a.volumeUsdc || a.volumeBOT || 0).toFixed(2)} USDC</td>
-                      <td className="py-3 pr-4 text-xs text-zinc-500">{a.lastActivity ? new Date(a.lastActivity).toLocaleDateString() : '—'}</td>
-                      <td className="py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link to={`/developer/agents/${a.agentId}`} className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800" title="Manage agent" aria-label="Manage agent"><FiSettings size={14} /></Link>
-                          <button onClick={() => navigate(`/developer/agents/${a.agentId}`)} type="button" className="p-2 rounded-lg text-zinc-400 hover:text-blue-400 hover:bg-zinc-800" title="View history" aria-label="View history"><FiClock size={14} /></button>
-                          <button onClick={() => checkBalance(a)} type="button" disabled={busyId === a.agentId} className="p-2 rounded-lg text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800" title="Check balance" aria-label="Check balance"><FiDollarSign size={14} /></button>
-                          {a.status === 'suspended' ? (
-                            <button onClick={() => toggleSuspend(a)} type="button" disabled={busyId === a.agentId} className="p-2 rounded-lg text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800" title="Resume agent" aria-label="Resume agent"><FiPlayCircle size={14} /></button>
-                          ) : (
-                            <button onClick={() => toggleSuspend(a)} type="button" disabled={busyId === a.agentId} className="p-2 rounded-lg text-zinc-400 hover:text-amber-400 hover:bg-zinc-800" title="Suspend agent" aria-label="Suspend agent"><FiPauseCircle size={14} /></button>
-                          )}
-                          <button onClick={() => setConfirmRotate(a)} type="button" disabled={rotatingId === a.agentId || busyId === a.agentId} className="p-2 rounded-lg text-zinc-400 hover:text-violet-400 hover:bg-zinc-800" title="Rotate API key" aria-label="Rotate API key">
-                            <FiKey size={14} className={rotatingId === a.agentId ? 'animate-spin' : ''} />
-                          </button>
-                          <button onClick={() => setConfirmDelete(a)} type="button" disabled={busyId === a.agentId} className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800" title="Delete" aria-label="Delete agent">
-                            <FiTrash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
         )}
 
         <div className="mt-6 border-t border-zinc-800/60 pt-4">
