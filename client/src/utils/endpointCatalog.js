@@ -261,11 +261,11 @@ export const ENDPOINTS = [
   {
     id: 'search-marketplace',
     method: 'GET',
-    path: '/marketplace/browse',
+    path: '/developers/agent-marketplace/browse',
     title: 'Search Marketplace',
-    summary: 'Browse or search the GlobalPay agent marketplace by query, category, or service type.',
-    auth: 'None — public endpoint',
-    keyType: KEY_TYPE.PUBLIC,
+    summary: 'Browse the GlobalPay agent marketplace by query, category, or service type (requires developer key).',
+    auth: 'Authorization: Bearer <gpay_dev_…>',
+    keyType: KEY_TYPE.DEVELOPER,
     category: 'marketplace',
     params: [
       { name: 'query', type: 'string', required: false, description: 'Search term' },
@@ -279,7 +279,7 @@ export const ENDPOINTS = [
   {
     id: 'install-agent',
     method: 'POST',
-    path: '/marketplace/install',
+    path: '/developers/agent-marketplace/install',
     title: 'Install Agent',
     summary: 'Install a service listing from the marketplace into your project or wallet.',
     auth: 'Authorization: Bearer <gpay_dev_…>',
@@ -296,17 +296,15 @@ export const ENDPOINTS = [
   {
     id: 'invoke-agent',
     method: 'POST',
-    path: '/agents/invoke',
-    title: 'Invoke Agent',
-    summary: 'Invoke a marketplace-installed agent with a payload. Routes via smart-procurement.',
-    auth: 'Authorization: Bearer <gpay_sk_…>',
-    keyType: KEY_TYPE.AGENT,
+    path: '/services/{serviceId}/invoke',
+    title: 'Invoke Service',
+    summary: 'Invoke a marketplace service with a payload using a service access key (gpay_svc_…). Metered per request.',
+    auth: 'Authorization: Bearer <gpay_svc_…>',
+    keyType: KEY_TYPE.PUBLIC,
     category: 'agents',
     params: [
-      { name: 'agentId', type: 'string', required: true, description: 'Agent ID or listing ID' },
-      { name: 'method', type: 'string', required: false, description: 'Method name to invoke (optional)' },
-      { name: 'payload', type: 'object', required: true, description: 'Invocation payload as JSON object' },
-      { name: 'sessionId', type: 'string', required: false, description: 'Session ID for stateful calls' }
+      { name: 'serviceId', type: 'string', required: true, description: 'Service ID to invoke' },
+      { name: 'input', type: 'object', required: true, description: 'Invocation payload as JSON object' }
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[9], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[9], spec)
@@ -314,16 +312,15 @@ export const ENDPOINTS = [
   {
     id: 'create-session',
     method: 'POST',
-    path: '/agents/sessions',
-    title: 'Create Session',
-    summary: 'Create a stateful agent session for multi-turn conversation or workflow execution.',
+    path: '/agents/marketplace/sessions',
+    title: 'Create Purchase Session',
+    summary: 'Create a marketplace purchase session for a service (approval + settlement workflow).',
     auth: 'Authorization: Bearer <gpay_sk_…>',
     keyType: KEY_TYPE.AGENT,
-    category: 'agents',
+    category: 'commerce',
     params: [
-      { name: 'agentId', type: 'string', required: true, description: 'Agent ID to start session with' },
-      { name: 'mode', type: 'string', required: false, description: 'Session mode: chat, workflow, batch (default chat)' },
-      { name: 'ttl', type: 'number', required: false, description: 'Session TTL in seconds (default 3600)' }
+      { name: 'serviceId', type: 'string', required: true, description: 'Service to purchase' },
+      { name: 'mode', type: 'string', required: false, description: 'auto or approval (default auto)' }
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[10], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[10], spec)
@@ -331,14 +328,14 @@ export const ENDPOINTS = [
   {
     id: 'report-usage',
     method: 'POST',
-    path: '/commerce/usage',
+    path: '/agents/usage',
     title: 'Report Usage',
-    summary: 'Report metered usage for a subscription or usage-based service.',
+    summary: 'Report metered usage for a service (calls, tokens, compute-seconds).',
     auth: 'Authorization: Bearer <gpay_sk_…>',
     keyType: KEY_TYPE.AGENT,
     category: 'commerce',
     params: [
-      { name: 'subscriptionId', type: 'string', required: true, description: 'Subscription or service ID' },
+      { name: 'serviceId', type: 'string', required: true, description: 'Service the usage belongs to' },
       { name: 'units', type: 'number', required: true, description: 'Number of usage units' },
       { name: 'unitType', type: 'string', required: false, description: 'Unit type: calls, tokens, compute-seconds (default calls)' }
     ],
@@ -347,17 +344,15 @@ export const ENDPOINTS = [
   },
   {
     id: 'generate-invoice',
-    method: 'POST',
-    path: '/commerce/invoices',
-    title: 'Generate Invoice',
-    summary: 'Generate an invoice for completed usage or a subscription period.',
+    method: 'GET',
+    path: '/agents/invoices',
+    title: 'List Invoices',
+    summary: 'List invoices generated for this agent — purchase sessions and service usage.',
     auth: 'Authorization: Bearer <gpay_sk_…>',
     keyType: KEY_TYPE.AGENT,
     category: 'commerce',
     params: [
-      { name: 'subscriptionId', type: 'string', required: false, description: 'Subscription ID (if applicable)' },
-      { name: 'recipientId', type: 'string', required: true, description: 'Recipient wallet/org ID' },
-      { name: 'items', type: 'array', required: true, description: 'Line items as array of {description, amount, currency}' }
+      { name: 'limit', type: 'number', required: false, description: 'Max rows (default 50)' }
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[12], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[12], spec)
@@ -365,32 +360,30 @@ export const ENDPOINTS = [
   {
     id: 'pay-invoice',
     method: 'POST',
-    path: '/commerce/invoices/{id}/pay',
+    path: '/agents/invoices/{id}/pay',
     title: 'Pay Invoice',
-    summary: 'Pay a pending invoice using the agent wallet or linked payment method.',
+    summary: 'Pay a pending invoice using the agent wallet (real Arc settlement).',
     auth: 'Authorization: Bearer <gpay_sk_…>',
     keyType: KEY_TYPE.AGENT,
     category: 'commerce',
     params: [
       { name: 'id', type: 'string', required: true, description: 'Invoice ID' },
-      { name: 'paymentMethod', type: 'string', required: false, description: 'wallet or payment_method (default wallet)' }
+      { name: 'paymentMethod', type: 'string', required: false, description: 'wallet (default)' }
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[13], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[13], spec)
   },
   {
     id: 'create-project',
-    method: 'POST',
-    path: '/developers/projects',
-    title: 'Create Project',
-    summary: 'Create a new developer project for organizing agents, services, and deployments.',
+    method: 'GET',
+    path: '/developers/network/analytics',
+    title: 'Network Analytics',
+    summary: 'Whole-network analytics: orgs, active agents, services, settled volume, providers.',
     auth: 'Authorization: Bearer <gpay_dev_…>',
     keyType: KEY_TYPE.DEVELOPER,
     category: 'projects',
     params: [
-      { name: 'name', type: 'string', required: true, description: 'Project name' },
-      { name: 'description', type: 'string', required: false, description: 'Project description' },
-      { name: 'orgId', type: 'string', required: true, description: 'Organization ID to attach project to' }
+      { name: 'limit', type: 'number', required: false, description: 'Recent activity rows (default 50)' }
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[14], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[14], spec)
@@ -398,15 +391,13 @@ export const ENDPOINTS = [
   {
     id: 'view-trust-score',
     method: 'GET',
-    path: '/network/directory/{id}/trust-score',
-    title: 'View Trust Score',
-    summary: 'Retrieve the network trust score for a partner or service listing.',
-    auth: 'None — public endpoint',
-    keyType: KEY_TYPE.PUBLIC,
+    path: '/developers/graph/status',
+    title: 'Graph Status & Trust',
+    summary: 'Live The Graph indexing status: deployment, indexed block, payments, settlements — the source of provider trust.',
+    auth: 'Authorization: Bearer <gpay_dev_…>',
+    keyType: KEY_TYPE.DEVELOPER,
     category: 'network',
-    params: [
-      { name: 'id', type: 'string', required: true, description: 'Directory entity ID (service or org)' }
-    ],
+    params: [],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[15], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[15], spec)
   },

@@ -18,13 +18,14 @@ const DEFAULT_PARAMS = {
   'publish-service': { name: '', description: '', pricePerCall: '', sla: 'starter' },
   'search-marketplace': { query: '', serviceType: '', limit: '20', offset: '0' },
   'install-agent': { listingId: '', projectId: '', consent: '{}' },
-  'invoke-agent': { agentId: '', method: '', payload: '{}', sessionId: '' },
-  'create-session': { agentId: '', mode: 'chat', ttl: '3600' },
-  'report-usage': { subscriptionId: '', units: '', unitType: 'calls' },
-  'generate-invoice': { subscriptionId: '', recipientId: '', items: '[]' },
+  'invoke-agent': { serviceId: '', input: '{}' },
+  'create-session': { serviceId: '', mode: 'auto' },
+  'report-usage': { serviceId: '', units: '', unitType: 'calls' },
+  'generate-invoice': { limit: '50' },
   'pay-invoice': { id: '', paymentMethod: 'wallet' },
-  'create-project': { name: '', description: '', orgId: '' },
-  'view-trust-score': { id: '' }
+  'create-project': { limit: '50' },
+  'view-trust-score': {},
+  'x402-premium': {}
 };
 
 const DEVELOPER_KEY_TYPE = KEY_TYPE.DEVELOPER;
