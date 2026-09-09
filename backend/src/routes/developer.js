@@ -218,9 +218,9 @@ router.get('/marketplace', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), u
   router.get('/commerce/graph', ...guard([SCOPES.BILLING_MANAGE, SCOPES.BILLING_READ], 'commerce.read'), usageMiddleware, devGraph);
   router.get('/commerce/reports/monthly', ...guard([SCOPES.BILLING_MANAGE, SCOPES.BILLING_READ], 'commerce.read'), usageMiddleware, devMonthlyReport);
    router.get('/commerce/compliance', ...guard([SCOPES.SETTINGS_MANAGE, SCOPES.SETTINGS_READ], 'commerce.read'), usageMiddleware, devCompliance);
-   router.get('/graph/status', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphStatus);
-   router.post('/graph/provider-analysis', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devProviderAnalysis);
-   router.post('/graph/ask', ...guard(SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphAsk);
+   router.get('/graph/status', ...guard(V3_SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphStatus);
+   router.post('/graph/provider-analysis', ...guard(V3_SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devProviderAnalysis);
+   router.post('/graph/ask', ...guard(V3_SCOPES.ANALYTICS_READ, 'commerce.read'), usageMiddleware, devGraphAsk);
    router.post('/commerce/autonomous', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), usageMiddleware, devAutonomousCommerce);
 
 // ==================== AI Assistant ====================
