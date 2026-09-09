@@ -611,7 +611,6 @@ const DevDocs = () => {
             <div><code className="text-blue-400">GET /developers/business/directory</code> — Company directory</div>
             <div><code className="text-blue-400">GET /developers/business/relationships</code> — Relationship graph</div>
             <div><code className="text-blue-400">GET /developers/business/partnerships</code> — Partnerships list</div>
-            <div><code className="text-blue-400">GET /developers/network/analytics</code> — Network analytics</div>
           </div>
         </section>
 

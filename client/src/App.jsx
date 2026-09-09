@@ -73,7 +73,6 @@ const DevServiceDetail = React.lazy(() => import('./pages/developer/DevServiceDe
 const DevInvoiceDetail = React.lazy(() => import('./pages/developer/DevInvoiceDetail.jsx'));
 const DevSessionDetail = React.lazy(() => import('./pages/developer/DevSessionDetail.jsx'));
 const DevCompanyProfile = React.lazy(() => import('./pages/developer/DevCompanyProfile.jsx'));
-const DevNetwork = React.lazy(() => import('./pages/developer/DevNetwork.jsx'));
 const DevWorkflows = React.lazy(() => import('./pages/developer/DevWorkflows.jsx'));
 const DevWorkflowRun = React.lazy(() => import('./pages/developer/DevWorkflowRun.jsx'));
 const DevAgentMarketplace = React.lazy(() => import('./pages/developer/DevAgentMarketplace.jsx'));
@@ -192,7 +191,6 @@ const App = () => {
               <Route path="commerce/dashboard" element={<DevCommerceDashboard />} />
               <Route path="commerce/recommendations" element={<DevRecommendations />} />
               <Route path="network/profile" element={<DevCompanyProfile />} />
-              <Route path="network/analytics" element={<DevNetwork />} />
               <Route path="network/workflows" element={<DevWorkflows />} />
               <Route path="network/workflows/:runId" element={<DevWorkflowRun />} />
               <Route path="agent-marketplace" element={<DevAgentMarketplace />} />
