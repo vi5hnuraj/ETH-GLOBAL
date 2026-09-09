@@ -368,6 +368,21 @@ export const developerApi = {
   businessWorkspaceDetail: (workspaceId) => request(`/developers/business/workspaces/${encodeURIComponent(workspaceId)}`),
   inviteOrgToBusinessWorkspace: (workspaceId, body) => request(`/developers/business/workspaces/${encodeURIComponent(workspaceId)}/invite`, { method: 'POST', body: JSON.stringify(body) }),
 
+  // ---- x402 premium APIs (HTTP 402) ----
+  x402Overview: () => request('/x402/overview'),
+  // Raw call that never throws on 402 — the page needs the challenge payload
+  x402Raw: (endpoint, payment) => {
+    const token = localStorage.getItem('token');
+    return fetch(`${API_URL}/x402/${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Developer-Id': getDeveloperId() }),
+        ...(payment ? { 'X-PAYMENT': JSON.stringify(payment) } : {})
+      }
+    }).then(async (res) => ({ status: res.status, ok: res.ok, body: await res.json().catch(() => ({})) }));
+  },
+
   // ---- Generic passthrough for raw payload access ----
   get: (path) => request(path),
   post: (path, body) =>

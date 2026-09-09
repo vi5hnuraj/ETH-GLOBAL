@@ -51,7 +51,7 @@ const SECTION_TITLES = {
   }
 };
 
-const DEVELOPER_CATEGORIES = ['agents', 'services', 'marketplace', 'projects'];
+const DEVELOPER_CATEGORIES = ['agents', 'services', 'marketplace', 'projects', 'x402'];
 const AGENT_CATEGORIES = ['agents', 'payments', 'commerce'];
 
 const CATEGORY_LABELS = {
@@ -61,7 +61,8 @@ const CATEGORY_LABELS = {
   marketplace: 'Marketplace',
   commerce: 'Commerce',
   projects: 'Projects',
-  network: 'Business Network'
+  network: 'Business Network',
+  x402: 'x402 Premium'
 };
 
 const isDeveloperEndpoint = (e) => e.keyType === DEVELOPER_KEY_TYPE;

@@ -17,6 +17,7 @@ import platformRoutes from './src/routes/platform.js'; // ✅ Operational platfo
 import adminRoutes from './src/routes/admin.js'; // ✅ Admin Console API
 import serviceGatewayRoutes from './src/routes/serviceGateway.js'; // ✅ Service Gateway (invoke, access, metering)
 import arcRoutes from './src/routes/arc.js'; // ✅ Arc L1 & Circle Developer Tools
+import x402Routes from './src/routes/x402.js'; // ✅ x402 HTTP-402 premium APIs
 
 import rateLimit from 'express-rate-limit';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -189,6 +190,7 @@ app.use('/api/platform', platformRoutes); // ✅ Operational endpoints (health/f
 app.use('/api/admin', adminRoutes); // ✅ Admin Console (super_admin only)
 app.use('/api/services', serviceGatewayRoutes); // ✅ Service Gateway (invoke, access, health, metering)
 app.use('/api/arc', arcRoutes); // ✅ Arc L1 Network & Circle Agent Stack API
+app.use('/api/x402', x402Routes); // ✅ x402 premium APIs (HTTP 402 → pay → retry)
 
 // ✅ API versioning — /api/v1 and /api/v2 alias the same routers so clients can
 // pin an explicit version while the legacy /api/* paths keep working unchanged.

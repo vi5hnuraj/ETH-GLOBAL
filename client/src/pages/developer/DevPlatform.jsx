@@ -33,13 +33,13 @@ const NAV_GROUPS = [
       { to: '/developer/playground', label: 'Playground', icon: FiTerminal },
       { to: '/developer/marketplace/services', label: 'Services', icon: FiPackage, end: true },
       { to: '/developer/marketplace/services/publish', label: 'Publish Service', icon: FiPlus, end: true },
-      { to: '/developer/status', label: 'Status', icon: FiActivity }
+      { to: '/developer/status', label: 'Status', icon: FiActivity },
+      { to: '/developer/x402', label: 'x402 APIs', icon: FiDollarSign }
     ]
   },
   {
     label: 'Automate',
     items: [
-      { to: '/developer/agents/profile', label: 'Agent Dashboard', icon: FiCpu },
       { to: '/developer/agents', label: 'Agent Studio', icon: FiCpu },
       { to: '/developer/network/workflows', label: 'Workflows', icon: FiGitBranch },
     ]
@@ -65,7 +65,6 @@ const NAV_GROUPS = [
         { to: '/developer/graph-intelligence', label: 'Trust Engine', icon: FiShield },
         { to: '/developer/commerce/autonomous', label: 'Autonomous Commerce', icon: FiZap },
         { to: '/developer/assistant', label: 'AI Assistant', icon: FiMessageSquare },
-        { to: '/developer/world-verification', label: 'Agent Identity', icon: FiGlobe },
       { to: '/developer/network/analytics', label: 'Network', icon: FiRepeat },
       { to: '/developer/usage', label: 'API Usage', icon: FiActivity }
     ]

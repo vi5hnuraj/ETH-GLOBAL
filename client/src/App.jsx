@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 
 // Core pages — eagerly imported for instant first-paint
 import Home from './pages/Home';
@@ -40,7 +40,6 @@ const AiRemittanceAgent = React.lazy(() => import('./components/Bank/AiRemittanc
 const DevPlatform = React.lazy(() => import('./pages/developer/DevPlatform.jsx'));
 const DevDashboard = React.lazy(() => import('./pages/developer/DevDashboard.jsx'));
 const DevAgents = React.lazy(() => import('./pages/developer/DevAgents.jsx'));
-const DevAgentProfile = React.lazy(() => import('./pages/developer/DevAgentProfile.jsx'));
 const DevAgentDetail = React.lazy(() => import('./pages/developer/DevAgentDetail.jsx'));
 const DevApi = React.lazy(() => import('./pages/developer/DevApi.jsx'));
 const DevUsage = React.lazy(() => import('./pages/developer/DevUsage.jsx'));
@@ -49,6 +48,7 @@ const DevGraphIntelligence = React.lazy(() => import('./pages/developer/DevGraph
 const DevAutonomousCommerce = React.lazy(() => import('./pages/developer/DevAutonomousCommerce.jsx'));
 const DevAiAssistant = React.lazy(() => import('./pages/developer/DevAiAssistant.jsx'));
 const DevWorldVerification = React.lazy(() => import('./pages/developer/DevWorldVerification.jsx'));
+const DevX402 = React.lazy(() => import('./pages/developer/DevX402.jsx'));
 const DevRevenue = React.lazy(() => import('./pages/developer/DevRevenue.jsx'));
 const DevBilling = React.lazy(() => import('./pages/developer/DevBilling.jsx'));
 const DevDocs = React.lazy(() => import('./pages/developer/DevDocs.jsx'));
@@ -160,7 +160,6 @@ const App = () => {
             <Route path="/developer" element={<DevPlatform />}>
               <Route index element={<DevDashboard />} />
               <Route path="agents" element={<DevAgents />} />
-              <Route path="agents/profile" element={<DevAgentProfile />} />
               <Route path="agents/:agentId" element={<DevAgentDetail />} />
               <Route path="api" element={<DevApi />} />
               <Route path="usage" element={<DevUsage />} />
@@ -168,7 +167,8 @@ const App = () => {
               <Route path="graph-intelligence" element={<DevGraphIntelligence />} />
               <Route path="commerce/autonomous" element={<DevAutonomousCommerce />} />
               <Route path="assistant" element={<DevAiAssistant />} />
-              <Route path="world-verification" element={<DevWorldVerification />} />
+              <Route path="world-verification" element={<Navigate to="/developer/network/profile" replace />} />
+              <Route path="x402" element={<DevX402 />} />
               <Route path="revenue" element={<DevRevenue />} />
               <Route path="billing" element={<DevBilling />} />
               <Route path="docs" element={<DevDocs />} />

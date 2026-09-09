@@ -409,6 +409,21 @@ export const ENDPOINTS = [
     ],
     exampleRequest: (base) => buildExampleRequest(ENDPOINTS[15], { base }),
     exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[15], spec)
+  },
+  {
+    id: 'x402-premium',
+    method: 'GET',
+    path: '/x402/provider-insights',
+    title: 'Call Premium Endpoint (x402)',
+    summary: 'HTTP 402 flow: call without payment → receive the 402 challenge → pay from the agent MPC wallet on Arc → retry with X-PAYMENT proof → premium data returns.',
+    auth: 'Authorization: Bearer <gpay_dev_…> (plus X-PAYMENT after paying)',
+    keyType: KEY_TYPE.DEVELOPER,
+    category: 'x402',
+    params: [
+      { name: 'X-PAYMENT', type: 'header', required: false, description: 'JSON { paymentId, txHash, payer } — proof from the 402 challenge' }
+    ],
+    exampleRequest: (base) => buildExampleRequest(ENDPOINTS[16], { base }),
+    exampleResponse: (spec) => renderExampleResponse(ENDPOINTS[16], spec)
   }
 ];
 

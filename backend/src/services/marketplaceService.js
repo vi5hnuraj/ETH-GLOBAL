@@ -109,6 +109,8 @@ const toPublicService = (s) => ({
   unitLabel: s.unit_label,
   endpointUrl: s.endpoint_url || null,
   healthCheckUrl: s.health_check_url || null,
+  requireX402: Boolean(s.require_x402),
+  x402Price: s.x402_price || null,
   supportedCurrencies: s.supported_currencies || ['USDC'],
   isActive: s.is_active,
   metadata: s.metadata || {},
@@ -140,7 +142,7 @@ export const getServiceById = async (id) => {
   return data || null;
 };
 
-export const createService = async ({ agent, title, description, category, pricingModel, unitPrice, unitLabel, metadata, endpointUrl, healthCheckUrl }) => {
+export const createService = async ({ agent, title, description, category, pricingModel, unitPrice, unitLabel, metadata, endpointUrl, healthCheckUrl, requireX402, x402Price }) => {
   validatePrice(unitPrice);
   if (!title || !String(title).trim()) throw httpError(400, 'Service title is required.');
   if (!CATEGORIES.includes(category)) throw httpError(400, `Invalid category. Allowed: ${CATEGORIES.join(', ')}.`);
@@ -164,6 +166,8 @@ export const createService = async ({ agent, title, description, category, prici
       unit_label: unitLabel || null,
       endpoint_url: endpointUrl || null,
       health_check_url: healthCheckUrl || null,
+      require_x402: Boolean(requireX402),
+      x402_price: requireX402 ? String(x402Price || process.env.X402_DEFAULT_PRICE || '0.01') : null,
       is_active: true,
       metadata: metadata || {}
     })
@@ -220,6 +224,10 @@ export const updateService = async ({ agent, serviceId, patch }) => {
   if (patch.unitLabel !== undefined) update.unit_label = patch.unitLabel;
   if (patch.endpointUrl !== undefined) update.endpoint_url = patch.endpointUrl || null;
   if (patch.healthCheckUrl !== undefined) update.health_check_url = patch.healthCheckUrl || null;
+  if (patch.requireX402 !== undefined) {
+    update.require_x402 = !!patch.requireX402;
+    update.x402_price = patch.requireX402 ? String(patch.x402Price || process.env.X402_DEFAULT_PRICE || '0.01') : null;
+  }
   if (patch.isActive !== undefined) update.is_active = !!patch.isActive;
   if (patch.metadata !== undefined) update.metadata = patch.metadata;
   if (Object.keys(update).length === 0) throw httpError(400, 'Nothing to update.');

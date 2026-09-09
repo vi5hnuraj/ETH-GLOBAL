@@ -236,10 +236,14 @@ export const createServiceSchema = Joi.object({
   pricingModel: servicePricingModel.default('per_unit'),
   unitPrice: decimalString.required(),
   unitLabel: Joi.string().max(60).trim().allow('', null),
-  metadata: Joi.object().allow(null)
+  metadata: Joi.object().allow(null),
+  requireX402: Joi.boolean().default(false),
+  x402Price: decimalString.allow(null)
 });
 
 export const updateServiceSchema = Joi.object({
+  requireX402: Joi.boolean(),
+  x402Price: decimalString.allow(null),
   title: Joi.string().min(1).max(120).trim(),
   description: Joi.string().max(2000).trim().allow('', null),
   category: serviceCategory,

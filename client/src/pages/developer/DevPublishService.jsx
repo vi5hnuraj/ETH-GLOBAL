@@ -45,7 +45,7 @@ const UNIT_CHIPS = ['request', 'image', 'hour', 'token', 'GB', 'minute', 'charac
 const input =
   'w-full bg-zinc-900/80 border border-zinc-700 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 transition-colors';
 
-const EMPTY = { title: '', category: 'compute', description: '', pricingModel: 'per_unit', unitLabel: 'request', unitPrice: '0.01', agentId: '', endpointUrl: '', healthCheckUrl: '' };
+const EMPTY = { title: '', category: 'compute', description: '', pricingModel: 'per_unit', unitLabel: 'request', unitPrice: '0.01', agentId: '', endpointUrl: '', healthCheckUrl: '', requireX402: false, x402Price: '0.01' };
 
 const priceLabel = (pm) => {
   switch (pm) {
@@ -167,7 +167,9 @@ const DevPublishService = () => {
         unitLabel: form.unitLabel.trim() || null,
         agentId: form.agentId,
         endpointUrl: form.endpointUrl.trim() || null,
-        healthCheckUrl: form.healthCheckUrl.trim() || null
+        healthCheckUrl: form.healthCheckUrl.trim() || null,
+        requireX402: form.requireX402,
+        x402Price: form.requireX402 ? String(Number(form.x402Price)) : null
       };
       if (editing) {
         await developerApi.updateService(serviceId, body);
@@ -221,7 +223,7 @@ const DevPublishService = () => {
             This ensures every marketplace provider is backed by a real human.
           </p>
           <button
-            onClick={() => navigate('/developer/world-verification')}
+            onClick={() => navigate('/developer/network/profile')}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-500"
           >
             <FiShield size={16} /> Verify with World
@@ -364,6 +366,37 @@ const DevPublishService = () => {
                       className={input}
                     />
                     <p className="text-[11px] text-zinc-600 mt-1.5">GlobalPay will monitor this endpoint to verify your service is online.</p>
+                  </div>
+
+                  {/* x402 — HTTP-402 native payment gate */}
+                  <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-3.5">
+                    <label htmlFor="svc-x402" className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        id="svc-x402"
+                        type="checkbox"
+                        checked={form.requireX402}
+                        onChange={(e) => setForm((f) => ({ ...f, requireX402: e.target.checked }))}
+                        className="w-4 h-4 accent-cyan-500"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-white">Require x402 payment</p>
+                        <p className="text-[11px] text-zinc-500">AI agents get HTTP 402 and auto-pay USDC on Arc before each call.</p>
+                      </div>
+                    </label>
+                    {form.requireX402 && (
+                      <div className="mt-3">
+                        <label htmlFor="svc-x402-price" className="text-[11px] font-medium text-zinc-400 mb-1 block">Price per call (USDC)</label>
+                        <input
+                          id="svc-x402-price"
+                          type="number"
+                          step="0.0001"
+                          min="0.0001"
+                          value={form.x402Price}
+                          onChange={set('x402Price')}
+                          className={input}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
