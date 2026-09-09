@@ -465,14 +465,14 @@ const DevUsage = () => {
             { key: 'errors', label: 'Errors', align: 'right', render: v => v > 0 ? (
               <span className="text-[10px] text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded font-mono">{v}</span>
             ) : <span className="text-[10px] text-zinc-600">0</span> },
-            { key: 'count', label: 'Success %', align: 'right', render: (v, row) => {
-              const total = v + (row.errors || 0);
-              const s = total > 0 ? ((v / total) * 100).toFixed(1) : '100.0';
+            { key: 'successRate', label: 'Success %', align: 'right', render: (v, row) => {
+              const total = (row.count || 0) + (row.errors || 0);
+              const s = total > 0 ? ((row.count / total) * 100).toFixed(1) : '100.0';
               return <span className={`font-mono text-xs ${Number(s) >= 99 ? 'text-emerald-400' : Number(s) >= 95 ? 'text-amber-400' : 'text-red-400'}`}>{s}%</span>;
             }},
-            { key: 'count', label: 'Traffic %', align: 'right', render: (v) => {
+            { key: 'trafficShare', label: 'Traffic %', align: 'right', render: (v, row) => {
               const total = u.totalRequests || 1;
-              const t = ((v / total) * 100).toFixed(1);
+              const t = (((row.count || 0) / total) * 100).toFixed(1);
               return <span className="font-mono text-xs text-zinc-400">{t}%</span>;
             }},
           ]}
