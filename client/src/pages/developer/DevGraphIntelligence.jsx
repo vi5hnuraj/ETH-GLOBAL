@@ -13,11 +13,20 @@ const suggestions = [
   'Are there any fraud signals in provider history?'
 ];
 
-const TrustBadge = ({ score, confidence }) => (
+const TrustBadge = ({ score, confidence, paymentCount }) => (
   <div className="flex items-center gap-1.5">
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${score >= 70 ? 'bg-emerald-500/20 text-emerald-400' : score >= 40 ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
-      <FiShield size={11} />{score}/100
-    </span>
+    {paymentCount === 0 || score == null ? (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-zinc-700/40 px-2 py-0.5 text-[11px] font-semibold text-zinc-400"
+        title="No indexed settlements yet — trust becomes measurable after the first verified Graph settlement"
+      >
+        <FiShield size={11} />Unknown
+      </span>
+    ) : (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${score >= 70 ? 'bg-emerald-500/20 text-emerald-400' : score >= 40 ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
+        <FiShield size={11} />{score}/100
+      </span>
+    )}
     {confidence != null && <span className="text-[10px] text-zinc-500">{Math.round(confidence * 100)}% conf</span>}
   </div>
 );
@@ -80,7 +89,7 @@ export default function DevGraphIntelligence() {
           <pre className="whitespace-pre-wrap rounded-lg bg-zinc-950 p-4 text-sm text-zinc-200 font-mono border border-zinc-800">{result.answer}</pre>
         </Card>}
         <Card title="Provider Ranking" subtitle={`${providers.length} provider(s) analyzed from live Graph evidence`}>
-        {providers.length === 0 ? <p className="text-sm text-zinc-500">No live indexed provider data is available yet.</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-[10px] uppercase tracking-wider text-zinc-500"><tr><th className="pb-3">Provider</th><th className="pb-3">Trust</th><th className="pb-3">Volume</th><th className="pb-3">Buyers</th><th className="pb-3">Risk</th><th className="pb-3">Latest</th></tr></thead><tbody>{providers.map((provider, index) => <tr key={provider.providerId} className="border-t border-zinc-800/70"><td className="py-3 text-white">{index === 0 && <FiCheckCircle className="mr-2 inline text-emerald-400" size={14} />}{provider.providerId}</td><td className="py-3"><TrustBadge score={provider.trustScore ?? 0} confidence={provider.confidence} /></td><td className="py-3 font-mono text-cyan-300">{Number(provider.settlementVolume || 0).toFixed(4)} USDC</td><td className="py-3 text-zinc-300">{provider.uniquePayers || 0}</td><td className="py-3"><RiskBadge level={provider.riskLevel} />{provider.riskFlags?.length > 0 && <span className="ml-1 text-[10px] text-zinc-500">{provider.riskFlags.length} flag(s)</span>}</td><td className="py-3 text-zinc-500">{provider.lastSettlement ? new Date(provider.lastSettlement).toLocaleString() : 'No indexed payment'}</td></tr>)}</tbody></table></div>}
+        {providers.length === 0 ? <p className="text-sm text-zinc-500">No live indexed provider data is available yet.</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-[10px] uppercase tracking-wider text-zinc-500"><tr><th className="pb-3">Provider</th><th className="pb-3">Trust</th><th className="pb-3">Volume</th><th className="pb-3">Buyers</th><th className="pb-3">Risk</th><th className="pb-3">Latest</th></tr></thead><tbody>{providers.map((provider, index) => <tr key={provider.providerId} className="border-t border-zinc-800/70"><td className="py-3 text-white">{index === 0 && <FiCheckCircle className="mr-2 inline text-emerald-400" size={14} />}{provider.providerId}</td><td className="py-3"><TrustBadge score={provider.trustScore} confidence={provider.confidence} paymentCount={provider.paymentCount ?? 0} /></td><td className="py-3 font-mono text-cyan-300">{Number(provider.settlementVolume || 0).toFixed(4)} USDC</td><td className="py-3 text-zinc-300">{provider.uniquePayers || 0}</td><td className="py-3"><RiskBadge level={provider.riskLevel} />{provider.riskFlags?.length > 0 && <span className="ml-1 text-[10px] text-zinc-500">{provider.riskFlags.length} flag(s)</span>}</td><td className="py-3 text-zinc-500">{provider.lastSettlement ? new Date(provider.lastSettlement).toLocaleString() : 'No indexed payment'}</td></tr>)}</tbody></table></div>}
         {providers[0]?.reasoning?.length > 0 && <div className="mt-4 border-t border-zinc-800 pt-4"><p className="mb-2 text-xs font-semibold text-zinc-400">Decision Evidence (The Graph)</p><ul className="space-y-1">{providers[0].reasoning.map((line, i) => <li key={i} className="text-xs text-zinc-400">{line}</li>)}</ul></div>}
         {providers[0]?.settlements?.length > 0 && <div className="mt-5 border-t border-zinc-800 pt-4"><p className="mb-2 text-xs font-semibold text-zinc-400">Recent indexed settlements</p>{providers[0].settlements.map((settlement) => <div key={settlement.id} className="flex items-center justify-between gap-3 py-2 text-xs"><span className="flex items-center gap-2 text-zinc-400"><FiClock size={13} />{settlement.timestamp ? new Date(settlement.timestamp).toLocaleString() : 'Settlement'}</span>{settlement.transactionHash && <a className="inline-flex items-center gap-1 text-violet-400 hover:text-violet-300" href={`https://testnet.arcscan.app/tx/${settlement.transactionHash}`} target="_blank" rel="noreferrer">ArcScan <FiExternalLink size={12} /></a>}</div>)}</div>}
       </Card>

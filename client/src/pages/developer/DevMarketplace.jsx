@@ -580,14 +580,32 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
               ✓ Human Verified (World)
             </span>
           )}
-          {s.reputation?.trustScore != null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+          {s.reputation?.totalSettlements > 0 && s.reputation?.trustScore != null ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
+              title={`Trust ${s.reputation.trustScore}/100 — ${(s.reputation.successRate * 100).toFixed(0)}% of ${s.reputation.totalSettlements} settlements succeeded${s.reputation.riskLevel ? ` · risk ${s.reputation.riskLevel}` : ''}`}
+            >
               Trust {s.reputation.trustScore} (Graph)
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-zinc-700/40 px-2 py-0.5 text-[10px] font-semibold text-zinc-400"
+              title="No indexed settlements yet — trust score becomes available after the first verified Graph settlement"
+            >
+              Trust — (Unknown)
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
             Paid via Arc
           </span>
+          {s.requireX402 && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400"
+              title={`This API requires x402 payment per request — ${s.x402Price || '0.01'} USDC`}
+            >
+              ⚡ x402 {s.x402Price || '0.01'} USDC
+            </span>
+          )}
         </div>
         {s.reputation && (
           <div className="flex items-center gap-3 text-[10px] text-zinc-500">
