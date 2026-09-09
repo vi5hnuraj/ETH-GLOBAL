@@ -52,6 +52,14 @@ router.post('/:serviceId/invoke', async (req, res) => {
     });
   } catch (err) {
     const status = err.status || 500;
+    // x402: surface the full payment challenge so agents can auto-pay and retry
+    if (status === 402 && err.x402) {
+      return res.status(402).json({
+        status: 402,
+        message: 'Payment Required',
+        payment: err.x402
+      });
+    }
     res.status(status).json({
       success: false,
       message: err.message || 'Service invocation failed'

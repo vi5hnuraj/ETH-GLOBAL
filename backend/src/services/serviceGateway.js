@@ -84,7 +84,8 @@ export const authenticateServiceKey = async (accessKey) => {
   const pool = await getPool();
 
   const result = await pool.query(
-    `SELECT sa.*, s.endpoint_url, s.title as service_title, s.unit_price, s.unit_label, s.category
+    `SELECT sa.*, s.endpoint_url, s.title as service_title, s.unit_price, s.unit_label, s.category,
+            s.require_x402, s.x402_price
      FROM service_access sa
      JOIN ai_services s ON sa.service_id = s.service_id
      WHERE sa.access_key_hash = $1 AND sa.status = 'active' AND s.is_active = true`,
@@ -166,6 +167,38 @@ export const invokeService = async ({ accessKey, serviceId, requestPayload, head
   // 2. Check quota
   if (access.requests_used >= access.requests_limit) {
     throw { status: 429, message: 'Request quota exceeded. Contact the service provider.' };
+  }
+
+  // 2.5 x402 gate — services flagged require_x402 demand an HTTP 402 payment
+  // per invocation. No X-PAYMENT header → 402 challenge; header present →
+  // real on-chain verification via the shared x402 service (replay-proof).
+  if (access.require_x402) {
+    const { buildChallenge, verifyPayment } = await import('./x402Service.js');
+    const paymentHeader = extraHeaders?.['x-payment'] || extraHeaders?.['X-Payment'];
+    if (!paymentHeader) {
+      const challenge = await buildChallenge({
+        endpoint: `/api/services/${serviceId}/invoke`,
+        price: access.x402_price || undefined
+      });
+      throw Object.assign(new Error('Payment Required'), {
+        status: 402,
+        x402: challenge.payment,
+        x402Version: 1
+      });
+    }
+    let claim;
+    try {
+      claim = JSON.parse(paymentHeader);
+    } catch {
+      throw { status: 400, message: 'X-PAYMENT header must be JSON: { paymentId, txHash, payer }' };
+    }
+    await verifyPayment({
+      paymentId: claim.paymentId,
+      txHash: claim.txHash,
+      amount: access.x402_price || undefined,
+      endpoint: `/api/services/${serviceId}/invoke`,
+      agentCode: claim.payer || claim.agentId || null
+    });
   }
 
   // 3. Check endpoint exists
