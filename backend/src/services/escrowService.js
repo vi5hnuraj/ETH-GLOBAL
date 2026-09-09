@@ -87,9 +87,10 @@ export const releaseEscrow = async ({ sessionId }) => {
 
   return {
     released: true,
+    onChain: false,
     amountBOT: e.amount_bot,
     sellerAgentId: e.seller_agent_id,
-    message: `Escrow released. ${e.amount_bot} USDC transferred to seller.`
+    message: `Escrow marked released in GlobalPay ledger (off-chain bookkeeping; no on-chain transfer in this release).`
   };
 };
 
@@ -128,9 +129,10 @@ export const refundEscrow = async ({ sessionId, reason }) => {
 
   return {
     refunded: true,
+    onChain: false,
     amountBOT: e.amount_bot,
     buyerAgentId: e.buyer_agent_id,
-    message: `Escrow refunded. ${e.amount_bot} USDC returned to buyer.`
+    message: `Escrow marked refunded in GlobalPay ledger (off-chain bookkeeping; no on-chain transfer in this release).`
   };
 };
 

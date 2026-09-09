@@ -167,7 +167,9 @@ export const checkAgentSpendingPolicy = async ({ agentId, amountUsdc, recipientA
 };
 
 /**
- * Circle Agent Stack: Autonomous Multi-Step Escrow & Milestone Settlement on Arc
+ * Circle Agent Stack: Autonomous Multi-Step Escrow & Milebook Settlement — OFF-CHAIN LEDGER (Hackathon demo).
+ * Records escrow intent in the GlobalPay ledger only; it does NOT move on-chain funds.
+ * Real settlement happens through GlobalPayPaymentManager.settleInvoice/release or agentPay.
  */
 export const createProgrammableEscrow = async ({
   agentId,
@@ -203,9 +205,10 @@ export const createProgrammableEscrow = async ({
   return {
     success: true,
     escrowId,
+    onChain: false,
     record,
-    settlementNetwork: 'Arc Testnet',
-    settlementAsset: 'USDC (Native Gas)'
+    settlementNetwork: 'GlobalPay ledger (off-chain escrow — hackathon demo, no on-chain funds moved)',
+    settlementAsset: 'USDC (accounted off-chain)'
   };
 };
 
