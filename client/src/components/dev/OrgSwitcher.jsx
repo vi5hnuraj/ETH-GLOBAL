@@ -14,7 +14,7 @@ const BACKOFF_MS = 3000;
  * then settles into an explicit "Unable to load developer workspace" state with
  * a manual Retry — it never sits on "Loading…" forever.
  */
-const OrgSwitcher = ({ onChange }) => {
+const OrgSwitcher = ({ onChange, collapsed = false }) => {
   const [orgs, setOrgs] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -131,14 +131,15 @@ const OrgSwitcher = ({ onChange }) => {
   };
 
   return (
-    <div ref={rootRef} className="relative mb-4">
+    <div ref={rootRef} className={`relative ${collapsed ? 'mb-3' : 'mb-4'}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={!orgs && !error}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 text-left transition-colors"
+        title={collapsed ? (active?.name || 'Organization') : undefined}
+        className={`w-full flex items-center gap-2 rounded-lg bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 text-left transition-colors ${collapsed ? 'justify-center p-2' : 'px-3 py-2'}`}
       >
         {!orgs && !error ? (
           <FiLoader size={16} className="text-zinc-500 animate-spin shrink-0" />
@@ -149,13 +150,13 @@ const OrgSwitcher = ({ onChange }) => {
             {active?.name?.[0]?.toUpperCase() || 'O'}
           </span>
         )}
-        <span className="flex-1 min-w-0">
+        {!collapsed && <span className="flex-1 min-w-0">
           <span className="block text-[10px] uppercase tracking-widest text-zinc-500">Organization</span>
           <span className="block text-sm font-medium text-zinc-200 truncate">
             {orgs ? (active?.name || 'Select') : error ? 'Unavailable' : 'Loading…'}
           </span>
-        </span>
-        {orgs && !error && (
+        </span>}
+        {orgs && !error && !collapsed && (
           <FiChevronDown size={14} className={`text-zinc-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
         )}
       </button>
