@@ -28,7 +28,11 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['buffer'],
+    include: ['buffer', 'qrcode', 'qrcode/lib/core/qrcode.js'],
+    /* World ID's IDKit loads a .wasm file via new URL(..., import.meta.url).
+       Pre-bundling relocates that URL into .vite/deps where the wasm doesn't
+       exist -> generic_error. Keep them as real ESM so the wasm path resolves. */
+    exclude: ['@worldcoin/idkit', '@worldcoin/idkit-core'],
     esbuildOptions: {
       target: 'es2021',
       define: {

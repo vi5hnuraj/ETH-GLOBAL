@@ -166,7 +166,7 @@ const App = () => {
               <Route path="graph-intelligence" element={<DevGraphIntelligence />} />
               <Route path="commerce/autonomous" element={<DevAutonomousCommerce />} />
               <Route path="assistant" element={<DevAiAssistant />} />
-              <Route path="world-verification" element={<Navigate to="/developer/network/profile" replace />} />
+              <Route path="world-verification" element={<DevWorldVerification />} />
               <Route path="x402" element={<DevX402 />} />
               <Route path="revenue" element={<DevRevenue />} />
               <Route path="billing" element={<DevBilling />} />

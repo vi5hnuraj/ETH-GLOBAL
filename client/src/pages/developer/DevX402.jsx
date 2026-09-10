@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   FiDollarSign, FiShield, FiCheckCircle, FiXCircle, FiZap, FiRefreshCw,
@@ -21,15 +21,25 @@ const DevX402 = () => {
 
   // Live demo state: call → 402 → pay → retry
   const [endpoint, setEndpoint] = useState('provider-insights');
+  const [serviceId, setServiceId] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
   const [demo, setDemo] = useState(null); // { stage, status, body, payment }
   const [busy, setBusy] = useState(false);
+
+  const protectedServices = data?.protectedServices || [];
+  const visibleServices = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+    if (!query) return protectedServices;
+    return protectedServices.filter((service) => `${service.title} ${service.service_id}`.toLowerCase().includes(query));
+  }, [protectedServices, serviceSearch]);
 
   const runDemo = async () => {
     setBusy(true);
     setDemo({ stage: 'calling', status: null, body: null });
     try {
       // Step 1 — call without payment
-      const first = await developerApi.x402Raw(endpoint);
+      const scopedEndpoint = serviceId ? `${endpoint}?serviceId=${encodeURIComponent(serviceId)}` : endpoint;
+      const first = await developerApi.x402Raw(scopedEndpoint);
       if (first.status !== 402) {
         setDemo({ stage: 'done-free', status: first.status, body: first.body });
         return;
@@ -64,7 +74,7 @@ const DevX402 = () => {
 
       // Real MPC settlement through the backend agent payment path
       const payRes = await developerApi.post(`/developers/agents/${paid.agentId}/pay`, {
-        to: p.recipientAddress,
+        destination: p.recipientAddress,
         amount: Number(p.amount),
         token: 'USDC',
         note: `x402 ${p.paymentId}`
@@ -72,7 +82,7 @@ const DevX402 = () => {
       setDemo((d) => ({ ...d, stage: 'verifying', payment: payRes }));
 
       // Step 3 — retry with payment proof
-      const second = await developerApi.x402Raw(endpoint, {
+      const second = await developerApi.x402Raw(scopedEndpoint, {
         paymentId: p.paymentId,
         txHash: payRes.txHash,
         payer: paid.wallet
@@ -155,20 +165,24 @@ const DevX402 = () => {
             ))}
           </div>
 
-          {/* Marketplace services flagged x402 */}
-          {data?.protectedServices?.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-zinc-800/60">
-              <h3 className="text-[11px] font-semibold text-zinc-400 mb-2">Marketplace services requiring x402</h3>
-              <div className="space-y-1.5">
-                {data.protectedServices.slice(0, 5).map((s) => (
-                  <div key={s.service_id} className="flex items-center justify-between rounded-lg bg-zinc-950/40 px-3 py-2">
-                    <span className="text-[11px] text-zinc-300 truncate">{s.title}</span>
-                    <span className="text-[10px] font-mono text-cyan-400 shrink-0 ml-2">{s.x402_price || s.unit_price} USDC</span>
-                  </div>
-                ))}
-              </div>
+          <div className="mt-4 border-t border-zinc-800/60 pt-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label htmlFor="x402-service-search" className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Analyze a specific service</label>
+              <span className="text-[10px] text-zinc-600">{protectedServices.length} available</span>
             </div>
-          )}
+            <input
+              id="x402-service-search"
+              value={serviceSearch}
+              onChange={(e) => setServiceSearch(e.target.value)}
+              placeholder="Search x402 services…"
+              className="mb-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 placeholder:text-zinc-600 focus:border-cyan-500/60 focus:outline-none"
+            />
+            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
+              <option value="">All providers</option>
+              {visibleServices.map((service) => <option key={service.service_id} value={service.service_id}>{service.title} · {service.x402_price || service.unit_price} USDC</option>)}
+            </select>
+            <p className="mt-1 text-[10px] text-zinc-600">Search and choose any active x402 service so Provider Insights analyzes that service’s provider wallet.</p>
+          </div>
         </div>
 
         {/* Live demo */}
