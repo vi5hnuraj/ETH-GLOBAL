@@ -377,7 +377,7 @@ const DevMarketplace = () => {
               />
             ) : (
               <>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
                   {pageItems.map((s) => <ServiceCard key={s.serviceId} s={s} onBuy={() => openBuy(s)} onAddToCart={() => handleAddToCart(s)} addingToCart={addingToCart === s.serviceId} />)}
                 </div>
                 <Pagination
@@ -557,7 +557,7 @@ const DevMarketplace = () => {
 };
 
 const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
-  <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-4 flex flex-col hover:border-zinc-700 hover:bg-zinc-950 transition-colors group">
+  <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-4 flex flex-col h-full hover:border-zinc-700 hover:bg-zinc-950 transition-colors group">
     <div className="flex items-center justify-between mb-2">
       <Pill tone={featured ? 'amber' : 'blue'}>{s.category}</Pill>
       <span className="text-[11px] text-zinc-500">{s.pricingModel}</span>
