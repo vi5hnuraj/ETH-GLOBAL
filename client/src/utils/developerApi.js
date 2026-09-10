@@ -268,6 +268,10 @@ export const developerApi = {
   worldStatus: (agentId) => request(`/developers/world/status/${agentId}`),
   worldLookup: (walletAddress) => request('/developers/world/lookup', { method: 'POST', body: JSON.stringify({ walletAddress }) }),
   worldAgents: () => request('/developers/world/agents'),
+  worldIdkitConfig: () => request('/developers/world/idkit/config'),
+  worldIdkitSign: (action) => request('/developers/world/idkit/sign', { method: 'POST', body: JSON.stringify({ action }) }),
+  worldIdkitVerify: (payload) => request('/developers/world/idkit/verify', { method: 'POST', body: JSON.stringify(payload), timeout: 60000 }),
+  worldUserStatus: () => request('/developers/world/user-status'),
 
   // ---- Autonomous Demo ----
   runDemo: () => request('/developers/demo/autonomous', { method: 'POST', timeout: 120000 }),

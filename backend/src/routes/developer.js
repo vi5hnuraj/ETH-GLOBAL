@@ -82,7 +82,7 @@ import {
 } from '../controllers/commerceController.js';
 import { devGraphStatus, devProviderAnalysis, devGraphAsk, devAutonomousCommerce } from '../controllers/commerceController.js';
 import { chat as assistantChat } from '../controllers/aiAssistantController.js';
-import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents } from '../controllers/worldController.js';
+import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents, idkitConfig, idkitSign, idkitVerify, userStatus as worldUserStatus } from '../controllers/worldController.js';
 import worldRoutes from './world.js';
 import { requireWorldVerification } from '../middleware/worldVerificationGate.js';
 import { runDemo } from '../controllers/demoController.js';
@@ -247,5 +247,9 @@ router.post('/world/verify', usageMiddleware, worldVerify);
 router.get('/world/status/:agentId', usageMiddleware, worldStatus);
 router.post('/world/lookup', usageMiddleware, worldLookup);
 router.get('/world/agents', usageMiddleware, worldListAgents);
+router.get('/world/idkit/config', usageMiddleware, idkitConfig);
+router.post('/world/idkit/sign', usageMiddleware, idkitSign);
+router.post('/world/idkit/verify', usageMiddleware, idkitVerify);
+router.get('/world/user-status', usageMiddleware, worldUserStatus);
 
 export default router;

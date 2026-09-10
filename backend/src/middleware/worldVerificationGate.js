@@ -1,18 +1,16 @@
 /**
- * World Verification Gate — middleware that requires World AgentKit
- * verification before allowing service publishing.
+ * World Verification Gate — middleware that requires World ID verification
+ * before allowing service publishing.
+ *
+ * Verification is ONCE PER USER: the profile holds the flag, every agent the
+ * user owns (current and future) inherits it. The agent-level column is only
+ * consulted as a legacy fallback.
  *
  * This is an AUTHORIZATION layer, not a reputation layer.
  * World proves WHO you are. The Graph proves HOW TRUSTWORTHY you are.
  */
-import { getVerificationStatus } from '../services/worldAgentKitService.js';
+import { getUserVerificationStatus } from '../services/worldIdVerifyService.js';
 
-/**
- * Express middleware that checks if the developer's primary agent
- * is verified in World AgentKit before allowing service creation.
- *
- * Returns 403 if not verified, with a clear error message.
- */
 export const requireWorldVerification = async (req, res, next) => {
   try {
     const developerId = req.developerId;
@@ -20,14 +18,32 @@ export const requireWorldVerification = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
 
-    // Find the developer's first agent (the one they publish with)
     const { supabase } = await import('../config/supabaseClient.js');
+
+    // 1) User-level verification (authoritative, once per user)
+    const userStatus = await getUserVerificationStatus(developerId);
+    if (userStatus.verified) {
+      req.worldVerifiedUser = true;
+      return next();
+    }
+
+    // 2) Legacy fallback — an agent verified via AgentBook before user-level existed
     const { data: agents } = await supabase
       .from('ai_agents')
       .select('agent_id, wallet_address, world_verified, human_backed')
       .eq('developer_id', developerId)
       .order('created_at', { ascending: true })
       .limit(1);
+
+    if (agents?.[0]?.world_verified) {
+      // Promote to user-level so future checks are profile-driven
+      await supabase
+        .from('profiles')
+        .update({ world_verified: true, world_verified_at: new Date().toISOString() })
+        .eq('id', developerId);
+      req.worldVerifiedUser = true;
+      return next();
+    }
 
     if (!agents?.length) {
       return res.status(403).json({
@@ -38,25 +54,14 @@ export const requireWorldVerification = async (req, res, next) => {
       });
     }
 
-    const agent = agents[0];
-    if (agent.world_verified) {
-      // Already verified — allow publish
-      req.worldVerifiedAgent = agent;
-      return next();
-    }
-
-    // Not verified — block with clear guidance
     return res.status(403).json({
       success: false,
-      message: 'World AgentKit verification required before publishing a service. Verify your identity with World ID to prove you are a real human.',
+      message: 'World ID verification required before publishing a service. Verify once as a human — every agent you own inherits it.',
       code: 'WORLD_VERIFICATION_REQUIRED',
       action: 'verify_world',
-      agentId: agent.agent_id,
-      walletAddress: agent.wallet_address,
       verificationUrl: '/developer/world-verification'
     });
   } catch (err) {
-    // If World AgentKit service is unavailable, fail closed
     return res.status(503).json({
       success: false,
       message: 'World verification service temporarily unavailable. Please try again.',

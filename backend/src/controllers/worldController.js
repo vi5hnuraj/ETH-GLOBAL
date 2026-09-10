@@ -10,6 +10,81 @@ import {
   enrichServicesWithVerification
 } from '../services/worldAgentKitService.js';
 import { supabase } from '../config/supabaseClient.js';
+import {
+  createRpSignature,
+  verifyIdkitProof,
+  markUserVerified,
+  getUserVerificationStatus,
+  worldIdConfig
+} from '../services/worldIdVerifyService.js';
+/**
+ * GET /api/developers/world/idkit/config
+ * Public (authed) config for the IDKit widget: app_id, rp_id, environment.
+ */
+export const idkitConfig = async (req, res, next) => {
+  try {
+    return res.json({ success: true, config: worldIdConfig() });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/developers/world/idkit/sign — RP signature for IDKit (Step 3).
+ * The signing key never leaves the server.
+ */
+export const idkitSign = async (req, res, next) => {
+  try {
+    const { action } = req.body || {};
+    if (!action || typeof action !== 'string') {
+      return res.status(400).json({ success: false, message: 'action is required.' });
+    }
+    const signature = createRpSignature(action);
+    return res.json({ success: true, ...signature });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+/**
+ * POST /api/developers/world/idkit/verify — verify IDKit proof (Steps 5–6).
+ * Forwards the proof byte-for-byte to World, stores the nullifier (UNIQUE),
+ * then marks the selected agent World-verified.
+ */
+export const idkitVerify = async (req, res, next) => {
+  try {
+    const { idkitResponse, action } = req.body || {};
+    const developerId = req.developerId;
+
+    const result = await verifyIdkitProof({
+      idkitResponse,
+      expectedAction: action,
+      developerId
+    });
+
+    // Verification is once per USER — stored on the profile; agents inherit.
+    const updatedProfile = await markUserVerified({ developerId, nullifier: result.nullifier });
+
+    return res.json({ success: true, verified: true, ...result, profileUpdated: Boolean(updatedProfile) });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, message: err.message });
+    next(err);
+  }
+};
+
+/**
+ * GET /api/developers/world/user-status
+ * User-level World verification — all agents of this user inherit it.
+ */
+export const userStatus = async (req, res, next) => {
+  try {
+    const status = await getUserVerificationStatus(req.developerId);
+    return res.json({ success: true, ...status });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
  * POST /api/developers/world/verify
@@ -19,6 +94,15 @@ export const verify = async (req, res, next) => {
   try {
     const { agentId } = req.body;
     if (!agentId) return res.status(400).json({ success: false, message: 'agentId is required.' });
+
+    const { data: ownedAgent, error: ownershipError } = await supabase
+      .from('ai_agents')
+      .select('agent_id')
+      .eq('agent_id', agentId)
+      .eq('developer_id', req.developerId)
+      .maybeSingle();
+    if (ownershipError) throw ownershipError;
+    if (!ownedAgent) return res.status(404).json({ success: false, message: 'Agent not found.' });
 
     const result = await verifyAgent(agentId);
     return res.json({ success: true, ...result });
@@ -34,6 +118,15 @@ export const verify = async (req, res, next) => {
 export const status = async (req, res, next) => {
   try {
     const { agentId } = req.params;
+    const { data: ownedAgent, error: ownershipError } = await supabase
+      .from('ai_agents')
+      .select('agent_id')
+      .eq('agent_id', agentId)
+      .eq('developer_id', req.developerId)
+      .maybeSingle();
+    if (ownershipError) throw ownershipError;
+    if (!ownedAgent) return res.status(404).json({ success: false, message: 'Agent not found.' });
+
     const result = await getVerificationStatus(agentId);
     if (!result) return res.status(404).json({ success: false, message: 'Agent not found.' });
     return res.json({
@@ -80,6 +173,7 @@ export const listVerifiedAgents = async (req, res, next) => {
     let query = supabase
       .from('ai_agents')
       .select('agent_id, agent_name, wallet_address, world_verified, human_backed, world_verified_at, agent_book_id')
+      .eq('developer_id', req.developerId)
       .order('created_at', { ascending: false });
 
     if (organizationId) {
@@ -96,7 +190,9 @@ export const listVerifiedAgents = async (req, res, next) => {
       worldVerified: a.world_verified || false,
       humanBacked: a.human_backed || false,
       verifiedAt: a.world_verified_at || null,
-      agentBookId: a.agent_book_id || null
+      agentBookId: a.agent_book_id || null,
+      agentBookTxHash: a.agentbook_tx_hash || null,
+      verificationMethod: a.verification_method || null
     }));
 
     return res.json({ success: true, agents });
