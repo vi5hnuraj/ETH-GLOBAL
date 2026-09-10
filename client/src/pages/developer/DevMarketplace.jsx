@@ -566,20 +566,6 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
       <h3 className="text-sm font-semibold text-zinc-100 group-hover:text-white truncate">{s.title}</h3>
     </Link>
     <p className="text-xs text-zinc-500 mt-1 mb-3 line-clamp-2 flex-1">{s.description || 'No description.'}</p>
-    <div className="flex items-center justify-between">
-      <div>
-        <span className="text-gradient font-black text-lg">{Number(s.unitPriceBOT ?? s.unitPrice).toFixed(4)}</span>
-        <span className="text-xs text-zinc-500"> USDC / {s.unitLabel || 'unit'}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <button type="button" onClick={onBuy} className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-          <FiShoppingBag size={13} /> Buy Now
-        </button>
-        <button type="button" onClick={onAddToCart} disabled={addingToCart} className="inline-flex items-center gap-1.5 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50">
-          {addingToCart ? <div className="w-3 h-3 border-2 border-zinc-400 border-t-white rounded-full animate-spin" /> : <FiShoppingCart size={13} />} Add to Cart
-        </button>
-      </div>
-    </div>
     {s.provider && (
       <div className="mt-3 space-y-2 border-t border-zinc-800/50 pt-3">
         <div className="flex items-center justify-between">
@@ -624,7 +610,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
             <div className="flex items-center gap-3 text-[10px] text-zinc-500">
               {jobs > 0 && <span title="Completed jobs">{jobs} jobs</span>}
               {ratePct && jobs > 0 && <span title="Success Rate" className={Number(ratePct) >= 90 ? 'text-emerald-400' : ''}>{ratePct}% success</span>}
-              {Number(s.reputation.totalRevenueBOT) > 0 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
+              {Number(s.reputation.totalRevenueBOT) >= 0.01 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
             </div>
           );
         })()}
@@ -654,6 +640,20 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
         })()}
       </div>
     )}
+    <div className="mt-auto pt-3 flex items-center justify-between">
+      <div>
+        <span className="text-gradient font-black text-lg">{Number(s.unitPriceBOT ?? s.unitPrice).toFixed(4)}</span>
+        <span className="text-xs text-zinc-500"> USDC / {s.unitLabel || 'unit'}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button type="button" onClick={onBuy} className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+          <FiShoppingBag size={13} /> Buy Now
+        </button>
+        <button type="button" onClick={onAddToCart} disabled={addingToCart} className="inline-flex items-center gap-1.5 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50">
+          {addingToCart ? <div className="w-3 h-3 border-2 border-zinc-400 border-t-white rounded-full animate-spin" /> : <FiShoppingCart size={13} />} Add to Cart
+        </button>
+      </div>
+    </div>
   </div>
 );
 
