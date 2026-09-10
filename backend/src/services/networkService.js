@@ -341,7 +341,10 @@ export const attachOrgProfiles = async (services) => {
   const orgIds = [...new Set((agents || []).map((a) => a.organization_id).filter(Boolean))];
   let profileMap = {};
   let trustMap = {};
+  let organizationMap = {};
   if (orgIds.length) {
+    const { data: organizations } = await supabase.from('organizations').select('id, name, slug').in('id', orgIds);
+    organizationMap = Object.fromEntries((organizations || []).map((o) => [o.id, o]));
     const { data: profiles } = await supabase.from('organization_profiles').select('*').in('organization_id', orgIds);
     profileMap = Object.fromEntries((profiles || []).map((p) => [p.organization_id, p]));
     const { data: orgAgents } = await supabase.from('ai_agents').select('id,organization_id').in('organization_id', orgIds);
@@ -360,23 +363,24 @@ export const attachOrgProfiles = async (services) => {
   }
   return services.map((s) => {
     const oid = orgByAgent[s.provider?.agentId];
-    const p = oid ? profileMap[oid] : null;
-    if (!p) return s;
-    const scores = oid ? (trustMap[oid] || []) : [];
-    return {
+     const p = oid ? profileMap[oid] : null;
+     const organization = oid ? organizationMap[oid] : null;
+     if (!p && !organization) return s;
+     const scores = oid ? (trustMap[oid] || []) : [];
+     return {
       ...s,
       providerOrg: {
-        organizationId: oid,
-        name: p.name,
-        slug: p.slug,
-        logoUrl: p.logo_url,
-        industry: p.industry,
-        country: p.country,
-        website: p.website,
-        certifications: p.certifications || [],
-        supportedRegions: p.supported_regions || [],
-        verificationLevel: p.verification_level,
-        verifiedAt: p.verified_at,
+         organizationId: oid,
+         name: p?.name || organization?.name,
+         slug: p?.slug || organization?.slug,
+         logoUrl: p?.logo_url || null,
+         industry: p?.industry || null,
+         country: p?.country || null,
+         website: p?.website || null,
+         certifications: p?.certifications || [],
+         supportedRegions: p?.supported_regions || [],
+         verificationLevel: p?.verification_level || null,
+         verifiedAt: p?.verified_at || null,
         trustScore: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100 : null
       }
     };
