@@ -554,7 +554,7 @@ export const enrichServices = async (services) => {
   const [{ data: caps }, { data: reps }, { data: agents }] = await Promise.all([
     supabase.from('provider_capabilities').select('*').in('service_id', serviceIds),
     supabase.from('provider_reputation').select('*').in('provider_agent_id', agentIds),
-    supabase.from('ai_agents').select('id, human_backed, world_verified').in('id', agentIds)
+    supabase.from('ai_agents').select('id, human_backed, world_verified, agent_book_id').in('id', agentIds)
   ]);
   const capMap = new Map((caps || []).map((c) => [c.service_id, c]));
   const repMap = new Map((reps || []).map((r) => [r.provider_agent_id, r]));
@@ -565,7 +565,8 @@ export const enrichServices = async (services) => {
     capabilities: toPublicCapabilities(capMap.get(s.id) || null),
     reputation: toPublicReputation(repMap.get(s.agent_id) || null),
     humanBacked: agentMap.get(s.agent_id)?.human_backed || false,
-    worldVerified: agentMap.get(s.agent_id)?.world_verified || false
+    worldVerified: agentMap.get(s.agent_id)?.world_verified || false,
+    agentBookId: agentMap.get(s.agent_id)?.agent_book_id || null
   }));
 };
 

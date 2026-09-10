@@ -592,23 +592,28 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
              {s.provider?.name || s.provider?.agentId}
           </p>
         </div>
-        {/* Three-sponsor badges: World + Graph + Arc */}
+        {/* Agent Passport: identity + trust + settlement in one row */}
         <div className="flex flex-wrap gap-1.5">
           {s.humanBacked && (
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold text-violet-400">
-              ✓ Human Verified (World)
+              ✓ Verified Human Publisher
             </span>
           )}
-          {s.reputation?.totalSettlements > 0 && s.reputation?.trustScore != null && (
+          {s.agentBookId && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
+              AgentBook ✓
+            </span>
+          )}
+          {s.reputation?.trustScore != null && s.reputation.trustScore > 0 && (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
-              title={`Trust ${s.reputation.trustScore}/100 — ${(s.reputation.successRate * 100).toFixed(0)}% of ${s.reputation.totalSettlements} settlements succeeded${s.reputation.riskLevel ? ` · risk ${s.reputation.riskLevel}` : ''}`}
+              title={`Trust ${s.reputation.trustScore}/100 — ${(s.reputation.successRate * 100).toFixed(0)}% of ${s.reputation.totalSettlements || 0} settlements succeeded${s.reputation.riskLevel ? ` · risk ${s.reputation.riskLevel}` : ''}`}
             >
-              Trust {s.reputation.trustScore} (Graph)
+              Trust {s.reputation.trustScore}
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
-            Paid via Arc
+            Arc Settlement
           </span>
           {s.requireX402 && (
             <span
@@ -619,13 +624,38 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
             </span>
           )}
         </div>
-        {s.reputation && (
+        {/* Settlement stats from provider_reputation DB snapshot */}
+        {(s.reputation?.completedJobs > 0 || s.reputation?.trustScore > 0) && (
           <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-            <span title="Settlements">{s.reputation.totalSettlements ?? 0} settlements</span>
-            <span title="Success Rate">{s.reputation.successRate != null ? `${(s.reputation.successRate * 100).toFixed(0)}% success` : 'N/A'}</span>
-            {s.reputation.settlementVolume != null && <span title="Revenue">Earned {Number(s.reputation.settlementVolume).toFixed(2)} USDC</span>}
+            <span title="Completed jobs">{s.reputation.completedJobs ?? 0} jobs</span>
+            {s.reputation.paymentSuccessRate != null && <span title="Success Rate">{(s.reputation.paymentSuccessRate * 100).toFixed(0)}% success</span>}
+            {Number(s.reputation.totalRevenueBOT) > 0 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
           </div>
         )}
+        {(!s.reputation || (s.reputation.completedJobs === 0 && !s.reputation.trustScore)) && s.humanBacked && (
+          <p className="text-[10px] text-zinc-600">Newly published verified provider — settlement history builds with each transaction</p>
+        )}
+        {/* Why this provider? explainable trust reasoning */}
+        {(() => {
+          const reasons = [];
+          if (s.humanBacked) reasons.push('Verified human publisher (World ID + AgentBook) — reduces counterparty risk');
+          if (s.agentBookId) reasons.push('AgentBook registered on World Chain — wallet linked to verified identity');
+          if (s.reputation?.trustScore > 0) reasons.push(`Trust Score ${s.reputation.trustScore}/100 based on on-chain settlement evidence`);
+          if (s.reputation?.paymentSuccessRate > 0) reasons.push(`${(s.reputation.paymentSuccessRate * 100).toFixed(0)}% payment success rate across ${s.reputation.completedJobs || 0} jobs`);
+          if (s.reputation?.repeatCustomers > 0) reasons.push(`${s.reputation.repeatCustomers} repeat buyer(s) — indicates provider reliability`);
+          if (s.requireX402) reasons.push(`x402 micropayment required — ${s.x402Price || '0.01'} USDC per API call on Arc`);
+          if (!reasons.length) return null;
+          return (
+            <div className="mt-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-2.5">
+              <p className="mb-1.5 text-[10px] font-semibold text-zinc-400">Why this provider?</p>
+              <ul className="space-y-1">
+                {reasons.map((r, i) => (
+                  <li key={i} className="text-[10px] leading-relaxed text-zinc-500">• {r}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
       </div>
     )}
   </div>

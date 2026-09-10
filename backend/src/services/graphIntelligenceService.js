@@ -227,9 +227,13 @@ const providerIntelligence = (payee, payments, humanBacked = false) => {
   if (total < 3) riskFlags.push({ code: 'new_provider', detail: 'Fewer than 3 indexed payments — limited evidence.' });
 
   // ---------- Transparent trust score (0-100) ----------
-  // Trust is derived EXCLUSIVELY from The Graph settlement history.
-  // World AgentKit verification is an authorization gate (publish access),
-  // not a reputation signal — it does not influence this score.
+  // Trust is primarily derived from The Graph settlement history.
+  // World + AgentBook verification acts as a trust floor: a verified
+  // human-backed provider starts at 25/100 (not zero), giving buyers
+  // a meaningful signal even before their first settlement is indexed.
+  // Verified publishers also receive a +5 bonus on any existing Graph
+  // trust, reflecting the reduced counterparty risk of human-backed
+  // agents. The floor is NOT a multiplier and does not scale.
   let trust = 0;
   trust += successRate * 40;                                            // reliability
   trust += Math.min(1, uniquePayerSet.size / 10) * 15;                  // customer diversity
@@ -242,16 +246,25 @@ const providerIntelligence = (payee, payments, humanBacked = false) => {
   if (cancellationStreak >= 2) trust -= 15;
   if (volumeSpike) trust -= 10;
   if (total >= 2 && failedRows.length > successfulRows.length) trust -= 20;
-  const trustScore = Math.max(0, Math.min(100, Math.round(trust)));
+  let trustScore = Math.max(0, Math.min(100, Math.round(trust)));
 
-  const confidence = Math.min(1, Number(((successfulRows.length + failedRows.length) / 20).toFixed(2)));
+  // Identity-based trust adjustment (after Graph calculation)
+  if (humanBacked && trustScore < 25) trustScore = 25;
+  else if (humanBacked && trustScore > 0) trustScore = Math.min(100, trustScore + 5);
+
+  const confidence = humanBacked && total === 0
+    ? 0.15
+    : Math.min(1, Number(((successfulRows.length + failedRows.length) / 20).toFixed(2)));
   const riskLevel = riskFlags.some((f) => ['self_payment', 'cancellation_streak', 'failure_dominant'].includes(f.code)) ? 'high'
     : riskFlags.length ? 'medium' : 'low';
 
   // ---------- Evidence-backed reasoning bullets ----------
-  // World AgentKit verification is an authorization gate (publish access),
-  // not a reputation signal — it does not appear in Trust Engine reasoning.
   const reasoning = [];
+  if (humanBacked) {
+    reasoning.push(total === 0
+      ? 'Verified human publisher (World ID + AgentBook): trust floor applied — no settlement history yet'
+      : 'Verified human publisher (World ID + AgentBook): +5 trust bonus applied');
+  }
   reasoning.push(`${successfulRows.length} successful settlement(s) of ${total} indexed payment(s) — ${(successRate * 100).toFixed(1)}% success rate`);
   reasoning.push(`${volume.toFixed(4)} USDC total settlement volume (avg ${amounts.length ? (volume / amounts.length).toFixed(4) : '0'} / median ${medianPayment.toFixed(4)} USDC)`);
   reasoning.push(`${uniquePayerSet.size} unique buyer(s)${repeatPayers ? `, ${repeatPayers} repeat buyer(s)` : ''}`);

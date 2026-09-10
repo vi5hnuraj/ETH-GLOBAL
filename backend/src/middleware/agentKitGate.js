@@ -19,7 +19,8 @@ import { supabase } from '../config/supabaseClient.js';
 import { lookupAgentBook } from '../services/worldAgentKitService.js';
 import { TtlCache } from '../utils/ttlCache.js';
 
-const FREE_TRIAL_USES = Number(process.env.AGENTKIT_FREE_TRIAL_USES || 3);
+const FREE_TRIAL_USES_DEFAULT = Number(process.env.AGENTKIT_FREE_TRIAL_USES || 3);
+const FREE_TRIAL_USES_VERIFIED = Number(process.env.AGENTKIT_VERIFIED_TRIAL_USES || 10);
 const HUMAN_ID_TTL_MS = 5 * 60 * 1000;
 
 // Cache AgentBook resolutions per wallet to avoid an RPC hit on every request.
@@ -108,7 +109,7 @@ export const agentKitGate = ({ purpose = 'Premium API' } = {}) =>
     }
 
     try {
-      const granted = await tryIncrementUsage(req.originalUrl, humanId, FREE_TRIAL_USES);
+      const granted = await tryIncrementUsage(req.originalUrl, humanId, FREE_TRIAL_USES_VERIFIED);
       req.agentKit = {
         humanBacked: true,
         humanId,
@@ -119,7 +120,7 @@ export const agentKitGate = ({ purpose = 'Premium API' } = {}) =>
         // Free trials exhausted — continue but flag that x402 payment is expected.
         req.agentKit.requiresPayment = true;
       }
-      logger.info(`[AGENTKIT] human-backed agent ${wallet} → ${granted ? 'FREE trial use' : 'trial exhausted, payment required'} (${purpose})`);
+      logger.info(`[AGENTKIT] human-backed agent ${wallet} → ${granted ? 'FREE trial use' : 'trial exhausted, payment required'} (${purpose}, limit=${FREE_TRIAL_USES_VERIFIED})`);
       return next();
     } catch (err) {
       logger.error('[AGENTKIT] usage accounting failed:', err.message);

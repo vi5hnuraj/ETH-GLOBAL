@@ -475,14 +475,21 @@ export const listMarketplace = async ({ search, category, sort, order, page = 1,
     } catch { /* org lookup failed, fall back to agent name */ }
   }
 
+  // Enrich with reputation, capabilities, and World/AgentBook identity
+  const enriched = await enrichServices(rows);
+
   const per = Math.min(Number(perPage) || 20, 100);
-  const mapped = rows.map((s) => ({
+  const mapped = enriched.map((s) => ({
     ...toPublicService(s),
     provider: s.ai_agents ? {
       agentId: s.ai_agents.agent_id,
       name: orgMap[s.ai_agents.organization_id] || s.ai_agents.agent_name,
       wallet: s.ai_agents.wallet_address
-    } : null
+    } : null,
+    humanBacked: s.humanBacked || false,
+    agentBookId: s.agentBookId || null,
+    reputation: s.reputation || null,
+    capabilities: s.capabilities || null
   }));
 
   const result = {
