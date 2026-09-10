@@ -20,15 +20,20 @@ import developerApi from '../../utils/developerApi';
 
 const CATEGORY_CHIPS = [
   { value: 'all', label: 'All' },
-  { value: 'ai-model', label: 'LLM Inference' },
-  { value: 'gpu', label: 'GPU Compute' },
-  { value: 'compute', label: 'Compute' },
-  { value: 'ocr', label: 'Vision' },
-  { value: 'voice', label: 'Speech' },
+  { value: 'ai-model', label: '🤖 AI Models' },
+  { value: 'llm-inference', label: '🧠 LLM Inference' },
+  { value: 'image-ai', label: '🎨 Image AI' },
+  { value: 'vision', label: '👁️ Vision' },
+  { value: 'speech', label: '🎤 Speech' },
   { value: 'translation', label: 'Translation' },
-  { value: 'video', label: 'Video' },
+  { value: 'video', label: '🎬 Video' },
+  { value: 'gpu', label: '⚡ GPU Compute' },
   { value: 'storage', label: 'Storage' },
-  { value: 'api', label: 'Data APIs' },
+  { value: 'data-api', label: '📊 Data APIs' },
+  { value: 'security', label: '🔐 Security' },
+  { value: 'web-search', label: '🌐 Web & Search' },
+  { value: 'developer-tools', label: '🛠 Developer Tools' },
+  { value: 'ai-agent', label: '🤖 AI Agents' },
   { value: 'other', label: 'Other' }
 ];
 
@@ -98,9 +103,17 @@ const DevMarketplace = () => {
     const map = new Map();
     allServices.forEach((s) => {
       const id = s.provider?.agentId || s.agentId;
-      if (id) map.set(id, s.provider?.name || id);
+      // Provider filters represent published services only. The backend
+      // resolves provider.name to the owning organization when available.
+      const organizationName = s.provider?.name;
+      if (id && organizationName) map.set(id, organizationName);
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [allServices]);
+
+  const publishedProviderCount = useMemo(() => {
+    const ids = new Set(allServices.map((s) => s.provider?.agentId || s.agentId).filter(Boolean));
+    return ids.size;
   }, [allServices]);
 
   const filtered = useMemo(() => {
@@ -208,7 +221,7 @@ const DevMarketplace = () => {
       setPendingSession(null);
       refresh({ background: true });
     } catch (err) {
-      if (err.payload && err.payload.session && err.payload.session.status === 'payment_failed') {
+       if (err.payload && err.payload.session && err.payload.session.status === 'payment_failed') {
         toast.error(err.payload.message || err.message);
         setBuying(null);
         setPendingSession(null);
@@ -262,14 +275,15 @@ const DevMarketplace = () => {
       <PageHeader
         title="AI Marketplace"
         subtitle="Discover services published by agents across the network. Prepaid purchases are settled instantly from the consumer agent wallet and grant credits immediately."
-        actions={<RefreshButton onClick={() => refresh({ background: true })} refreshing={refreshing} />}
+        actions={<RefreshButton className="px-3 py-1.5" onClick={() => refresh({ background: true })} refreshing={refreshing} />}
+        compact
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={<FiShoppingBag size={18} />} label="Listed Services" value={allServices.length} accent="text-blue-400" sub="Across all providers" />
-        <StatCard icon={<FiStar size={18} />} label="Categories" value={CATEGORY_CHIPS.length - 1} accent="text-violet-400" sub="Browseable now" />
-        <StatCard icon={<FiCpu size={18} />} label="Providers" value={providers.length} accent="text-emerald-400" sub="Publishing agents" />
-        <StatCard icon={<FiZap size={18} />} label="Lowest Price" value={allServices.length ? `${Number(Math.min(...allServices.map((s) => s.unitPriceBOT))).toFixed(4)} USDC` : '—'} accent="text-amber-400" sub="Per listed unit" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <StatCard compact icon={<FiShoppingBag size={16} />} label="Listed Services" value={allServices.length} accent="text-blue-400" sub="Across all providers" />
+        <StatCard compact icon={<FiStar size={16} />} label="Categories" value={CATEGORY_CHIPS.length - 1} accent="text-violet-400" sub="Browseable now" />
+        <StatCard compact icon={<FiCpu size={16} />} label="Providers" value={publishedProviderCount} accent="text-emerald-400" sub="With published services" />
+        <StatCard compact icon={<FiZap size={16} />} label="Lowest Price" value={allServices.length ? `${Number(Math.min(...allServices.map((s) => s.unitPriceBOT))).toFixed(4)} USDC` : '—'} accent="text-amber-400" sub="Per listed unit" />
       </div>
 
       {!catalogLoaded && loading ? (
@@ -282,27 +296,32 @@ const DevMarketplace = () => {
         <ErrorBanner message={error.message} onRetry={refresh} setupRequired={error.setupRequired} />
       ) : (
         <>
-          {/* Category chips — always visible, even when no services exist */}
-          <div className="mb-6">
-            <p className="text-xs text-zinc-500 font-medium mb-2">Categories</p>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORY_CHIPS.map((c) => {
-                const active = category === c.value;
-                return (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => { setCategory(c.value); resetPage(); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      active
-                        ? 'bg-blue-600/20 text-blue-300 border-blue-800/60'
-                        : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                );
-              })}
+          {/* Compact category filter — always visible, even when no services exist */}
+          <div className="mb-5 rounded-xl border border-zinc-800/80 bg-zinc-950/35 px-3 py-2.5 sm:px-4">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="shrink-0 border-r border-zinc-800 pr-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Browse
+              </span>
+              <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter by category">
+                {CATEGORY_CHIPS.map((c) => {
+                  const active = category === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => { setCategory(c.value); resetPage(); }}
+                      className={`whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium leading-4 transition-all ${
+                        active
+                          ? 'border-blue-500/70 bg-blue-500/15 text-blue-200 shadow-sm shadow-blue-950/40'
+                          : 'border-transparent bg-zinc-900/70 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -570,7 +589,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
       <div className="mt-3 space-y-2 border-t border-zinc-800/50 pt-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-zinc-600 font-mono truncate" title={s.provider.wallet}>
-            {s.provider.name || s.provider.agentId}
+             {s.provider?.name || s.provider?.agentId}
           </p>
         </div>
         {/* Three-sponsor badges: World + Graph + Arc */}
@@ -580,19 +599,12 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
               ✓ Human Verified (World)
             </span>
           )}
-          {s.reputation?.totalSettlements > 0 && s.reputation?.trustScore != null ? (
+          {s.reputation?.totalSettlements > 0 && s.reputation?.trustScore != null && (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
               title={`Trust ${s.reputation.trustScore}/100 — ${(s.reputation.successRate * 100).toFixed(0)}% of ${s.reputation.totalSettlements} settlements succeeded${s.reputation.riskLevel ? ` · risk ${s.reputation.riskLevel}` : ''}`}
             >
               Trust {s.reputation.trustScore} (Graph)
-            </span>
-          ) : (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-zinc-700/40 px-2 py-0.5 text-[10px] font-semibold text-zinc-400"
-              title="No indexed settlements yet — trust score becomes available after the first verified Graph settlement"
-            >
-              Trust — (Unknown)
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">

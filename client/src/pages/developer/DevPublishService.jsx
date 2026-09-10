@@ -19,6 +19,10 @@ const STEPS = [
 
 const CATEGORY_META = {
   'ai-model': { icon: '🧠', title: 'AI Models', desc: 'Large language models and inference APIs' },
+  'llm-inference': { icon: '🧠', title: 'LLM Inference', desc: 'Chat completion and text generation' },
+  'image-ai': { icon: '🎨', title: 'Image AI', desc: 'Image generation, editing, and OCR' },
+  vision: { icon: '👁️', title: 'Vision', desc: 'Image analysis and object detection' },
+  speech: { icon: '🎤', title: 'Speech', desc: 'Speech-to-text and text-to-speech' },
   gpu: { icon: '⚡', title: 'GPU Compute', desc: 'GPU-backed training and inference workloads' },
   compute: { icon: '🖥️', title: 'Compute', desc: 'CPU and general-purpose workloads' },
   ocr: { icon: '📄', title: 'OCR / Vision', desc: 'Extract text and structure from images' },
@@ -27,6 +31,11 @@ const CATEGORY_META = {
   video: { icon: '🎬', title: 'Video', desc: 'Video processing, streaming, and generation' },
   storage: { icon: '📦', title: 'Storage', desc: 'Store and retrieve files securely' },
   api: { icon: '🔌', title: 'Data APIs', desc: 'Data feeds and structured endpoints' },
+  'data-api': { icon: '📊', title: 'Data APIs', desc: 'Weather, finance, blockchain, and analytics' },
+  security: { icon: '🔐', title: 'Security', desc: 'KYC, verification, malware scanning' },
+  'web-search': { icon: '🌐', title: 'Web & Search', desc: 'Search, crawling, and scraping' },
+  'developer-tools': { icon: '🛠', title: 'Developer Tools', desc: 'Code execution, testing, and CI/CD' },
+  'ai-agent': { icon: '🤖', title: 'AI Agents', desc: 'Autonomous agents and copilots' },
   other: { icon: '✨', title: 'Other', desc: 'Anything else on the network' }
 };
 
@@ -150,7 +159,7 @@ const DevPublishService = () => {
       // World gate reached only at the END — everything else already validated.
       if (worldGateBlocking) {
         toast('Verify your identity with World to publish this service.', { icon: '🛡' });
-        return navigate('/developer/network/profile');
+        return navigate('/developer/world-verification');
       }
       return submit();
     }
@@ -362,7 +371,12 @@ const DevPublishService = () => {
                         id="svc-x402"
                         type="checkbox"
                         checked={form.requireX402}
-                        onChange={(e) => setForm((f) => ({ ...f, requireX402: e.target.checked }))}
+                        onChange={(e) => setForm((f) => {
+                          const on = e.target.checked;
+                          return on
+                            ? { ...f, requireX402: true, pricingModel: 'per_request', unitPrice: f.x402Price || '0.01', unitLabel: 'request' }
+                            : { ...f, requireX402: false };
+                        })}
                         className="w-4 h-4 accent-cyan-500"
                       />
                       <div>
@@ -379,9 +393,10 @@ const DevPublishService = () => {
                           step="0.0001"
                           min="0.0001"
                           value={form.x402Price}
-                          onChange={set('x402Price')}
+                          onChange={(e) => setForm((f) => ({ ...f, x402Price: e.target.value, unitPrice: e.target.value }))}
                           className={input}
                         />
+                        <p className="text-[10px] text-zinc-600 mt-1">Synced to marketplace price in Step 2.</p>
                       </div>
                     )}
                   </div>
@@ -395,77 +410,128 @@ const DevPublishService = () => {
               <h2 className="text-[15px] font-semibold text-white mb-1">Pricing</h2>
               <p className="text-xs text-zinc-400 mb-5">Choose how buyers are billed. You can change this later.</p>
 
-              <div className="mb-6">
-                <p className="text-xs font-medium text-zinc-400 mb-1.5">Pricing model <span className="text-red-400">*</span></p>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {Object.entries(PRICING_META).map(([key, p]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, pricingModel: key }))}
-                      className={`text-left rounded-xl border p-3 transition-all ${
-                        form.pricingModel === key
-                          ? 'bg-blue-600/10 border-blue-700/70 ring-1 ring-blue-600/40'
-                          : 'bg-zinc-950/40 border-zinc-800 hover:border-zinc-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base leading-none">{p.icon}</span>
-                        <span className={`text-sm font-medium ${form.pricingModel === key ? 'text-blue-300' : 'text-zinc-100'}`}>{p.title}</span>
-                        {form.pricingModel === key && <FiCheck className="ml-auto text-blue-400" size={14} />}
+              {form.requireX402 ? (
+                /* ── x402 is enabled: simplified view ── */
+                <>
+                  <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">⚡</span>
+                      <p className="text-sm font-semibold text-white">x402 handles billing automatically</p>
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Every API call triggers an HTTP 402 challenge. The buyer's agent pays <strong className="text-cyan-300">{Number(form.x402Price || form.unitPrice).toFixed(4)} USDC</strong> per call on Arc, then retries to get the response. No subscriptions, no invoices — pure agent-to-agent micropayment.
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-2">
+                      The marketplace listing price is synced to your x402 price so prepaid purchases and direct API calls stay consistent.
+                    </p>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="svc-price-x402" className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Price per call (USDC) <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="svc-price-x402"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputMode="decimal"
+                          value={form.unitPrice}
+                          onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value, x402Price: e.target.value }))}
+                          className={`${input} pr-12 ${priceValid ? 'border-emerald-800/60' : ''}`}
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">USDC</span>
                       </div>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-snug">{p.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-5">
-                <div>
-                  <label htmlFor="svc-price" className="block text-xs font-medium text-zinc-400 mb-1.5">
-                    Unit price (USDC) <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="svc-price"
-                      type="number"
-                      min="0"
-                      step="any"
-                      inputMode="decimal"
-                      value={form.unitPrice}
-                      onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
-                      className={`${input} pr-12 ${priceValid ? 'border-emerald-800/60' : ''}`}
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">USDC</span>
+                      <p className="text-[11px] text-zinc-500 mt-1.5">Synced with your x402 price from Step 1.</p>
+                      {!priceValid && <p className="text-[11px] text-red-400 mt-1">Enter an amount greater than zero.</p>}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-zinc-400 mb-1.5">Billing model</p>
+                      <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-3">
+                        <p className="text-sm font-medium text-cyan-300">🔁 Per Request — x402</p>
+                        <p className="text-[11px] text-zinc-500 mt-1">Automatically selected. Each API call = one payment.</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-zinc-500 mt-1.5">
-                    Buyers will pay this amount per {form.unitLabel || priceLabel(form.pricingModel)}.
-                  </p>
-                  {!priceValid && <p className="text-[11px] text-red-400 mt-1">Enter an amount greater than zero.</p>}
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium text-zinc-400 mb-1.5">Unit label</p>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {UNIT_CHIPS.map((u) => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, unitLabel: u }))}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
-                          form.unitLabel === u
-                            ? 'bg-blue-600/15 text-blue-300 border-blue-700/60'
-                            : 'text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-white'
-                        }`}
-                      >
-                        {u}
-                      </button>
-                    ))}
+                </>
+              ) : (
+                /* ── x402 disabled: full pricing model picker ── */
+                <>
+                  <div className="mb-6">
+                    <p className="text-xs font-medium text-zinc-400 mb-1.5">Pricing model <span className="text-red-400">*</span></p>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      {Object.entries(PRICING_META).map(([key, p]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, pricingModel: key }))}
+                          className={`text-left rounded-xl border p-3 transition-all ${
+                            form.pricingModel === key
+                              ? 'bg-blue-600/10 border-blue-700/70 ring-1 ring-blue-600/40'
+                              : 'bg-zinc-950/40 border-zinc-800 hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base leading-none">{p.icon}</span>
+                            <span className={`text-sm font-medium ${form.pricingModel === key ? 'text-blue-300' : 'text-zinc-100'}`}>{p.title}</span>
+                            {form.pricingModel === key && <FiCheck className="ml-auto text-blue-400" size={14} />}
+                          </div>
+                          <p className="text-[11px] text-zinc-500 mt-1 leading-snug">{p.desc}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <input value={form.unitLabel} onChange={set('unitLabel')} placeholder="e.g. page, call, seat" className={input} maxLength={60} />
-                  <p className="text-[11px] text-zinc-500 mt-1.5">Pick a suggested unit or type your own.</p>
-                </div>
-              </div>
+
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="svc-price" className="block text-xs font-medium text-zinc-400 mb-1.5">
+                        Unit price (USDC) <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="svc-price"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputMode="decimal"
+                          value={form.unitPrice}
+                          onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
+                          className={`${input} pr-12 ${priceValid ? 'border-emerald-800/60' : ''}`}
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">USDC</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-1.5">
+                        Buyers will pay this amount per {form.unitLabel || priceLabel(form.pricingModel)}.
+                      </p>
+                      {!priceValid && <p className="text-[11px] text-red-400 mt-1">Enter an amount greater than zero.</p>}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-medium text-zinc-400 mb-1.5">Unit label</p>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {UNIT_CHIPS.map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, unitLabel: u }))}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                              form.unitLabel === u
+                                ? 'bg-blue-600/15 text-blue-300 border-blue-700/60'
+                                : 'text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-white'
+                            }`}
+                          >
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                      <input value={form.unitLabel} onChange={set('unitLabel')} placeholder="e.g. page, call, seat" className={input} maxLength={60} />
+                      <p className="text-[11px] text-zinc-500 mt-1.5">Pick a suggested unit or type your own.</p>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3 flex items-center justify-between">
                 <span className="text-sm text-zinc-400">Price preview</span>
@@ -550,7 +616,7 @@ const DevPublishService = () => {
                       </p>
                       <button
                         type="button"
-                        onClick={() => navigate('/developer/network/profile')}
+                        onClick={() => navigate('/developer/world-verification')}
                         className="mt-3 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-500"
                       >
                         <FiShield size={13} /> Verify with World
@@ -639,6 +705,9 @@ const DevPublishService = () => {
                   <div>
                     <span className="text-gradient font-black text-lg">{priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'}</span>
                     <span className="text-xs text-zinc-500"> USDC / {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
+                    {form.requireX402 && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">⚡ x402</span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -663,7 +732,11 @@ const DevPublishService = () => {
                 {priceValid ? Number(form.unitPrice).toFixed(4) : '0.0000'} USDC
                 <span className="text-xs font-medium text-zinc-500"> / {form.unitLabel.trim() || priceLabel(form.pricingModel)}</span>
               </p>
-              <p className="text-[11px] text-zinc-500 mt-1.5">{PRICING_META[form.pricingModel]?.title} — {PRICING_META[form.pricingModel]?.desc}</p>
+              {form.requireX402 ? (
+                <p className="text-[11px] text-cyan-400 mt-1.5">⚡ x402 per-call micropayment — agent auto-pays on Arc</p>
+              ) : (
+                <p className="text-[11px] text-zinc-500 mt-1.5">{PRICING_META[form.pricingModel]?.title} — {PRICING_META[form.pricingModel]?.desc}</p>
+              )}
             </div>
 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-[11px] text-zinc-400 space-y-1.5">

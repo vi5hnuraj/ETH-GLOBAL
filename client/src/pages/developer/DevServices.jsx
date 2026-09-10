@@ -32,6 +32,20 @@ const CATEGORY_META = {
   other: { icon: '✨', label: 'Other', tone: 'zinc' }
 };
 
+/** Category → which capability checkboxes to show, and which are auto-checked */
+const CATEGORY_CAPS = {
+  'ai-model': { caps: [['inference', 'Inference'], ['training', 'Training'], ['embeddings', 'Embeddings'], ['imageGeneration', 'Image generation']], showGpu: true, showModels: true, showRegions: true },
+  gpu:        { caps: [['inference', 'Inference'], ['training', 'Training'], ['imageGeneration', 'Image generation']], showGpu: true, showModels: true, showRegions: true },
+  compute:    { caps: [['inference', 'Inference'], ['training', 'Training']], showGpu: false, showModels: true, showRegions: true },
+  ocr:        { caps: [['ocr', 'OCR / Vision'], ['inference', 'Inference'], ['imageGeneration', 'Image generation']], showGpu: false, showModels: false, showRegions: true },
+  voice:      { caps: [['speech', 'Speech / TTS'], ['inference', 'Inference']], showGpu: false, showModels: true, showRegions: true },
+  translation:{ caps: [['translation', 'Translation'], ['inference', 'Inference']], showGpu: false, showModels: true, showRegions: true },
+  video:      { caps: [['inference', 'Inference'], ['imageGeneration', 'Image generation']], showGpu: true, showModels: true, showRegions: true },
+  storage:    { caps: [['storage', 'Storage']], showGpu: false, showModels: false, showRegions: true },
+  api:        { caps: [['inference', 'Inference']], showGpu: false, showModels: false, showRegions: true },
+  other:      { caps: [['inference', 'Inference'], ['training', 'Training'], ['ocr', 'OCR'], ['speech', 'Speech/TTS'], ['translation', 'Translation'], ['storage', 'Storage'], ['imageGeneration', 'Image generation'], ['embeddings', 'Embeddings']], showGpu: true, showModels: true, showRegions: true }
+};
+
 const PRICING_META = {
   per_request: 'Per request',
   per_unit: 'Per unit',
@@ -158,18 +172,22 @@ const DevServices = () => {
 
   const openCapabilities = (s) => {
     setCapTarget(s);
+    const catCaps = CATEGORY_CAPS[s.category]?.caps || CATEGORY_CAPS.other.caps;
+    const hasExisting = !!(s.capabilities?.capabilities && Object.values(s.capabilities.capabilities).some(Boolean));
+    const caps = {};
+    catCaps.forEach(([key]) => {
+      if (hasExisting) {
+        caps[key] = !!s.capabilities?.capabilities?.[key];
+      } else {
+        /* first time: auto-check the primary capability for this category */
+        caps[key] = key === catCaps[0][0];
+      }
+    });
     setCapForm({
       supportedModels: s.capabilities?.supportedModels?.join(', ') || '',
       gpuModel: s.capabilities?.gpuModel || '',
       vramGb: s.capabilities?.vramGb ?? '',
-      inference: !!s.capabilities?.capabilities?.inference,
-      training: !!s.capabilities?.capabilities?.training,
-      imageGeneration: !!s.capabilities?.capabilities?.imageGeneration,
-      embeddings: !!s.capabilities?.capabilities?.embeddings,
-      speech: !!s.capabilities?.capabilities?.speech,
-      ocr: !!s.capabilities?.capabilities?.ocr,
-      translation: !!s.capabilities?.capabilities?.translation,
-      storage: !!s.capabilities?.capabilities?.storage,
+      ...caps,
       supportedRegions: s.capabilities?.supportedRegions?.join(', ') || '',
       averageLatencyMs: s.capabilities?.averageLatencyMs ?? '',
       uptimePct: s.capabilities?.uptimePct ?? '',
@@ -494,47 +512,76 @@ const DevServices = () => {
         subtitle="The recommendation engine matches tasks against this profile. Empty fields are ignored."
         maxWidth="max-w-2xl"
       >
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label htmlFor="cap-supported-models" className="block text-xs text-zinc-500 font-medium mb-1.5">Supported models <span className="text-zinc-600">(comma-separated, e.g. llama-3-70b)</span></label>
-            <input id="cap-supported-models" value={capForm.supportedModels} onChange={(e) => setCapForm((f) => ({ ...f, supportedModels: e.target.value }))} placeholder="llama-3-70b, llama-2-7b" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-gpu-model" className="block text-xs text-zinc-500 font-medium mb-1.5">GPU model</label>
-            <input id="cap-gpu-model" value={capForm.gpuModel} onChange={(e) => setCapForm((f) => ({ ...f, gpuModel: e.target.value }))} placeholder="H100" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-vram" className="block text-xs text-zinc-500 font-medium mb-1.5">VRAM (GB)</label>
-            <input id="cap-vram" type="number" min="0" inputMode="decimal" value={capForm.vramGb} onChange={(e) => setCapForm((f) => ({ ...f, vramGb: e.target.value }))} placeholder="24" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-regions" className="block text-xs text-zinc-500 font-medium mb-1.5">Supported regions <span className="text-zinc-600">(comma-separated: eu, us, asia…)</span></label>
-            <input id="cap-regions" value={capForm.supportedRegions} onChange={(e) => setCapForm((f) => ({ ...f, supportedRegions: e.target.value }))} placeholder="eu, us" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-latency" className="block text-xs text-zinc-500 font-medium mb-1.5">Avg latency (ms)</label>
-            <input id="cap-latency" type="number" min="0" inputMode="decimal" value={capForm.averageLatencyMs} onChange={(e) => setCapForm((f) => ({ ...f, averageLatencyMs: e.target.value }))} placeholder="80" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-uptime" className="block text-xs text-zinc-500 font-medium mb-1.5">Uptime %</label>
-            <input id="cap-uptime" type="number" min="0" max="100" inputMode="decimal" value={capForm.uptimePct} onChange={(e) => setCapForm((f) => ({ ...f, uptimePct: e.target.value }))} placeholder="99.5" className={input} />
-          </div>
-          <div>
-            <label htmlFor="cap-rating" className="block text-xs text-zinc-500 font-medium mb-1.5">Avg rating (0–5)</label>
-            <input id="cap-rating" type="number" min="0" max="5" step="0.1" inputMode="decimal" value={capForm.averageRating} onChange={(e) => setCapForm((f) => ({ ...f, averageRating: e.target.value }))} placeholder="4.8" className={input} />
-          </div>
-        </div>
-        <div className="mt-5">
-          <p className="text-xs text-zinc-500 font-medium mb-2">Capabilities</p>
-          <div className="flex flex-wrap gap-2">
-            {[['inference', 'Inference'], ['training', 'Training'], ['imageGeneration', 'Image generation'], ['embeddings', 'Embeddings'], ['speech', 'Speech/TTS'], ['ocr', 'OCR'], ['translation', 'Translation'], ['storage', 'Storage']].map(([key, label]) => (
-              <label key={key} className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700 rounded-lg px-3 py-2">
-                <input type="checkbox" checked={capForm[key]} onChange={(e) => setCapForm((f) => ({ ...f, [key]: e.target.checked }))} className="accent-blue-500" />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
+        {capTarget && (() => {
+          const catCfg = CATEGORY_CAPS[capTarget.category] || CATEGORY_CAPS.other;
+          const catLabel = CATEGORY_META[capTarget.category]?.label || 'Other';
+          return (
+            <>
+              {/* Category banner */}
+              <div className="mb-4 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 flex items-center gap-2">
+                <span className="text-lg">{CATEGORY_META[capTarget.category]?.icon || '✨'}</span>
+                <div>
+                  <p className="text-xs font-medium text-zinc-300">Category: {catLabel}</p>
+                  <p className="text-[11px] text-zinc-500">Showing only fields relevant to {catLabel.toLowerCase()} services.</p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Models — only for AI Model, GPU, Compute, Voice, Translation, Video */}
+                {catCfg.showModels && (
+                  <div className="md:col-span-2">
+                    <label htmlFor="cap-supported-models" className="block text-xs text-zinc-500 font-medium mb-1.5">Supported models <span className="text-zinc-600">(comma-separated, e.g. llama-3-70b)</span></label>
+                    <input id="cap-supported-models" value={capForm.supportedModels} onChange={(e) => setCapForm((f) => ({ ...f, supportedModels: e.target.value }))} placeholder="llama-3-70b, llama-2-7b" className={input} />
+                  </div>
+                )}
+                {/* GPU — only for AI Model, GPU, Video */}
+                {catCfg.showGpu && (
+                  <>
+                    <div>
+                      <label htmlFor="cap-gpu-model" className="block text-xs text-zinc-500 font-medium mb-1.5">GPU model</label>
+                      <input id="cap-gpu-model" value={capForm.gpuModel} onChange={(e) => setCapForm((f) => ({ ...f, gpuModel: e.target.value }))} placeholder="H100" className={input} />
+                    </div>
+                    <div>
+                      <label htmlFor="cap-vram" className="block text-xs text-zinc-500 font-medium mb-1.5">VRAM (GB)</label>
+                      <input id="cap-vram" type="number" min="0" inputMode="decimal" value={capForm.vramGb} onChange={(e) => setCapForm((f) => ({ ...f, vramGb: e.target.value }))} placeholder="24" className={input} />
+                    </div>
+                  </>
+                )}
+                {/* Regions — always shown */}
+                <div>
+                  <label htmlFor="cap-regions" className="block text-xs text-zinc-500 font-medium mb-1.5">Supported regions <span className="text-zinc-600">(comma-separated: eu, us, asia…)</span></label>
+                  <input id="cap-regions" value={capForm.supportedRegions} onChange={(e) => setCapForm((f) => ({ ...f, supportedRegions: e.target.value }))} placeholder="eu, us" className={input} />
+                </div>
+                {/* Latency, Uptime, Rating — always shown */}
+                <div>
+                  <label htmlFor="cap-latency" className="block text-xs text-zinc-500 font-medium mb-1.5">Avg latency (ms)</label>
+                  <input id="cap-latency" type="number" min="0" inputMode="decimal" value={capForm.averageLatencyMs} onChange={(e) => setCapForm((f) => ({ ...f, averageLatencyMs: e.target.value }))} placeholder="80" className={input} />
+                </div>
+                <div>
+                  <label htmlFor="cap-uptime" className="block text-xs text-zinc-500 font-medium mb-1.5">Uptime %</label>
+                  <input id="cap-uptime" type="number" min="0" max="100" inputMode="decimal" value={capForm.uptimePct} onChange={(e) => setCapForm((f) => ({ ...f, uptimePct: e.target.value }))} placeholder="99.5" className={input} />
+                </div>
+                <div>
+                  <label htmlFor="cap-rating" className="block text-xs text-zinc-500 font-medium mb-1.5">Avg rating (0–5)</label>
+                  <input id="cap-rating" type="number" min="0" max="5" step="0.1" inputMode="decimal" value={capForm.averageRating} onChange={(e) => setCapForm((f) => ({ ...f, averageRating: e.target.value }))} placeholder="4.8" className={input} />
+                </div>
+              </div>
+
+              {/* Capabilities — category-specific checkboxes */}
+              <div className="mt-5">
+                <p className="text-xs text-zinc-500 font-medium mb-2">Capabilities</p>
+                <div className="flex flex-wrap gap-2">
+                  {catCfg.caps.map(([key, label]) => (
+                    <label key={key} className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700 rounded-lg px-3 py-2">
+                      <input type="checkbox" checked={!!capForm[key]} onChange={(e) => setCapForm((f) => ({ ...f, [key]: e.target.checked }))} className="accent-blue-500" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
         <div className="flex items-center gap-3 mt-6">
           <button type="button" onClick={saveCapabilities} disabled={savingCaps} className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg disabled:opacity-50">
             {savingCaps ? 'Saving…' : 'Save capability profile'}

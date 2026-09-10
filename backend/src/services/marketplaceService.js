@@ -28,7 +28,7 @@ export const generateServiceId = () => `srv_${crypto.randomBytes(8).toString('he
 export const generateUsageId = () => `use_${crypto.randomBytes(8).toString('hex')}`;
 export const generateInvoiceId = () => `inv_${crypto.randomBytes(8).toString('hex')}`;
 
-export const CATEGORIES = ['gpu', 'storage', 'ai-model', 'translation', 'ocr', 'voice', 'video', 'compute', 'api', 'other'];
+export const CATEGORIES = ['ai-model', 'llm-inference', 'image-ai', 'vision', 'speech', 'translation', 'video', 'gpu', 'storage', 'data-api', 'security', 'web-search', 'developer-tools', 'ai-agent', 'compute', 'ocr', 'voice', 'api', 'other'];
 export const PRICING_MODELS = ['per_unit', 'per_hour', 'per_request', 'per_char', 'per_mb_day', 'flat', 'subscription'];
 
 const httpError = (status, message, code) => {
@@ -415,8 +415,13 @@ export const listMarketplace = async ({ search, category, sort, order, page = 1,
     logger.warn('[MARKETPLACE] Supabase failed, using direct DB:', err.message);
   }
 
-  // Fallback to direct DB if Supabase returned empty
-  if (!rows.length) {
+  // Reconcile through the privileged read when PostgREST returns an empty or
+  // partial RLS-filtered result. Marketplace listings must not silently hide
+  // active services because the gateway downgraded to anon.
+  const directCount = await getPool().query(
+    'SELECT COUNT(*)::int AS count FROM ai_services WHERE is_active = true'
+  ).then((result) => result.rows[0]?.count || 0).catch(() => null);
+  if (!rows.length || (directCount != null && Number(total) < Number(directCount))) {
     try {
       const per = Math.min(Number(perPage) || 20, 100);
       const from = (Math.max(1, Number(page) || 1) - 1) * per;

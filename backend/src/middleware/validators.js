@@ -226,7 +226,7 @@ export const agentPaySchema = Joi.object({
 // ==================== Service Marketplace ====================
 const decimalString = Joi.string().pattern(/^\d+(\.\d+)?$/).message('Value must be a non-negative decimal string');
 const quantityString = Joi.string().pattern(/^\d+(\.\d+)?$/).message('Quantity must be a positive decimal string');
-const serviceCategory = Joi.string().valid('gpu', 'storage', 'ai-model', 'translation', 'ocr', 'voice', 'video', 'compute', 'api', 'other');
+const serviceCategory = Joi.string().valid('ai-model', 'llm-inference', 'image-ai', 'vision', 'speech', 'translation', 'video', 'gpu', 'storage', 'data-api', 'security', 'web-search', 'developer-tools', 'ai-agent', 'compute', 'ocr', 'voice', 'api', 'other');
 const servicePricingModel = Joi.string().valid('per_unit', 'per_hour', 'per_request', 'per_char', 'per_mb_day', 'flat', 'subscription');
 
 export const createServiceSchema = Joi.object({
@@ -394,5 +394,6 @@ export const devCreateKeySchema = Joi.object({
 export const devAgentPaySchema = Joi.object({
   destination: Joi.string().pattern(/^0x[a-fA-F0-9]{40}$/).required().messages({ 'any.required': 'Destination address is required' }),
   amount: Joi.number().positive().max(1e12).required().messages({ 'any.required': 'Amount is required' }),
-  token: Joi.string().max(100).allow('', null)
+  token: Joi.string().max(100).allow('', null),
+  note: Joi.string().max(200).allow('', null)
 });
