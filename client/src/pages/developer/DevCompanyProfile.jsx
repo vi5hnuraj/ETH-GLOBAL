@@ -221,7 +221,7 @@ const DevCompanyProfile = () => {
   const worldAgentsState = useApi({ fetcher: developerApi.worldAgents, deps: [] });
   const graphState = useApi({ fetcher: developerApi.graphStatus });
   const agents = agentsState.data?.agents || [];
-  const primaryAgent = agents[0] || null;
+  const primaryAgent = [...agents].sort((a, b) => (parseFloat(b.balance) || 0) - (parseFloat(a.balance) || 0))[0] || null;
   const worldState = useApi({ fetcher: () => primaryAgent ? developerApi.worldStatus(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
   const balanceState = useApi({ fetcher: () => primaryAgent ? developerApi.agentBalance(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
   const reputationState = useApi({ fetcher: () => primaryAgent?.wallet ? developerApi.providerAnalysis([primaryAgent.wallet]) : Promise.resolve({ providers: [] }), deps: [primaryAgent?.wallet] });

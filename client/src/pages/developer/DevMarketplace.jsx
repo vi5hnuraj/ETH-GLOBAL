@@ -604,14 +604,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
               AgentBook ✓
             </span>
           )}
-          {s.reputation?.trustScore != null && s.reputation.trustScore > 0 && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
-              title={`Trust ${s.reputation.trustScore}/100 — ${(s.reputation.successRate * 100).toFixed(0)}% of ${s.reputation.totalSettlements || 0} settlements succeeded${s.reputation.riskLevel ? ` · risk ${s.reputation.riskLevel}` : ''}`}
-            >
-              Trust {s.reputation.trustScore}
-            </span>
-          )}
+
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
             Arc Settlement
           </span>
