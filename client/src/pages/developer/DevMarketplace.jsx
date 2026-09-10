@@ -138,7 +138,23 @@ const DevMarketplace = () => {
   }, [filtered, sort]);
 
   const featured = useMemo(() =>
-    [...allServices].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 3),
+    [...allServices]
+      .sort((a, b) => {
+        // Verified human-backed providers first
+        if (a.humanBacked && !b.humanBacked) return -1;
+        if (!a.humanBacked && b.humanBacked) return 1;
+        // Then by settlement count (more = better)
+        const aJobs = a.reputation?.completedJobs || 0;
+        const bJobs = b.reputation?.completedJobs || 0;
+        if (bJobs !== aJobs) return bJobs - aJobs;
+        // Then by success rate
+        const aRate = a.reputation?.paymentSuccessRate || 0;
+        const bRate = b.reputation?.paymentSuccessRate || 0;
+        if (bRate !== aRate) return bRate - aRate;
+        // Then newest
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      })
+      .slice(0, 3),
   [allServices]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
@@ -326,7 +342,7 @@ const DevMarketplace = () => {
           </div>
 
           {/* Featured */}
-          {allServices.length > 0 && featured.length > 0 && (
+          {page === 1 && allServices.length > 0 && featured.length > 0 && (
             <Card title="Featured services" subtitle="Freshly published, ready to purchase" className="mb-6" action={
               <Pill tone="amber" dot><FiTrendingUp size={11} /> Latest services</Pill>
             }>
