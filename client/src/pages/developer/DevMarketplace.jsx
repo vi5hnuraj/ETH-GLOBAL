@@ -628,7 +628,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
             </div>
           );
         })()}
-        {(!s.reputation || (s.reputation.completedJobs === 0 && !s.reputation.trustScore)) && s.humanBacked && (
+        {(!s.reputation || s.reputation.completedJobs === 0) && s.humanBacked && (
           <p className="text-[10px] text-zinc-600">Newly published verified provider — settlement history builds with each transaction</p>
         )}
         {/* Why this provider? explainable trust reasoning */}
@@ -636,8 +636,8 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
           const reasons = [];
           if (s.humanBacked) reasons.push('Verified human publisher (World ID + AgentBook) — reduces counterparty risk');
           if (s.agentBookId) reasons.push('AgentBook registered on World Chain — wallet linked to verified identity');
-          if (s.reputation?.trustScore > 0) reasons.push(`Trust Score ${s.reputation.trustScore}/100 based on on-chain settlement evidence`);
-          if (s.reputation?.paymentSuccessRate > 0 && s.reputation?.completedJobs > 0) { const rpct = s.reputation.paymentSuccessRate <= 1 ? (s.reputation.paymentSuccessRate * 100).toFixed(0) : Math.min(100, s.reputation.paymentSuccessRate).toFixed(0); reasons.push(`${rpct}% payment success rate across ${s.reputation.completedJobs} jobs`); }
+          if (s.reputation?.completedJobs > 0) reasons.push(`${s.reputation.completedJobs} settlement(s) completed on Arc`);
+          if (s.reputation?.paymentSuccessRate > 0 && s.reputation?.completedJobs > 0) { const rpct = s.reputation.paymentSuccessRate <= 1 ? (s.reputation.paymentSuccessRate * 100).toFixed(0) : Math.min(100, s.reputation.paymentSuccessRate).toFixed(0); reasons.push(`${rpct}% payment success rate`); }
           if (s.reputation?.repeatCustomers > 0) reasons.push(`${s.reputation.repeatCustomers} repeat buyer(s) — indicates provider reliability`);
           if (s.requireX402) reasons.push(`x402 micropayment required — ${s.x402Price || '0.01'} USDC per API call on Arc`);
           if (!reasons.length) return null;
