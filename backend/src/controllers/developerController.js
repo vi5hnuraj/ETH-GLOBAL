@@ -200,8 +200,8 @@ export const agentBalanceHandler = async (req, res) => {
 
 export const agentPayHandler = async (req, res) => {
   try {
-    const { to, amount, token, wei, note } = req.body || {};
-    ok(res, await agentPay(req.organization.id, req.developerId, req.params.agentId, { to, amount, token, wei, note }));
+    const { destination, to, amount, token, wei, note } = req.body || {};
+    ok(res, await agentPay(req.organization.id, req.developerId, req.params.agentId, { to: destination || to, amount, token, wei, note }));
   } catch (err) {
     handleError(res, err, 'agents');
   }
