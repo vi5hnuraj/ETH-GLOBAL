@@ -28,6 +28,7 @@ import {
   getAgentStats as agentServiceStats,
   regenerateAgentApiKey as agentServiceRotateKey
 } from './agentService.js';
+import { getUserVerificationStatus } from './worldIdVerifyService.js';
 
 // ==================== Range / bucket helpers ====================
 
@@ -865,6 +866,24 @@ export const paySubscriptionWithBOT = async ({ organizationId, developerId, wall
 // ==================== Agents (management view) ====================
 
 export const listAgentsWithStats = async (orgId, developerId, { search, status, page = 1, perPage = 10 } = {}) => {
+  // Keep older agents aligned with the developer-level verification source of
+  // truth. This also repairs agents created before verification inheritance
+  // was added without claiming AgentBook registration.
+  const verification = developerId
+    ? await getUserVerificationStatus(developerId).catch(() => ({ verified: false }))
+    : { verified: false };
+  if (verification.verified) {
+    await supabase
+      .from('ai_agents')
+      .update({
+        world_verified: true,
+        human_backed: true,
+        verification_method: 'worldid_v4',
+        world_verified_at: verification.verifiedAt || new Date().toISOString()
+      })
+      .eq('organization_id', orgId)
+      .eq('developer_id', developerId);
+  }
   const agents = await fetchAgents(orgId, developerId);
   const [txs, logs] = await Promise.all([
     fetchTransactions(agents.map((a) => a.id)),

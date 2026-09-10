@@ -10,6 +10,7 @@ import {
   enrichServicesWithVerification
 } from '../services/worldAgentKitService.js';
 import { supabase } from '../config/supabaseClient.js';
+import { getPool } from '../utils/db.js';
 import {
   createRpSignature,
   verifyIdkitProof,
@@ -242,9 +243,46 @@ export const lookup = async (req, res, next) => {
 export const listVerifiedAgents = async (req, res, next) => {
   try {
     const organizationId = req.organization?.id;
+    const userVerification = await getUserVerificationStatus(req.developerId);
+    if (userVerification.verified) {
+      const update = {
+        world_verified: true,
+        human_backed: true,
+        verification_method: 'worldid_v4',
+        world_verified_at: userVerification.verifiedAt || new Date().toISOString()
+      };
+      let updateQuery = supabase
+        .from('ai_agents')
+        .update(update)
+        .eq('developer_id', req.developerId);
+      if (organizationId) updateQuery = updateQuery.eq('organization_id', organizationId);
+      await updateQuery;
+      try {
+        const params = [
+          true,
+          true,
+          update.verification_method,
+          update.world_verified_at,
+          req.developerId
+        ];
+        const organizationClause = organizationId ? ' AND organization_id = $6' : '';
+        if (organizationId) params.push(organizationId);
+        await getPool().query(
+          `UPDATE ai_agents
+           SET world_verified = $1,
+               human_backed = $2,
+               verification_method = $3,
+               world_verified_at = $4
+           WHERE developer_id = $5${organizationClause}`,
+          params
+        );
+      } catch (repairError) {
+        logger.warn('[WORLD] direct agent verification repair failed:', repairError.message);
+      }
+    }
     let query = supabase
       .from('ai_agents')
-      .select('agent_id, agent_name, wallet_address, world_verified, human_backed, world_verified_at, agent_book_id')
+      .select('agent_id, agent_name, wallet_address, world_verified, human_backed, world_verified_at, agent_book_id, agentbook_tx_hash, verification_method')
       .eq('developer_id', req.developerId)
       .order('created_at', { ascending: false });
 

@@ -13,6 +13,7 @@ import { encryptText } from '../utils/cryptoUtils.js';
 import { getWalletService } from '../wallets/walletService.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
+import { getUserVerificationStatus } from './worldIdVerifyService.js';
 const EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/';
 
 // ==================== API Key Utilities ====================
@@ -53,6 +54,10 @@ export const createAgent = async ({ name, description, developerId, organization
 
   const apiKey = generateApiKey();
   const agentId = generateAgentId();
+  const userVerification = developerId
+    ? await getUserVerificationStatus(developerId).catch(() => ({ verified: false }))
+    : { verified: false };
+  const inheritedVerification = Boolean(userVerification.verified);
 
   const insertData = {
     agent_id: agentId,
@@ -68,7 +73,13 @@ export const createAgent = async ({ name, description, developerId, organization
     api_key_hash: hashApiKey(apiKey),
     api_key_prefix: apiKey.slice(0, 16),
     balance: '0',
-    status: 'active'
+    status: 'active',
+    ...(inheritedVerification ? {
+      world_verified: true,
+      human_backed: true,
+      verification_method: 'worldid_v4',
+      world_verified_at: userVerification.verifiedAt || new Date().toISOString()
+    } : {})
   };
 
   let agent;
