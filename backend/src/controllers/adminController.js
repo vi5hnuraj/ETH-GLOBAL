@@ -22,6 +22,11 @@ export const listDevelopers = async (req, res) => {
   catch (e) { fail(res, e, 'developers'); }
 };
 
+export const revokeWorldVerification = async (req, res) => {
+  try { ok(res, { result: await adminService.revokeWorldVerification(req.params.developerId) }); }
+  catch (e) { fail(res, e, 'world-revoke'); }
+};
+
 // ---- Organizations ----
 export const listOrganizations = async (req, res) => {
   try { ok(res, await adminService.listOrganizations(req.query)); }

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FiGlobe, FiCheckCircle, FiXCircle, FiRefreshCw, FiClock, FiExternalLink, FiBriefcase, FiMapPin, FiLink, FiMail, FiFileText, FiGithub, FiUsers, FiHome } from 'react-icons/fi';
+import { FiGlobe, FiCheckCircle, FiXCircle, FiRefreshCw, FiClock, FiExternalLink, FiBriefcase, FiMapPin, FiLink, FiMail, FiFileText, FiGithub, FiUsers, FiHome, FiShield } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import Card from '../../components/dev/Card';
 import Skeleton from '../../components/dev/Skeleton';
@@ -47,6 +47,15 @@ const AdminProfileApprovals = () => {
       toast.success('Profile rejected');
       setConfirmAction(null);
       setExpandedId(null);
+      refresh({ background: true });
+    } catch (err) { toast.error(err.message); } finally { setBusy(false); }
+  };
+
+  const handleRevokeWorld = async (developerId) => {
+    setBusy(true);
+    try {
+      await adminApi.revokeWorldVerification(developerId);
+      toast.success('World verification revoked');
       refresh({ background: true });
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
@@ -128,11 +137,12 @@ const AdminProfileApprovals = () => {
                         <img src={p.logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-cover border border-zinc-700" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                       </div>
                     )}
-                    <div className="mt-3 pt-3 border-t border-zinc-800/50 flex items-center gap-4 text-[11px] text-zinc-500">
-                      <span>Created: {new Date(p.created_at).toLocaleDateString()}</span>
-                      <span>Updated: {new Date(p.updated_at).toLocaleDateString()}</span>
-                      {p.is_public && <span className="text-emerald-400">Listed on marketplace</span>}
-                    </div>
+                     <div className="mt-3 pt-3 border-t border-zinc-800/50 flex flex-wrap items-center gap-4 text-[11px] text-zinc-500">
+                       <span>Created: {new Date(p.created_at).toLocaleDateString()}</span>
+                       <span>Updated: {new Date(p.updated_at).toLocaleDateString()}</span>
+                       {p.is_public && <span className="text-emerald-400">Listed on marketplace</span>}
+                       {p.owner_developer_id && <button type="button" onClick={() => handleRevokeWorld(p.owner_developer_id)} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-violet-500/30 px-2 py-1 text-violet-300 hover:bg-violet-500/10 disabled:opacity-50"><FiShield size={11} /> Revoke World verification</button>}
+                     </div>
                   </div>
                 )}
               </Card>

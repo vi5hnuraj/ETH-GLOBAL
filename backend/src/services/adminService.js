@@ -127,7 +127,8 @@ export const listDevelopers = async ({ page = 1, perPage = 20, search = '' } = {
 
   params.push(limit, offset);
   const { rows } = await pool.query(
-    `SELECT p.id, p.email, p.name, p.platform_role, p.created_at,
+    `SELECT p.id, p.email, p.name, p.platform_role, p.world_verified, p.world_nullifier, p.created_at,
+            COALESCE((SELECT COUNT(*)::int FROM ai_agents a WHERE a.developer_id = p.id::text AND a.world_verified = true), 0) AS verified_agent_count,
             (SELECT COUNT(*)::int FROM organization_members m WHERE m.developer_id::text = p.id::text AND m.status = 'active') AS org_count
      FROM profiles p
      ${whereClause}
@@ -145,6 +146,47 @@ export const listDevelopers = async ({ page = 1, perPage = 20, search = '' } = {
       totalPages: Math.ceil((countResult.rows[0]?.count || 0) / per),
     },
   };
+};
+
+export const revokeWorldVerification = async (developerId) => {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const sandboxReset = String(process.env.WORLD_ENVIRONMENT || '').toLowerCase() !== 'production' || process.env.NODE_ENV !== 'production';
+    const profile = await client.query(
+      `UPDATE profiles
+          SET world_verified = false,
+              world_verified_at = NULL,
+              world_nullifier = CASE WHEN $2 THEN NULL ELSE world_nullifier END
+        WHERE id::text = $1
+        RETURNING id`,
+      [developerId, sandboxReset]
+    );
+    const agents = await client.query(
+      `UPDATE ai_agents
+          SET world_verified = false, human_backed = false, world_verified_at = NULL,
+              verification_method = NULL, agent_book_id = NULL, agentbook_tx_hash = NULL
+        WHERE developer_id = $1
+        RETURNING agent_id`,
+      [developerId]
+    );
+    // Sandbox proofs are resettable for presentation/testing. Production
+    // nullifier history remains immutable replay protection.
+    if (sandboxReset) {
+      await client.query(
+        'DELETE FROM world_id_nullifiers WHERE developer_id = $1',
+        [developerId]
+      );
+    }
+    await client.query('COMMIT');
+    return { developerId, profileUpdated: profile.rowCount > 0, agentsReset: agents.rowCount };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 // ============================================================================
@@ -361,13 +403,12 @@ export const getPlatformHealth = async () => {
 export const listPendingProfiles = async () => {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT op.*, o.name AS org_name, o.slug AS org_slug,
+    `SELECT op.*, o.name AS org_name, o.slug AS org_slug, o.owner_developer_id,
             p.email AS owner_email, p.name AS owner_name
      FROM organization_profiles op
      JOIN organizations o ON o.id = op.organization_id
      LEFT JOIN profiles p ON p.id::text = o.owner_developer_id::text
-     WHERE op.verification_level = 'unverified'
-       AND op.is_public = true
+      WHERE op.verification_level = 'unverified'
      ORDER BY op.updated_at DESC`
   );
   return rows;
@@ -376,7 +417,7 @@ export const listPendingProfiles = async () => {
 export const getProfileDetail = async (profileId) => {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT op.*, o.name AS org_name, o.slug AS org_slug,
+    `SELECT op.*, o.name AS org_name, o.slug AS org_slug, o.owner_developer_id,
             p.email AS owner_email, p.name AS owner_name
      FROM organization_profiles op
      JOIN organizations o ON o.id = op.organization_id

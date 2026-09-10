@@ -20,6 +20,7 @@ import {
   listAuditLogs,
   listPendingProfiles,
   getProfileDetail,
+  revokeWorldVerification,
 } from '../controllers/adminController.js';
 import { ok } from '../utils/respond.js';
 
@@ -34,6 +35,7 @@ router.get('/dashboard', dashboard);
 
 // Developers
 router.get('/developers', listDevelopers);
+router.post('/developers/:developerId/world/revoke', revokeWorldVerification);
 
 // Organizations
 router.get('/organizations', listOrganizations);

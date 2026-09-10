@@ -170,6 +170,15 @@ const AdminDevelopers = () => {
                             >
                               <FiKey size={14} />
                             </button>
+                            {(dev.world_verified || dev.world_nullifier || Number(dev.verified_agent_count) > 0) && (
+                              <button
+                                onClick={() => setConfirmAction({ type: 'revokeWorld', dev })}
+                                className="p-1.5 rounded-md text-violet-400 hover:bg-violet-950"
+                                title="Revoke World verification"
+                              >
+                                <FiShield size={14} />
+                              </button>
+                            )}
                             <button
                               onClick={() => setConfirmAction({ type: 'delete', dev })}
                               className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-950"
@@ -264,6 +273,22 @@ const AdminDevelopers = () => {
           confirmLabel="Reset Keys"
           confirmClassName="bg-amber-600 hover:bg-amber-500"
           danger={false}
+          busy={busy}
+        />
+      )}
+      {confirmAction?.type === 'revokeWorld' && (
+        <ConfirmModal
+          open
+          onClose={() => setConfirmAction(null)}
+          onConfirm={() => handleAction(
+            () => adminApi.revokeWorldVerification(confirmAction.dev.id || confirmAction.dev.developerId),
+            'World verification revoked'
+          )}
+          title="Revoke World Verification"
+          description={`This disables World publishing authorization for ${confirmAction.dev.name || confirmAction.dev.email || 'this developer'} and resets their agents. Nullifier history is preserved for audit and replay protection.`}
+          confirmLabel="Revoke Verification"
+          confirmClassName="bg-violet-600 hover:bg-violet-500"
+          danger
           busy={busy}
         />
       )}

@@ -66,6 +66,7 @@ export const adminApi = {
   unsuspendDeveloper: (developerId) => request(`/admin/developers/${encodeURIComponent(developerId)}/unsuspend`, { method: 'POST' }),
   deleteDeveloper: (developerId) => request(`/admin/developers/${encodeURIComponent(developerId)}`, { method: 'DELETE' }),
   resetDeveloperKeys: (developerId) => request(`/admin/developers/${encodeURIComponent(developerId)}/reset-keys`, { method: 'POST' }),
+  revokeWorldVerification: (developerId) => request(`/admin/developers/${encodeURIComponent(developerId)}/world/revoke`, { method: 'POST' }),
   developerOrgs: (developerId) => request(`/admin/developers/${encodeURIComponent(developerId)}/organizations`).then((r) => r.organizations),
   developerPayments: (developerId, params) => request(`/admin/developers/${encodeURIComponent(developerId)}/payments?${qs(params)}`),
 
