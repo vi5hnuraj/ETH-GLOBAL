@@ -560,12 +560,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
   <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-4 flex flex-col hover:border-zinc-700 hover:bg-zinc-950 transition-colors group">
     <div className="flex items-center justify-between mb-2">
       <Pill tone={featured ? 'amber' : 'blue'}>{s.category}</Pill>
-      <div className="flex items-center gap-1.5">
-        {(s.pricingModel === 'flat' || s.pricingModel === 'subscription') && (
-          <Pill tone="emerald"><FiZap size={10} /> Buy Now</Pill>
-        )}
-        <span className="text-[11px] text-zinc-500">{s.pricingModel}</span>
-      </div>
+      <span className="text-[11px] text-zinc-500">{s.pricingModel}</span>
     </div>
     <Link to={`/developer/marketplace/service/${s.serviceId}`} className="hover:underline" title={s.title}>
       <h3 className="text-sm font-semibold text-zinc-100 group-hover:text-white truncate">{s.title}</h3>
@@ -642,7 +637,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
           if (s.humanBacked) reasons.push('Verified human publisher (World ID + AgentBook) — reduces counterparty risk');
           if (s.agentBookId) reasons.push('AgentBook registered on World Chain — wallet linked to verified identity');
           if (s.reputation?.trustScore > 0) reasons.push(`Trust Score ${s.reputation.trustScore}/100 based on on-chain settlement evidence`);
-          if (s.reputation?.paymentSuccessRate > 0) reasons.push(`${(s.reputation.paymentSuccessRate * 100).toFixed(0)}% payment success rate across ${s.reputation.completedJobs || 0} jobs`);
+          if (s.reputation?.paymentSuccessRate > 0 && s.reputation?.completedJobs > 0) { const rpct = s.reputation.paymentSuccessRate <= 1 ? (s.reputation.paymentSuccessRate * 100).toFixed(0) : Math.min(100, s.reputation.paymentSuccessRate).toFixed(0); reasons.push(`${rpct}% payment success rate across ${s.reputation.completedJobs} jobs`); }
           if (s.reputation?.repeatCustomers > 0) reasons.push(`${s.reputation.repeatCustomers} repeat buyer(s) — indicates provider reliability`);
           if (s.requireX402) reasons.push(`x402 micropayment required — ${s.x402Price || '0.01'} USDC per API call on Arc`);
           if (!reasons.length) return null;
