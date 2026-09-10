@@ -272,6 +272,9 @@ export const developerApi = {
   worldIdkitSign: (action) => request('/developers/world/idkit/sign', { method: 'POST', body: JSON.stringify({ action }) }),
   worldIdkitVerify: (payload) => request('/developers/world/idkit/verify', { method: 'POST', body: JSON.stringify(payload), timeout: 60000 }),
   worldUserStatus: () => request('/developers/world/user-status'),
+  agentBookRegister: (agentId) => request('/developers/world/agentbook/register', { method: 'POST', body: JSON.stringify({ agentId }), timeout: 90000 }),
+  agentBookSession: (sessionId) => request(`/developers/world/agentbook/session/${sessionId}`, { timeout: 30000 }),
+  agentBookCancel: (sessionId) => request('/developers/world/agentbook/cancel', { method: 'POST', body: JSON.stringify({ sessionId }) }),
 
   // ---- Autonomous Demo ----
   runDemo: () => request('/developers/demo/autonomous', { method: 'POST', timeout: 120000 }),

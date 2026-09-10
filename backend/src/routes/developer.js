@@ -82,7 +82,7 @@ import {
 } from '../controllers/commerceController.js';
 import { devGraphStatus, devProviderAnalysis, devGraphAsk, devAutonomousCommerce } from '../controllers/commerceController.js';
 import { chat as assistantChat } from '../controllers/aiAssistantController.js';
-import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents, idkitConfig, idkitSign, idkitVerify, userStatus as worldUserStatus } from '../controllers/worldController.js';
+import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents, idkitConfig, idkitSign, idkitVerify, userStatus as worldUserStatus, agentBookRegister, agentBookSession, agentBookCancel } from '../controllers/worldController.js';
 import worldRoutes from './world.js';
 import { requireWorldVerification } from '../middleware/worldVerificationGate.js';
 import { runDemo } from '../controllers/demoController.js';
@@ -251,5 +251,8 @@ router.get('/world/idkit/config', usageMiddleware, idkitConfig);
 router.post('/world/idkit/sign', usageMiddleware, idkitSign);
 router.post('/world/idkit/verify', usageMiddleware, idkitVerify);
 router.get('/world/user-status', usageMiddleware, worldUserStatus);
+router.post('/world/agentbook/register', usageMiddleware, agentBookRegister);
+router.get('/world/agentbook/session/:sessionId', usageMiddleware, agentBookSession);
+router.post('/world/agentbook/cancel', usageMiddleware, agentBookCancel);
 
 export default router;

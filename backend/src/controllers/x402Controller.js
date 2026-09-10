@@ -10,13 +10,23 @@ import { x402Guard } from '../middleware/x402Middleware.js';
 import { X402_DEFAULT_PRICE, listPayments, revenueStats, listProtectedServices } from '../services/x402Service.js';
 import { getGraphStatus, analyzeProviders, isGraphConfigured } from '../services/graphIntelligenceService.js';
 import { getArcNetworkStatus } from '../services/arcService.js';
-import { listMarketplace } from '../services/marketplaceService.js';
+import { listMarketplace, getMarketplaceService } from '../services/marketplaceService.js';
 
 const guard = x402Guard({ purpose: 'Premium API', price: X402_DEFAULT_PRICE });
 
 /** GET /api/x402/provider-insights — full provider intelligence (Graph). */
 export const premiumProviderInsights = [guard, async (req, res) => {
   try {
+    const serviceId = req.query.serviceId;
+    if (serviceId) {
+      const service = await getMarketplaceService(serviceId);
+      if (!service?.provider?.wallet_address && !service?.ai_agents?.wallet_address) {
+        return res.status(404).json({ success: false, message: 'Service provider wallet not found.' });
+      }
+      const wallet = service.provider?.wallet_address || service.ai_agents.wallet_address;
+      const provider = await analyzeProviders({ providerIds: [wallet] });
+      return ok(res, { service, providers: provider, recommendation: provider[0] || null, paidBy: req.x402?.payer || null, txHash: req.x402?.txHash || null });
+    }
     const providers = await analyzeProviders({});
     return ok(res, { providers, recommendation: providers[0] || null, paidBy: req.x402?.payer || null, txHash: req.x402?.txHash || null });
   } catch (err) {
@@ -27,8 +37,13 @@ export const premiumProviderInsights = [guard, async (req, res) => {
 /** GET /api/x402/trust-analysis — Graph status + top-provider recommendation. */
 export const premiumTrustAnalysis = [guard, async (req, res) => {
   try {
+    const serviceId = req.query.serviceId;
     const [graph, providers] = await Promise.all([getGraphStatus(), analyzeProviders({})]);
-    return ok(res, { graph, topProvider: providers[0] || null, providerCount: providers.length, paidBy: req.x402?.payer || null });
+    const selected = serviceId ? await getMarketplaceService(serviceId) : null;
+    const scoped = selected?.provider?.wallet_address || selected?.ai_agents?.wallet_address
+      ? await analyzeProviders({ providerIds: [selected.provider?.wallet_address || selected.ai_agents.wallet_address] })
+      : providers;
+    return ok(res, { graph, service: selected, topProvider: scoped[0] || null, providerCount: scoped.length, paidBy: req.x402?.payer || null });
   } catch (err) {
     return handleError(res, err, 'x402:trust-analysis');
   }

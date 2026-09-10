@@ -160,7 +160,9 @@ export const listProtectedServices = async () => {
   const db = await pool();
   const r = await db.query(
     `SELECT service_id, title, require_x402, x402_price, unit_price, unit_label, is_active
-     FROM ai_services WHERE require_x402 = TRUE ORDER BY updated_at DESC LIMIT 50`
+     FROM ai_services
+     WHERE require_x402 = TRUE AND is_active = TRUE
+     ORDER BY updated_at DESC`
   );
   return r.rows;
 };

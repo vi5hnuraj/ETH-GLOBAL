@@ -237,21 +237,19 @@ export const agentPay = async (agent, { to, amount, wei, token, note }) => {
     }
   }
 
-  // Replay/double-spend guard: if an identical payment (same agent, destination,
-  // amount) was already broadcast in the last 5 minutes, return the existing
-  // transaction instead of broadcasting a second time. This covers the case
-  // where a client retried after a timeout while the first tx was still mined.
-  const dedupeWindowMs = 5 * 60 * 1000;
-  const dedupeSince = new Date(Date.now() - dedupeWindowMs).toISOString();
+  // x402 challenges carry their own one-time payment id. Do not apply the
+  // generic five-minute retry window to a new x402 challenge, otherwise two
+  // legitimate 402 requests at the same price reuse the previous tx hash.
+  const x402PaymentId = typeof note === 'string' && note.startsWith('x402 ') ? note.slice(5).trim() : null;
+  const dedupeSince = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   try {
-    const { data: existing } = await supabase
+    let query = supabase
       .from('ai_agent_transactions')
       .select('*')
-      .eq('agent_id', agent.id)
-      .eq('destination_address', to)
-      .eq('amount', valueWei.toString())
-      .gte('created_at', dedupeSince)
-      .limit(1);
+      .eq('agent_id', agent.id);
+    if (x402PaymentId) query = query.eq('note', `x402 ${x402PaymentId}`);
+    else query = query.eq('destination_address', to).eq('amount', valueWei.toString()).gte('created_at', dedupeSince);
+    const { data: existing } = await query.limit(1);
     if (existing?.length && existing[0].tx_hash) {
       const prior = existing[0];
       return {
@@ -273,7 +271,8 @@ export const agentPay = async (agent, { to, amount, wei, token, note }) => {
     walletId: agent.wallet_id,
     encryptedPrivateKey: agent.encrypted_private_key,
     to,
-    wei: valueWei.toString()
+    wei: valueWei.toString(),
+    idempotencyKey: x402PaymentId ? `x402:${x402PaymentId}` : undefined
   });
 
   dispatchEvent('payment.completed', {
