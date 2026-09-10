@@ -336,6 +336,7 @@ export const getDashboard = async (orgId, developerId) => {
     monthlyRevenueUsd: monthlyRevenue,
      plan: plan.name,
     walletProvider: settings?.walletProvider || 'local',
+    verifiedAgents: agents.filter((a) => a.world_verified).length,
     servicesPublished: v3metrics?.servicesPublished ?? 0,
     marketplaceInstalls: v3metrics?.marketplaceInstalls ?? 0,
     trustScore: v3metrics?.trustScore ?? 0,

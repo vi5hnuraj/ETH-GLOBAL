@@ -617,14 +617,22 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
             </span>
           )}
         </div>
-        {/* Settlement stats from provider_reputation DB snapshot */}
-        {(s.reputation?.completedJobs > 0 || s.reputation?.trustScore > 0) && (
-          <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-            <span title="Completed jobs">{s.reputation.completedJobs ?? 0} jobs</span>
-            {s.reputation.paymentSuccessRate != null && <span title="Success Rate">{(s.reputation.paymentSuccessRate * 100).toFixed(0)}% success</span>}
-            {Number(s.reputation.totalRevenueBOT) > 0 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
-          </div>
-        )}
+        {/* Settlement stats — only show when genuine (jobs > 0, fresh snapshot) */}
+        {(() => {
+          const jobs = s.reputation?.completedJobs ?? 0;
+          const fresh = s.reputation?.recomputedAt && (Date.now() - new Date(s.reputation.recomputedAt).getTime()) < 7 * 24 * 60 * 60 * 1000;
+          const rate = s.reputation?.paymentSuccessRate;
+          // paymentSuccessRate is stored as 0-1 in DB; display as percentage
+          const ratePct = rate != null ? (rate <= 1 ? (rate * 100).toFixed(0) : Math.min(100, rate).toFixed(0)) : null;
+          if (jobs <= 0 && !fresh) return null;
+          return (
+            <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+              {jobs > 0 && <span title="Completed jobs">{jobs} jobs</span>}
+              {ratePct && jobs > 0 && <span title="Success Rate" className={Number(ratePct) >= 90 ? 'text-emerald-400' : ''}>{ratePct}% success</span>}
+              {Number(s.reputation.totalRevenueBOT) > 0 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
+            </div>
+          );
+        })()}
         {(!s.reputation || (s.reputation.completedJobs === 0 && !s.reputation.trustScore)) && s.humanBacked && (
           <p className="text-[10px] text-zinc-600">Newly published verified provider — settlement history builds with each transaction</p>
         )}
