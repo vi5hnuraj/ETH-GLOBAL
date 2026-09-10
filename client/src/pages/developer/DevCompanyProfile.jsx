@@ -53,8 +53,8 @@ const parseList = (v) => {
   return [];
 };
 
-const SponsorCard = ({ title, sponsor, icon: Icon, tone = 'blue', children }) => (
-  <Card dense className={`border-${tone}-500/20 bg-${tone}-500/5`}>
+const SponsorCard = ({ title, sponsor, icon: Icon, tone = 'blue', className = '', children }) => (
+  <Card dense className={`flex h-full flex-col border-${tone}-500/20 bg-${tone}-500/5 ${className}`}>
     <div className="mb-3 flex items-center justify-between">
       <div className="flex items-center gap-2"><Icon size={15} className={`text-${tone}-400`} /><h3 className="text-sm font-semibold text-white">{title}</h3></div>
       <span className={`rounded-full border border-${tone}-500/20 px-2 py-0.5 text-[10px] text-${tone}-300`}>{sponsor}</span>
@@ -224,7 +224,7 @@ const DevCompanyProfile = () => {
   const primaryAgent = agents[0] || null;
   const worldState = useApi({ fetcher: () => primaryAgent ? developerApi.worldStatus(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
   const balanceState = useApi({ fetcher: () => primaryAgent ? developerApi.agentBalance(primaryAgent.agentId) : Promise.resolve(null), deps: [primaryAgent?.agentId] });
-  const reputationState = useApi({ fetcher: () => primaryAgent?.walletAddress ? developerApi.providerAnalysis([primaryAgent.walletAddress]) : Promise.resolve({ providers: [] }), deps: [primaryAgent?.walletAddress] });
+  const reputationState = useApi({ fetcher: () => primaryAgent?.wallet ? developerApi.providerAnalysis([primaryAgent.wallet]) : Promise.resolve({ providers: [] }), deps: [primaryAgent?.wallet] });
   const servicesState = useApi({ fetcher: () => developerApi.services({ perPage: 100 }), deps: [primaryAgent?.agentId] });
 
   const [editing, setEditing] = useState(false);
@@ -338,6 +338,9 @@ const DevCompanyProfile = () => {
   const graphStatus = graphState.data || {};
   const indexedBlock = graphStatus.indexedBlock || '—';
   const explorerUrl = latestSettlement?.transactionHash ? `https://testnet.arcscan.app/tx/${latestSettlement.transactionHash}` : null;
+  /* agentBalance returns `wallet` and a preformatted `balance` string — parse defensively. */
+  const walletAddress = balanceState.data?.wallet || primaryAgent?.walletAddress || null;
+  const balanceNum = Number.parseFloat(balanceState.data?.balance) || 0; // "0.000000 USDC" -> 0
 
   /* ━━━ Empty ━━━ */
   if (missing && !editing) {
@@ -522,7 +525,7 @@ const DevCompanyProfile = () => {
       </Card>
 
       {/* Sponsor identity, reputation, and settlement truth live together here. */}
-      <div className="grid items-start gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <SponsorCard title="Identity Verification" sponsor="World AgentKit" icon={FiShield} tone="violet">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
             {isWorldVerified ? <><FiCheckCircle className="text-emerald-400" /> Human Verified</> : <><FiClock className="text-amber-400" /> Verification Required</>}
@@ -534,20 +537,20 @@ const DevCompanyProfile = () => {
           <DataRow label="Human-backed Agent" value={world.humanBacked ? 'Yes' : 'No'} />
           {!isWorldVerified && <button type="button" onClick={() => navigate('/developer/world-verification')} className="mt-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500 disabled:opacity-50">🛡 Verify with World ID →</button>}
            {isWorldVerified && <div className="mt-3 flex items-center justify-center gap-1 text-xs font-semibold text-emerald-400"><FiCheckCircle size={13} /> Verified</div>}
-           <button type="button" onClick={() => navigate('/developer/world-verification')} className="mt-2 w-full rounded-lg border border-violet-500/30 px-3 py-2 text-xs font-semibold text-violet-300 hover:bg-violet-500/10">Manage AgentBook registrations →</button>
+           <button type="button" onClick={() => navigate('/developer/world-verification')} className="mt-auto w-full rounded-lg border border-violet-500/30 px-3 py-2 text-xs font-semibold text-violet-300 hover:bg-violet-500/10">Manage AgentBook registrations →</button>
            <p className="mt-3 text-[10px] leading-relaxed text-zinc-500">World controls publishing authorization only. It never changes the Graph reputation score.</p>
         </SponsorCard>
 
         <SponsorCard title="Marketplace Reputation" sponsor="The Graph" icon={FiActivity} tone="emerald">
           {graphProvider?.paymentCount > 0 ? <><div className="mb-2 flex items-baseline justify-between"><span className="text-xs text-zinc-500">Graph Trust Score</span><span className="text-2xl font-bold text-emerald-400">{graphProvider.trustScore}</span></div><DataRow label="Successful Settlements" value={graphProvider.successfulPayments} /><DataRow label="Success Rate" value={graphProvider.successRate != null ? `${(Number(graphProvider.successRate) * 100).toFixed(1)}%` : null} /><DataRow label="Settlement Volume" value={graphProvider.settlementVolume != null ? `${Number(graphProvider.settlementVolume).toFixed(4)} USDC` : null} /><DataRow label="Unique Buyers" value={graphProvider.uniquePayers} /><DataRow label="Repeat Buyers" value={graphProvider.repeatCustomers} /><DataRow label="Risk Level" value={graphProvider.riskLevel} /><DataRow label="Last Settlement" value={graphProvider.lastSettlement ? fmtDate(graphProvider.lastSettlement) : null} /></> : <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-xs text-zinc-500">No settlement history yet.</div>}
-          <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">Indexed block: {indexedBlock} · Subgraph: {graphStatus.graphLive ? 'Live' : 'Unavailable'}</p>
+          <p className="mt-auto pt-2 text-[10px] leading-relaxed text-zinc-500">Indexed block: {indexedBlock} · Subgraph: {graphStatus.graphLive ? 'Live' : 'Unavailable'}</p>
         </SponsorCard>
 
         <SponsorCard title="Settlement Wallet" sponsor="Arc" icon={FiDollarSign} tone="cyan">
-          <DataRow label="Wallet Address" value={primaryAgent?.walletAddress} mono />
+          <DataRow label="Wallet Address" value={walletAddress} mono />
           <DataRow label="Network" value="Arc Testnet · 5042002" />
-          {wallet.balance != null && <DataRow label="USDC Balance" value={`${Number(wallet.balance).toFixed(6)} USDC`} />}
-          {primaryAgent?.walletAddress && <a href={`https://testnet.arcscan.app/address/${primaryAgent.walletAddress}`} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-center rounded-lg border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10">View wallet on ArcScan <FiExternalLink className="ml-2" size={12} /></a>}
+          {primaryAgent && <DataRow label="USDC Balance" value={`${balanceNum.toFixed(6)} USDC`} />}
+          {walletAddress && <a href={`https://testnet.arcscan.app/address/${walletAddress}`} target="_blank" rel="noreferrer" className="mt-auto flex items-center justify-center rounded-lg border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10">View wallet on ArcScan <FiExternalLink className="ml-2" size={12} /></a>}
           {latestSettlement?.transactionHash && <a href={explorerUrl} target="_blank" rel="noreferrer" className="mt-2 block truncate text-center font-mono text-[10px] text-cyan-400 hover:underline">Latest tx: {latestSettlement.transactionHash}</a>}
         </SponsorCard>
       </div>
