@@ -85,6 +85,7 @@ import { chat as assistantChat } from '../controllers/aiAssistantController.js';
 import { verify as worldVerify, status as worldStatus, lookup as worldLookup, listVerifiedAgents as worldListAgents, idkitConfig, idkitSign, idkitVerify, userStatus as worldUserStatus, agentBookRegister, agentBookSession, agentBookCancel } from '../controllers/worldController.js';
 import worldRoutes from './world.js';
 import { requireWorldVerification } from '../middleware/worldVerificationGate.js';
+import { agentPassport, servicePassport, agentProfile, publisherPassport, agentPassportSummary } from '../controllers/passportController.js';
 import { runDemo } from '../controllers/demoController.js';
 import {
   validate,
@@ -254,5 +255,14 @@ router.get('/world/user-status', usageMiddleware, worldUserStatus);
 router.post('/world/agentbook/register', usageMiddleware, agentBookRegister);
 router.get('/world/agentbook/session/:sessionId', usageMiddleware, agentBookSession);
 router.post('/world/agentbook/cancel', usageMiddleware, agentBookCancel);
+
+// ==================== Agent Passport (Human-Backed Agent Identity) ====================
+// The persistent identity artifact: World ID + AgentBook verification,
+// publisher continuity, Graph settlement intelligence, trust reasoning.
+router.get('/passport/agent/:agentId', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), usageMiddleware, agentPassport);
+router.get('/passport/service/:serviceId', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), usageMiddleware, servicePassport);
+router.get('/passport/profile', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), usageMiddleware, agentProfile);
+router.get('/passport/publisher', ...guard([SCOPES.AGENTS_READ], 'agents.read'), usageMiddleware, publisherPassport);
+router.get('/passport/summary/:agentId', ...guard(SCOPES.SERVICES_READ, 'marketplace.read'), usageMiddleware, agentPassportSummary);
 
 export default router;

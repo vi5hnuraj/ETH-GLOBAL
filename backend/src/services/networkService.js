@@ -23,13 +23,25 @@ import { audit } from './auditService.js';
 import { dispatchEvent } from './webhookService.js';
 import logger from '../utils/logger.js';
 import {
-getPolicyByOrg,
+  getPolicyByOrg,
   recommendProviders,
   createSession,
+  getSessionByCode,
+  createPrepaidIntent,
+  confirmPrepaidPurchase,
   getMonthlySpendWei
 } from './commerceService.js';
 
 const genId = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
+const hasPositiveWei = (value) => {
+  try {
+    const text = String(value ?? '0');
+    if (text.includes('.')) return Number(text) > 0;
+    return BigInt(text || '0') > 0n;
+  } catch {
+    return Number(value) > 0;
+  }
+};
 const PROFILE_CACHE_TTL_MS = 15_000;
 const profileCache = new Map();
 
@@ -59,6 +71,17 @@ const toWeiSafe = (botString) => {
   } catch {
     return 0n;
   }
+};
+
+const normalizeWei = (value) => {
+  const text = String(value ?? '0');
+  if (text.includes('.')) return toWeiSafe(text);
+  try { return BigInt(text || '0'); } catch { return 0n; }
+};
+
+const normalizeStoredCostWei = (value) => {
+  const text = String(value ?? '0');
+  return text.includes('.') ? toWeiSafe(text) : (hasPositiveWei(text) ? text : '0');
 };
 
 // ============================================================================
@@ -645,11 +668,17 @@ const toPublicStep = (s) => ({
   quantity: s.quantity,
   status: s.status,
   serviceId: s.service_id,
+  serviceTitle: s.service_title || null,
+  requireX402: Boolean(s.require_x402),
+  x402Price: s.x402_price || null,
   providerAgentId: s.provider_agent_code,
+  providerName: s.provider_name || null,
   sessionId: s.session_id,
   invoiceId: s.invoice_id,
   estimatedCostUSDC: formatEtherSafe(s.estimated_cost_wei || '0'),
+  estimatedCostBOT: formatEtherSafe(s.estimated_cost_wei || '0'),
   actualCostUSDC: formatEtherSafe(s.actual_cost_wei || '0'),
+  actualCostBOT: s.actual_cost_wei != null ? formatEtherSafe(s.actual_cost_wei) : null,
   failoverTried: s.failover_tried,
   error: s.error,
   startedAt: s.started_at,
@@ -671,7 +700,9 @@ const toPublicRun = (r) => ({
   sessionIds: r.session_ids || [],
   invoiceIds: r.invoice_ids || [],
   estimatedCostUSDC: formatEtherSafe(r.estimated_cost_wei || '0'),
+  estimatedCostBOT: formatEtherSafe(r.estimated_cost_wei || '0'),
   actualCostUSDC: formatEtherSafe(r.actual_cost_wei || '0'),
+  actualCostBOT: r.actual_cost_wei != null ? formatEtherSafe(r.actual_cost_wei) : null,
   consumerAgentId: r.consumer_agent_code,
   startedAt: r.started_at,
   completedAt: r.completed_at,
@@ -733,6 +764,7 @@ export const runWorkflow = async ({
     capability: s.capability || null,
     model: s.model || null,
     quantity: s.quantity && Number(s.quantity) > 0 ? String(s.quantity) : '1',
+    service_id: s.serviceId || null,
     status: 'pending'
   }));
   const { data: insertedSteps } = await supabase.from('workflow_run_steps').insert(stepRows).select();
@@ -751,24 +783,45 @@ export const runWorkflow = async ({
     await supabase.from('workflow_run_steps').update({ status: 'matching', started_at: new Date().toISOString() }).eq('id', step.id);
 
     try {
-      const route = await autoRoute({
-        developerId,
-        organizationId,
-        consumerAgent,
-        task: spec.category || spec.capability,
-        requirements: {
-          capability: spec.capability || null,
-          model: spec.model || null,
-          minVram: spec.minVramGb || null,
-          maxBudgetBot: spec.maxBudgetBot || null
-        },
-        quantity: spec.quantity && Number(spec.quantity) > 0 ? String(spec.quantity) : '1',
-        forceSwitch: !!spec.allowFailover
-      });
+      const quantity = spec.quantity && Number(spec.quantity) > 0 ? String(spec.quantity) : '1';
+      // New workflow steps carry the exact Marketplace service selected in the
+      // UI. Use the existing commerce engine directly so execution cannot lose
+      // the user's service choice while routing by capability.
+      const route = spec.serviceId
+        ? {
+          policy: null,
+          switched: false,
+          attempts: [],
+          session: (await createSession({
+            developerId,
+            organizationId,
+            consumerAgent,
+            service: { service_id: spec.serviceId },
+            quantity,
+            reason: `Workflow step ${i + 1}: ${spec.capability || spec.category || spec.serviceId}`,
+            source: 'workflow'
+          })).session
+        }
+        : await autoRoute({
+          developerId,
+          organizationId,
+          consumerAgent,
+          task: spec.category || spec.capability,
+          requirements: {
+            capability: spec.capability || null,
+            model: spec.model || null,
+            minVram: spec.minVramGb || null,
+            maxBudgetBot: spec.maxBudgetBot || null
+          },
+          quantity,
+          forceSwitch: !!spec.allowFailover
+        });
       const sess = route.session;
       sessionIds.push(sess.session_id);
-      const estWei = toWeiSafe(sess.estimatedCostUSDC);
-      const actWei = sess.actualCostUSDC != null ? toWeiSafe(sess.actualCostUSDC) : 0n;
+      const estWei = toWeiSafe(sess.estimatedCostBOT ?? sess.estimatedCostUSDC ?? '0');
+      const actWei = sess.actualCostBOT != null
+        ? toWeiSafe(sess.actualCostBOT)
+        : sess.actualCostUSDC != null ? toWeiSafe(sess.actualCostUSDC) : 0n;
       estimatedWei += estWei;
       actualWei += actWei;
 
@@ -803,15 +856,18 @@ export const runWorkflow = async ({
     }
   }
 
-  const overall = failedAt >= 0 ? 'failed' : 'completed';
-  const finalStatus = sessionIds.length && failedAt >= 0 ? 'partial' : overall;
+  // Creating commerce sessions reserves/starts the provider work; it does not
+  // mean the sessions or invoices have completed yet.
+  const finalStatus = failedAt >= 0
+    ? (sessionIds.length ? 'partial' : 'failed')
+    : (sessionIds.length === totalSteps ? 'running' : 'failed');
   await supabase.from('workflow_runs').update({
     status: finalStatus,
-    current_step: failedAt >= 0 ? failedAt : totalSteps,
+    current_step: failedAt >= 0 ? failedAt : sessionIds.length,
     estimated_cost_wei: formatEtherSafe(estimatedWei),
     actual_cost_wei: formatEtherSafe(actualWei),
     invoice_ids: invoiceIds,
-    completed_at: new Date().toISOString(),
+    completed_at: finalStatus === 'running' ? null : new Date().toISOString(),
     updated_at: new Date().toISOString()
   }).eq('id', run.id);
 
@@ -911,7 +967,157 @@ export const getWorkflowRunDetail = async ({ organizationId, runId }) => {
     .maybeSingle();
   if (!run) throw httpError(404, 'Workflow run not found.', 'NOT_FOUND');
   const { data: steps } = await supabase.from('workflow_run_steps').select('*').eq('run_id', run.id).order('step_index', { ascending: true });
-  return { run: toPublicRun(run), steps: (steps || []).map(toPublicStep) };
+  const sessionIds = (steps || []).map((step) => step.session_id).filter(Boolean);
+  let { data: sessions } = sessionIds.length
+    ? await supabase.from('purchase_sessions').select('session_id, status, invoice_code, estimated_cost_wei, actual_cost_wei').in('session_id', sessionIds)
+    : { data: [] };
+  if (sessionIds.length && (!sessions || sessions.length < sessionIds.length)) {
+    try {
+      const { rows } = await getPool().query(
+        `SELECT session_id, status, invoice_code, estimated_cost_wei, actual_cost_wei
+         FROM purchase_sessions WHERE session_id = ANY($1::text[])`,
+        [sessionIds]
+      );
+      if (rows.length) sessions = rows;
+    } catch (err) {
+      logger.debug('[WORKFLOW] direct session cost lookup unavailable:', err.message);
+    }
+  }
+  const sessionMap = new Map((sessions || []).map((session) => [session.session_id, session]));
+  const serviceIds = [...new Set((steps || []).map((step) => step.service_id).filter(Boolean))];
+  const [{ data: services }, { data: providers }] = await Promise.all([
+    serviceIds.length ? supabase.from('ai_services').select('service_id, title, require_x402, x402_price').in('service_id', serviceIds) : Promise.resolve({ data: [] }),
+    Promise.resolve({ data: [] })
+  ]);
+  const serviceMap = new Map((services || []).map((service) => [service.service_id, service]));
+  const enrichedSteps = (steps || []).map((step) => ({
+    ...step,
+    service_title: serviceMap.get(step.service_id)?.title || null,
+    require_x402: Boolean(serviceMap.get(step.service_id)?.require_x402),
+    x402_price: serviceMap.get(step.service_id)?.x402_price || null,
+    status: sessionMap.get(step.session_id)?.status === 'awaiting_payment' ? 'awaiting_payment' : step.status,
+    invoice_id: step.invoice_id || sessionMap.get(step.session_id)?.invoice_code || null,
+    estimated_cost_wei: normalizeStoredCostWei(
+      hasPositiveWei(step.estimated_cost_wei)
+        ? step.estimated_cost_wei
+        : sessionMap.get(step.session_id)?.estimated_cost_wei || '0'
+    ),
+    actual_cost_wei: normalizeStoredCostWei(
+      hasPositiveWei(step.actual_cost_wei)
+        ? step.actual_cost_wei
+        : sessionMap.get(step.session_id)?.actual_cost_wei || '0'
+    )
+  }));
+  const terminal = ['paid', 'active', 'completed', 'cancelled', 'payment_failed', 'expired'];
+  const hasPendingPayment = (sessions || []).some((session) => !terminal.includes(session.status));
+  const hasFailure = (sessions || []).some((session) => ['cancelled', 'payment_failed', 'expired'].includes(session.status));
+  const estimatedTotalWei = enrichedSteps.reduce((sum, step) => sum + normalizeWei(step.estimated_cost_wei), 0n);
+  const actualTotalWei = enrichedSteps.reduce((sum, step) => sum + normalizeWei(step.actual_cost_wei), 0n);
+  const effectiveRun = {
+    ...run,
+    ...(hasPendingPayment ? { status: 'running', completed_at: null } : sessions?.length && !hasFailure ? { status: 'completed', completed_at: run.completed_at || new Date().toISOString() } : hasFailure ? { status: 'partial' } : {}),
+    estimated_cost_wei: estimatedTotalWei > 0n ? estimatedTotalWei.toString() : run.estimated_cost_wei,
+    actual_cost_wei: actualTotalWei > 0n ? actualTotalWei.toString() : run.actual_cost_wei,
+    session_ids: enrichedSteps.map((step) => step.session_id).filter(Boolean),
+    invoice_ids: enrichedSteps.map((step) => step.invoice_id).filter(Boolean)
+  };
+  if (effectiveRun.status !== run.status || effectiveRun.completed_at !== run.completed_at) {
+    await supabase.from('workflow_runs').update({ status: effectiveRun.status, completed_at: effectiveRun.completed_at || null, updated_at: new Date().toISOString() }).eq('id', run.id);
+  }
+  return { run: toPublicRun(effectiveRun), steps: enrichedSteps.map(toPublicStep) };
+};
+
+/** Confirm all awaiting-payment sessions in one workflow-level approval. */
+export const confirmWorkflowPayment = async ({ organizationId, runId }) => {
+  const detail = await getWorkflowRunDetail({ organizationId, runId });
+  const sessionIds = detail.steps.map((step) => step.sessionId).filter(Boolean);
+  if (!sessionIds.length) throw httpError(409, 'This workflow has no payable sessions yet.', 'NO_SESSIONS');
+
+  // Preflight the complete workflow before settling the first provider. This
+  // prevents predictable failures from leaving a workflow half-paid.
+  const sessions = [];
+  const replaced = [];
+  for (const sessionId of sessionIds) {
+    let session = await getSessionByCode(sessionId);
+    if (!session) throw httpError(404, `Workflow payment session ${sessionId} was not found.`, 'SESSION_NOT_FOUND');
+    if (session.status === 'payment_failed') {
+      let { data: consumer } = await supabase.from('ai_agents').select('*').eq('id', session.consumer_agent_id).maybeSingle();
+      if (!consumer) {
+        const { rows } = await getPool().query('SELECT * FROM ai_agents WHERE id = $1 LIMIT 1', [session.consumer_agent_id]);
+        consumer = rows[0] || null;
+      }
+      if (!consumer) throw httpError(404, 'Workflow consumer agent not found.', 'CONSUMER_NOT_FOUND');
+      const retry = await createPrepaidIntent({
+        developerId: session.developer_id,
+        organizationId,
+        consumerAgent: consumer,
+        service: { service_id: session.service_code },
+        quantity: session.quantity || '1',
+        reason: `Workflow retry: ${runId}`
+      });
+      session = await getSessionByCode(retry.session.sessionId);
+      replaced.push({ previousSessionId: sessionId, sessionId: retry.session.sessionId });
+      const step = detail.steps.find((item) => item.sessionId === sessionId);
+      if (step?.id) await supabase.from('workflow_run_steps').update({ session_id: retry.session.sessionId, status: 'pending', error: null }).eq('id', step.id);
+    }
+    if (session.status !== 'awaiting_payment') {
+      if (['paid', 'active', 'completed'].includes(session.status)) continue;
+      throw httpError(409, `Workflow payment cannot start because session ${sessionId} is ${session.status}.`, 'SESSION_NOT_PAYABLE');
+    }
+    sessions.push(session);
+  }
+
+  if (!sessions.length) return {
+    success: true,
+    workflowRunId: runId,
+    totalAmountUSDC: '0.000000',
+    settledCount: sessionIds.length,
+    failedCount: 0,
+    results: []
+  };
+
+  const consumerIds = [...new Set(sessions.map((session) => session.consumer_agent_id))];
+  if (consumerIds.length !== 1) throw httpError(409, 'Workflow sessions use different consumer wallets. Recreate the workflow with one consumer agent.', 'MULTIPLE_CONSUMERS');
+  const walletService = (await import('../wallets/walletService.js')).getWalletService();
+  let consumer;
+  const { data: consumerRow } = await supabase.from('ai_agents').select('*').eq('id', consumerIds[0]).maybeSingle();
+  consumer = consumerRow;
+  if (!consumer) {
+    const { rows } = await getPool().query('SELECT * FROM ai_agents WHERE id = $1 LIMIT 1', [consumerIds[0]]);
+    consumer = rows[0];
+  }
+  if (!consumer) throw httpError(404, 'Workflow consumer agent not found.', 'CONSUMER_NOT_FOUND');
+  const totalWei = sessions.reduce((sum, session) => sum + normalizeWei(session.estimated_cost_wei), 0n);
+  const balance = await walletService.getBalance(consumer.wallet_address).catch(() => ({ wei: '0', formatted: '0' }));
+  if (BigInt(balance.wei || '0') < totalWei) {
+    throw httpError(402, `Workflow requires ${formatEtherSafe(totalWei)} USDC, but the consumer wallet has ${balance.formatted || '0'} USDC. No provider was paid.`, 'WORKFLOW_INSUFFICIENT_BALANCE');
+  }
+
+  const results = [];
+  for (const sessionId of sessionIds) {
+    const result = await confirmPrepaidPurchase({ sessionId, organizationId });
+    const sourceSession = sessions.find((session) => session.session_id === sessionId);
+    results.push({
+      sessionId,
+      ...result,
+      amountBOT: result.amountBOT
+        ?? result.invoice?.amountBOT
+        ?? result.session?.estimatedCostBOT
+        ?? formatEtherSafe(normalizeWei(sourceSession?.estimated_cost_wei))
+    });
+    if (!result.success && !result.idempotent) break;
+  }
+  const total = results.reduce((sum, result) => sum + Number(result.amountBOT || 0), 0);
+  const failed = results.filter((result) => result.failed || result.success === false);
+  return {
+    success: failed.length === 0,
+    workflowRunId: runId,
+    totalAmountUSDC: total.toFixed(6),
+    settledCount: results.filter((result) => result.success || result.idempotent).length,
+    failedCount: failed.length,
+    replaced,
+    results
+  };
 };
 
 export const cancelWorkflowRun = async ({ organizationId, runId }) => {

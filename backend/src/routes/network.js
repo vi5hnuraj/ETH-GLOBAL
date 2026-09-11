@@ -24,6 +24,7 @@ import {
   devRunWorkflow,
   devListRuns,
   devGetRun,
+  devConfirmWorkflowPayment,
   devCancelRun,
   devNetworkAnalytics,
   devNetworkTimeline,
@@ -59,6 +60,7 @@ router.post('/network/workflow-templates/:templateId/deploy', ...guard(SCOPES.SE
 router.post('/network/workflows', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), devRunWorkflow);
 router.get('/network/workflows', ...guard(SCOPES.SESSIONS_READ, 'sessions.read'), devListRuns);
 router.get('/network/workflows/:runId', ...guard(SCOPES.SESSIONS_READ, 'sessions.read'), devGetRun);
+router.post('/network/workflows/:runId/pay', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), devConfirmWorkflowPayment);
 router.post('/network/workflows/:runId/cancel', ...guard(SCOPES.SESSIONS_MANAGE, 'sessions.manage'), devCancelRun);
 
 // --- Network Analytics ---
