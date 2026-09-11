@@ -19,6 +19,7 @@ import {
   deleteWorkflowTemplate,
   deployTemplate,
   runWorkflow,
+  confirmWorkflowPayment,
   listWorkflowRuns,
   getWorkflowRunDetail,
   cancelWorkflowRun,
@@ -236,6 +237,15 @@ export const devGetRun = async (req, res) => {
     return ok(res, result);
   } catch (err) {
     return handleError(res, err, 'workflow');
+  }
+};
+
+export const devConfirmWorkflowPayment = async (req, res) => {
+  try {
+    const result = await confirmWorkflowPayment({ organizationId: req.organization.id, runId: req.params.runId });
+    return ok(res, { message: result.success ? `Workflow payment settled — ${result.totalAmountUSDC} USDC.` : 'Workflow payment failed. No new provider payment was authorized.', ...result }, result.success ? 200 : 402);
+  } catch (err) {
+    return handleError(res, err, 'workflow payment');
   }
 };
 
