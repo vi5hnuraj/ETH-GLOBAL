@@ -17,6 +17,24 @@ import logger from '../utils/logger.js';
  */
 export const x402Guard = ({ purpose = 'Premium API', price } = {}) =>
   async (req, res, next) => {
+    // AgentKit runs before this guard. A registered wallet may receive a
+    // preferred/trial request without an x402 payment; once its allowance is
+    // exhausted, agentKitGate sets requiresPayment and normal x402 applies.
+    if (req.agentKit?.humanBacked && req.agentKit.freeTrialUsed && !req.headers['x-payment']) {
+      res.set('X-AgentKit-Human-Backed', 'true');
+      res.set('X-AgentKit-Access', 'preferred');
+      res.set('X-AgentKit-Payment', 'not-required');
+      return next();
+    }
+
+    if (req.agentKit?.humanBacked === false) {
+      res.set('X-AgentKit-Human-Backed', 'false');
+      res.set('X-AgentKit-Access', 'standard');
+    } else if (req.agentKit?.humanBacked) {
+      res.set('X-AgentKit-Human-Backed', 'true');
+      res.set('X-AgentKit-Access', req.agentKit.requiresPayment ? 'standard' : 'preferred');
+    }
+
     const header = req.headers['x-payment'] || req.headers['X-PAYMENT'];
 
     // ── 1. No payment → issue the 402 challenge ──

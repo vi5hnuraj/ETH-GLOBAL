@@ -97,15 +97,14 @@ export const agentKitGate = ({ purpose = 'Premium API' } = {}) =>
     }
 
     if (!humanId) {
-      return res.status(403).json({
-        status: 403,
-        agentKit: {
-          humanBacked: false,
-          message: 'This wallet is not registered in AgentBook. Bots must pay via x402; register your agent with World ID to prove human backing.',
-          register: 'POST /api/developers/world/agentbook/register'
-        },
-        purpose
-      });
+      // AgentBook enables preferred/free access; it is not a hard block.
+      // Unregistered callers continue through the normal x402 payment flow.
+      req.agentKit = {
+        humanBacked: false,
+        requiresPayment: true,
+        message: 'This wallet is not registered in AgentBook. Continue with x402 payment or register the agent for preferred access.'
+      };
+      return next();
     }
 
     try {

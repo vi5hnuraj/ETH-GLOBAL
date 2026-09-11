@@ -340,6 +340,7 @@ export const recommendSchema = Joi.object({
     maxLatencyMs: Joi.number().integer().min(0).allow(null),
     minAvailability: Joi.number().min(0).max(100).allow(null),
     minTrustScore: Joi.number().min(0).max(100).allow(null),
+    verifiedOnly: Joi.boolean().default(false),
     capability: Joi.string().valid('inference', 'training', 'imageGeneration', 'embeddings', 'speech', 'ocr', 'translation', 'storage').allow('', null),
     quantity: Joi.alternatives().try(Joi.string().pattern(/^\d+(\.\d+)?$/), Joi.number())
   }).allow(null)
