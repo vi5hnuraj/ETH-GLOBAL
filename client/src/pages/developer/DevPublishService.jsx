@@ -74,14 +74,17 @@ const DevPublishService = () => {
   const editing = !!serviceId;
 
   const agentsState = useApi({ fetcher: () => developerApi.agents({ perPage: 100 }) });
+  const worldStatusState = useApi({ fetcher: developerApi.worldUserStatus });
   const servicesState = useApi({ fetcher: () => developerApi.services(), deps: [] });
+  const editingState = useApi({
+    fetcher: () => (editing ? developerApi.marketplaceService(serviceId).then((r) => r.service) : Promise.resolve(null)),
+    enabled: editing,
+    deps: [editing, serviceId]
+  });
   const agents = useMemo(() => agentsState.data?.agents || [], [agentsState.data]);
   const services = useMemo(() => servicesState.data?.services || [], [servicesState.data]);
 
-  const editingService = useMemo(
-    () => (editing ? services.find((s) => s.serviceId === serviceId) : null),
-    [editing, serviceId, services]
-  );
+  const editingService = editingState.data || (editing ? services.find((s) => s.serviceId === serviceId) : null);
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(() => ({ ...EMPTY }));
@@ -98,7 +101,11 @@ const DevPublishService = () => {
         pricingModel: editingService.pricingModel,
         unitLabel: editingService.unitLabel || 'request',
         unitPrice: String(editingService.unitPrice ?? ''),
-        agentId: editingService.agentId || ''
+        agentId: editingService.agentId || '',
+        endpointUrl: editingService.endpointUrl || '',
+        healthCheckUrl: editingService.healthCheckUrl || '',
+        requireX402: Boolean(editingService.requireX402),
+        x402Price: String(editingService.x402Price || '0.01')
       });
     }
   }, [editing, editingService]);
@@ -201,7 +208,7 @@ const DevPublishService = () => {
     }
   };
 
-  if (editing && servicesState.loading && !editingService) {
+  if (editing && (servicesState.loading || editingState.loading) && !editingService) {
     return (
       <div className="max-w-[1100px] mx-auto">
         <div className="space-y-4 mt-2">
@@ -226,8 +233,11 @@ const DevPublishService = () => {
 
   // World AgentKit verification gate — surfaced at the FINAL step (publish click),
   // so users can complete the whole form first and only hit verification at the end.
-  const worldVerified = agents.length > 0 && agents.some((a) => a.worldVerified);
-  const worldGateBlocking = !editing && !worldVerified && step === 2;
+  // World ID is verified once per developer. AgentBook remains wallet-specific
+  // and is not required to publish a service.
+  const worldVerified = Boolean(worldStatusState.data?.verified || agents.some((a) => a.worldVerified));
+  const worldStatusLoaded = !worldStatusState.loading;
+  const worldGateBlocking = !editing && worldStatusLoaded && !worldVerified && step === 2;
 
   return (
     <div className="max-w-[1100px] mx-auto">
@@ -238,6 +248,9 @@ const DevPublishService = () => {
         <h1 className="text-2xl font-bold text-white">{editing ? 'Edit Service' : 'Publish Service'}</h1>
         <p className="text-sm text-zinc-400 mt-1 max-w-2xl">
           List an AI capability that other agents can discover, purchase, and invoke through the GlobalPay Marketplace.
+        </p>
+        <p className="mt-3 max-w-2xl rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-200/80">
+          One agent wallet can publish multiple separate services. Each service has its own price, endpoint, capabilities, and Marketplace listing.
         </p>
         <div className="flex flex-wrap items-center gap-2 mt-5">
           {STEPS.map((s) => {

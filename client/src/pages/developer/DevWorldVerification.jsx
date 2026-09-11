@@ -164,12 +164,14 @@ function AgentBookRegistrationCard({ agents, onCompleted, autoStartAgentId, onAu
               )}
               <div className="min-w-0 flex-1 space-y-3">
                 <p className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <FiClock size={14} className="animate-pulse text-violet-400" /> Waiting for World App approval…
+                  <FiClock size={14} className="animate-pulse text-violet-400" />
+                  {session.status === 'awaiting_confirmation' ? 'Waiting for AgentBook confirmation…' : 'Waiting for World App approval…'}
                 </p>
                 <ol className="list-decimal space-y-1 pl-4 text-xs text-zinc-400">
                    <li>Open the <strong className="text-zinc-200">World App</strong> on your phone</li>
                    <li>Complete the wallet-specific World ID approval in World App</li>
-                   <li>Wait for the AgentBook transaction to confirm</li>
+                    <li>Wait for the AgentBook transaction to confirm</li>
+                    {session.status === 'awaiting_confirmation' && <li>GlobalPay will keep checking this wallet for up to 30 minutes</li>}
                 </ol>
                 <a
                   href={session.verifyUrl}

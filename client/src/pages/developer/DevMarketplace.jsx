@@ -576,7 +576,7 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
   <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-4 flex flex-col h-full hover:border-zinc-700 hover:bg-zinc-950 transition-colors group">
     <div className="flex items-center justify-between mb-2">
       <Pill tone={featured ? 'amber' : 'blue'}>{s.category}</Pill>
-      <span className="text-[11px] text-zinc-500">{s.pricingModel}</span>
+       <span className="text-[11px] text-zinc-500">{MODEL_LABEL[s.pricingModel] || s.pricingModel.replace(/_/g, ' ')}</span>
     </div>
     <Link to={`/developer/marketplace/service/${s.serviceId}`} className="hover:underline" title={s.title}>
       <h3 className="text-sm font-semibold text-zinc-100 group-hover:text-white truncate">{s.title}</h3>
@@ -585,9 +585,9 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
     {s.provider && (
       <div className="mt-3 space-y-2 border-t border-zinc-800/50 pt-3">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] text-zinc-600 font-mono truncate" title={s.provider.wallet}>
-             {s.provider?.name || s.provider?.agentId}
-          </p>
+           <Link to={`/developer/agent-profile?agentId=${encodeURIComponent(s.agent?.agentId || s.provider?.agentId || s.agentId)}&serviceId=${encodeURIComponent(s.serviceId)}`} className="truncate text-[11px] font-mono text-zinc-600 hover:text-zinc-300" title={s.provider.wallet}>
+              {s.providerOrg?.name || s.provider?.name || s.provider?.agentId}
+           </Link>
         </div>
         {/* Agent Passport: identity + trust + settlement in one row */}
         <div className="flex flex-wrap gap-1.5">

@@ -127,7 +127,7 @@ const FilterBar = ({ active, counts, total, onChange }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Purchase row — compact, table-like
+// Purchase card — responsive detail view
 // ---------------------------------------------------------------------------
 
 const PurchaseRow = ({ session, service, providerName, acting, onPay, onCancel, onRemove, onRetry, selectable, selected, onToggle }) => {
@@ -159,88 +159,74 @@ const PurchaseRow = ({ session, service, providerName, acting, onPay, onCancel, 
   const secondary = secondaryAction();
 
   return (
-    <div className={`group flex items-center gap-4 px-4 py-3 rounded-xl border transition-colors hover:bg-white/[0.02] ${
-      isCart ? 'border-zinc-700/50 bg-zinc-900/30' : 'border-zinc-800/50'
+    <article className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:border-zinc-700 hover:bg-zinc-900/80 hover:shadow-xl hover:shadow-black/10 ${
+      isCart ? 'border-zinc-700/60 bg-zinc-900/60' : 'border-zinc-800 bg-zinc-900/40'
     }`}>
-      {/* Checkbox (cart only) */}
-      {isCart && selectable && (
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-blue-500 shrink-0"
-        />
-      )}
-
-      {/* Service icon */}
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-gradient-to-br text-[10px] font-bold ${categoryStyle}`}>
-        {initials(title)}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br text-[10px] font-bold ${categoryStyle}`}>
+            {initials(title)}
+          </div>
+          <div className="min-w-0">
+            <Link to={`/developer/commerce/sessions/${session.sessionId}`} className="block truncate text-sm font-semibold text-white hover:text-blue-300" title={title}>
+              {title}
+            </Link>
+            <p className="mt-0.5 truncate text-[11px] text-zinc-500">{by || 'Provider unavailable'}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {isCart && selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Select ${title}`}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-blue-500"
+            />
+          )}
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${sc.bg} ${sc.text} ${sc.border}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${sc.color}`} />
+            {sc.label}
+          </span>
+        </div>
       </div>
 
-      {/* Service name + provider */}
-      <div className="min-w-0 flex-1">
-        <Link to={`/developer/commerce/sessions/${session.sessionId}`} className="block truncate text-sm font-medium text-white hover:text-blue-300 transition-colors" title={title}>
-          {title}
-        </Link>
-        <p className="truncate text-[11px] text-zinc-500 mt-0.5">{by}</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600">Amount</p>
+          <p className="mt-1 text-sm font-semibold text-white">{fmtBot(amount)} <span className="text-xs font-normal text-zinc-500">USDC</span></p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600">Quantity</p>
+          <p className="mt-1 text-sm text-zinc-300">{session.quantity} {session.unit || 'unit'}{Number(session.quantity) > 1 ? 's' : ''}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600">Created</p>
+          <p className="mt-1 text-xs text-zinc-400">{fmtWhen(session.createdAt)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-zinc-600">Consumer</p>
+          <p className="mt-1 truncate text-xs text-zinc-400" title={session.consumerAgentId}>{session.consumerAgentId || '—'}</p>
+        </div>
       </div>
 
-      {/* Quantity */}
-      <div className="hidden sm:block text-right shrink-0 w-16">
-        <span className="text-xs text-zinc-400">{session.quantity} {session.unit || 'unit'}{Number(session.quantity) > 1 ? 's' : ''}</span>
-      </div>
-
-      {/* Price */}
-      <div className="text-right shrink-0 w-24">
-        <span className="text-sm font-semibold text-white">{fmtBot(amount)} <span className="text-zinc-600 font-normal">USDC</span></span>
-      </div>
-
-      {/* Date */}
-      <div className="hidden md:block text-right shrink-0 w-28">
-        <span className="text-[11px] text-zinc-500">{fmtWhen(session.createdAt)}</span>
-      </div>
-
-      {/* Status badge */}
-      <div className="shrink-0 w-28 flex justify-end">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border ${sc.bg} ${sc.text} ${sc.border}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${sc.color}`} />
-          {sc.label}
-        </span>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="mt-4 flex items-center justify-end gap-2">
         {secondary && (
-          <button
-            type="button"
-            onClick={secondary.onClick}
-            disabled={acting}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700/50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-40"
-          >
+          <button type="button" onClick={secondary.onClick} disabled={acting} className="inline-flex items-center gap-1 rounded-lg border border-zinc-700/50 px-3 py-2 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-40">
             <secondary.icon size={11} /> {secondary.label}
           </button>
         )}
-        {primary && (
-          primary.to ? (
-            <Link
-              to={primary.to}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors ${primary.color}`}
-            >
-              {primary.label} <FiArrowUpRight size={10} />
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={primary.onClick}
-              disabled={acting}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors disabled:opacity-40 ${primary.color}`}
-            >
-              {primary.label}
-            </button>
-          )
-        )}
+        {primary && (primary.to ? (
+          <Link to={primary.to} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold text-white transition-colors ${primary.color}`}>
+            {primary.label} <FiArrowUpRight size={10} />
+          </Link>
+        ) : (
+          <button type="button" onClick={primary.onClick} disabled={acting} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold text-white transition-colors disabled:opacity-40 ${primary.color}`}>
+            {primary.label}
+          </button>
+        ))}
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -370,6 +356,9 @@ const DevSessions = () => {
     const c = {};
     [...PRIMARY_FILTERS, ...OVERFLOW_FILTERS].forEach((f) => { if (f.key !== 'all') c[f.key] = 0; });
     sessions.forEach((s) => { if (c[s.status] !== undefined) c[s.status]++; });
+    // Summary cards represent lifecycle totals, not mutually exclusive states.
+    // A paid purchase remains paid after credits are granted or execution ends.
+    c.paid = sessions.filter((s) => ['paid', 'active', 'completed'].includes(s.status)).length;
     return c;
   }, [sessions]);
 
@@ -556,19 +545,7 @@ const DevSessions = () => {
             </div>
           ) : (
             <>
-              {/* Table header */}
-              <div className="flex items-center gap-4 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
-                <div className="w-4" /> {/* checkbox spacer */}
-                <div className="w-9" /> {/* icon spacer */}
-                <div className="min-w-0 flex-1">Service</div>
-                <div className="hidden sm:block text-right w-16">Qty</div>
-                <div className="text-right w-24">Price</div>
-                <div className="hidden md:block text-right w-28">Date</div>
-                <div className="w-28 text-right">Status</div>
-                <div className="w-28 text-right">Actions</div>
-              </div>
-
-              <div className="space-y-1">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {pageItems.map((s) => (
                   <PurchaseRow
                     key={s.sessionId}

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiZap, FiSearch, FiClock, FiShield, FiCpu,
@@ -37,11 +38,11 @@ const CATEGORY_CONFIG = {
 const TRUST_TONE = (t) => (t == null ? 'zinc' : t >= 80 ? 'emerald' : t >= 50 ? 'amber' : 'red');
 
 const PLACEHOLDER_PROMPTS = [
-  'I need an OCR API for invoice processing under 0.001 USDC.',
-  'Find me a cheap inference provider for Llama 3 70B with <100ms latency.',
-  'I need image generation for product photos, verified providers only.',
-  'Looking for the fastest embeddings API with low latency.',
-  'I need translation services with 99.9% uptime SLA.'
+  'Find a low-cost AI model for document analysis.',
+  'Find the best compute service for a document workflow.',
+  'Find a GPU inference provider under 0.05 USDC per hour.',
+  'Find the most reliable service for processing a resume.',
+  'Find a verified provider for an AI request.'
 ];
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -60,6 +61,34 @@ const fmtMs = (ms) => {
 const fmtPct = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? `${n}%` : '—';
+};
+
+const capabilityLabel = (value) => String(value || '')
+  .replace(/([a-z])([A-Z])/g, '$1 $2')
+  .replace(/_/g, ' ')
+  .replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Bump this when the recommendation response shape or filtering semantics
+// change so stale rankings are never presented as a fresh live result.
+const RECOMMENDATIONS_STORAGE_KEY = 'globalpay:developer-recommendations:v2';
+
+const readSavedRecommendations = () => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(RECOMMENDATIONS_STORAGE_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return {};
+    const savedQuery = String(saved.query || '').trim();
+    const savedTask = String(saved.result?.meta?.task || '').trim();
+    // Never restore a result without its query, or a result produced for a
+    // different query. This prevents stale rankings from appearing under the
+    // empty search placeholder after navigation/remounts.
+    if (!savedQuery || !saved.result || savedTask !== savedQuery) {
+      sessionStorage.removeItem(RECOMMENDATIONS_STORAGE_KEY);
+      return {};
+    }
+    return saved;
+  } catch {
+    return {};
+  }
 };
 
 /* ───────────────────────── subcomponents ───────────────────────── */
@@ -107,10 +136,11 @@ const ProviderCard = ({ item, rank, category, onUse }) => {
             )}
           </div>
 
-          <p className="text-xs text-zinc-500 mb-2.5">
-            {item.provider?.name || item.provider?.agentId || 'Provider'}
-            {item.serviceId && <span className="font-mono text-zinc-600 ml-1.5">· {item.serviceId}</span>}
-          </p>
+           <p className="mb-2.5 text-xs text-zinc-500">
+             {item.provider?.name || 'Provider'}
+             {item.serviceId && <Link to={`/developer/marketplace/service/${item.serviceId}`} className="ml-2 text-blue-400 hover:text-blue-300">View service →</Link>}
+             {item.provider?.agentId && <Link to={`/developer/agent-profile?agentId=${encodeURIComponent(item.provider.agentId)}&serviceId=${encodeURIComponent(item.serviceId || '')}`} className="ml-2 text-violet-400 hover:text-violet-300">Passport →</Link>}
+           </p>
 
           {/* Metrics row */}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
@@ -133,6 +163,12 @@ const ProviderCard = ({ item, rank, category, onUse }) => {
               <span className={`font-medium ${TRUST_TONE(rep.trustScore) === 'emerald' ? 'text-emerald-400' : TRUST_TONE(rep.trustScore) === 'amber' ? 'text-amber-400' : 'text-zinc-400'}`}>
                 <FiAward size={11} className="inline -mt-0.5 mr-0.5" />
                 Trust {rep.trustScore}
+              </span>
+            )}
+            {item.graphLive && (
+              <span className="text-violet-400" title="Trust from live The Graph settlement data">
+                <FiActivity size={11} className="inline -mt-0.5 mr-0.5" />
+                Graph
               </span>
             )}
             {cap.averageRating != null && (
@@ -180,12 +216,22 @@ const ProviderCard = ({ item, rank, category, onUse }) => {
 /* ───────────────────────── main component ───────────────────────── */
 
 const DevRecommendations = () => {
-  const [query, setQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState({});
+  const navigate = useNavigate();
+  const saved = useMemo(readSavedRecommendations, []);
+  const [query, setQuery] = useState(saved.query || '');
+  const [activeFilters, setActiveFilters] = useState(saved.activeFilters || {});
   const [openFilter, setOpenFilter] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [searched, setSearched] = useState(false);
+  const [result, setResult] = useState(saved.result || null);
+  const [searched, setSearched] = useState(Boolean(saved.searched || saved.result));
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(RECOMMENDATIONS_STORAGE_KEY, JSON.stringify({ query, activeFilters, result, searched }));
+    } catch {
+      // Session persistence is best-effort and must not block recommendations.
+    }
+  }, [query, activeFilters, result, searched]);
 
   // Buy modal state
   const [buyTarget, setBuyTarget] = useState(null);
@@ -194,8 +240,10 @@ const DevRecommendations = () => {
 
   const agentsState = useApi({ fetcher: () => developerApi.agents({ perPage: 100 }) });
   const agents = useMemo(() => agentsState.data?.agents || [], [agentsState.data]);
+  const catalogState = useApi({ fetcher: () => developerApi.marketplace({ perPage: 100 }) });
+  const catalogCount = catalogState.data?.total ?? catalogState.data?.services?.length ?? null;
 
-  const optimState = useApi({ fetcher: () => developerApi.commerceOptimization() });
+  const optimState = useApi({ fetcher: () => developerApi.commerceOptimization(), timeout: 65000 });
   const savings = useMemo(() => {
     const items = optimState.data || [];
     return items.filter((o) => Number(o.estMonthlySavingsBOT) > 0).slice(0, 3);
@@ -276,8 +324,9 @@ const DevRecommendations = () => {
         reason: result?.meta?.task,
         source: 'recommend'
       });
-      toast.success(`Session ${s.sessionId} created — ${fmt(s.estimatedCostBOT)} USDC estimated`);
-      setBuyTarget(null);
+       toast.success(`Payment session created — ${fmt(s.estimatedCostBOT)} USDC estimated`);
+       setBuyTarget(null);
+       navigate('/developer/commerce/sessions');
     } catch (err) {
       toast.error(err.message || 'Failed to create session');
     } finally {
@@ -318,8 +367,17 @@ const DevRecommendations = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">AI Procurement Assistant</h1>
-            <p className="text-sm text-zinc-500">Find the best providers for your AI workloads — scored, ranked, ready to use.</p>
+            <p className="text-sm text-zinc-500">Find the best live Marketplace providers using price, capability, World identity, and Graph evidence.</p>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5 text-[11px]">
+          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live Marketplace</span>
+          <span className="text-zinc-700">•</span>
+          <span className="text-zinc-500">{catalogState.loading ? 'Loading catalog…' : `${catalogCount ?? 0} active services`}</span>
+          <span className="text-zinc-700">•</span>
+          <span className="text-violet-300">World ID</span>
+          <span className="text-zinc-700">+</span>
+          <span className="text-emerald-300">Graph evidence</span>
         </div>
       </div>
 
@@ -330,7 +388,14 @@ const DevRecommendations = () => {
             <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const nextQuery = e.target.value;
+                setQuery(nextQuery);
+                if (result) {
+                  setResult(null);
+                  setSearched(false);
+                }
+              }}
               placeholder={PLACEHOLDER_PROMPTS[0]}
               className="w-full bg-zinc-900/80 border border-zinc-700 rounded-2xl pl-11 pr-32 py-4 text-base text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             />
@@ -404,7 +469,7 @@ const DevRecommendations = () => {
                               : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                           }`}
                         >
-                          {opt}
+                           {capabilityLabel(opt)}
                         </button>
                       ))}
                     </>
@@ -478,10 +543,11 @@ const DevRecommendations = () => {
           <div className="inline-flex w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-800/30 items-center justify-center mb-6">
             <FiZap size={32} className="text-blue-400" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-2">Describe what you need</h3>
-          <p className="text-sm text-zinc-500 max-w-lg mx-auto mb-10 leading-relaxed">
-            Tell the AI what service you're looking for. It will search the marketplace, score providers by price, uptime, and latency, then rank the best options.
-          </p>
+           <h3 className="text-xl font-bold text-white mb-2">Find the right service</h3>
+           <p className="text-sm text-zinc-500 max-w-lg mx-auto mb-5 leading-relaxed">
+             Tell GlobalPay what your agent needs. We’ll compare live services by cost, human-backed identity, and verified settlement history.
+           </p>
+           <p className="mb-8 text-xs text-zinc-600">Choose a task below to start, or write your own request above.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
             {PLACEHOLDER_PROMPTS.map((p, i) => (
               <button
@@ -543,6 +609,9 @@ const DevRecommendations = () => {
                 </span>
               )}
             </p>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-violet-400">
+              <FiActivity size={11} /> Powered by The Graph
+            </span>
           </div>
 
           {/* Category sections */}
@@ -563,7 +632,7 @@ const DevRecommendations = () => {
                   <h2 className="text-base font-semibold text-white">{config.label}</h2>
                   <span className="text-xs text-zinc-600">— {config.description}</span>
                 </div>
-                <div className="space-y-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {items.map((item, i) => (
                     <ProviderCard key={item.serviceId} item={item} rank={i + 1} category={key} onUse={buy} />
                   ))}

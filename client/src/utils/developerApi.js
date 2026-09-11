@@ -252,7 +252,7 @@ export const developerApi = {
   createCommerceSession: (body) => request('/developers/commerce/sessions', { method: 'POST', body: JSON.stringify(body) }).then((r) => r.session),
   commerceSession: (sessionId) => request(`/developers/commerce/sessions/${encodeURIComponent(sessionId)}`).then((r) => r.session),
   sessionAction: (sessionId, action) => request(`/developers/commerce/sessions/${encodeURIComponent(sessionId)}/${action}`, { method: 'POST' }).then((r) => r.session),
-  aiRecommendations: () => request('/developers/commerce/optimization').then((r) => r.recommendations),
+  aiRecommendations: () => request('/developers/commerce/optimization', { timeout: 60000 }).then((r) => r.recommendations),
   commerceDashboard: () => request('/developers/commerce/graph').then((r) => r.graph), // legacy alias
   commerceGraph: () => request('/developers/commerce/graph').then((r) => r.graph),
   commerceMonthlyReport: () => request('/developers/commerce/reports/monthly').then((r) => r.report),
@@ -275,6 +275,15 @@ export const developerApi = {
   agentBookRegister: (agentId) => request('/developers/world/agentbook/register', { method: 'POST', body: JSON.stringify({ agentId }), timeout: 90000 }),
   agentBookSession: (sessionId) => request(`/developers/world/agentbook/session/${sessionId}`, { timeout: 30000 }),
   agentBookCancel: (sessionId) => request('/developers/world/agentbook/cancel', { method: 'POST', body: JSON.stringify({ sessionId }) }),
+  agentPassportProfile: ({ agentId, serviceId } = {}) => {
+    const params = new URLSearchParams();
+    if (agentId) params.set('agentId', agentId);
+    if (serviceId) params.set('serviceId', serviceId);
+    return request(`/developers/passport/profile?${params.toString()}`);
+  },
+  agentPassport: (agentId) => request(`/developers/passport/agent/${encodeURIComponent(agentId)}`),
+  servicePassport: (serviceId) => request(`/developers/passport/service/${encodeURIComponent(serviceId)}`),
+  publisherPassport: () => request('/developers/passport/publisher'),
 
   // ---- Autonomous Demo ----
   runDemo: () => request('/developers/demo/autonomous', { method: 'POST', timeout: 120000 }),
@@ -321,6 +330,7 @@ export const developerApi = {
   runWorkflow: (body) => request('/developers/network/workflows', { method: 'POST', body: JSON.stringify(body), timeout: 120000 }).then((r) => r),
   workflowRuns: (params) => request(`/developers/network/workflows?${qs(params)}`),
   workflowRun: (runId) => request(`/developers/network/workflows/${encodeURIComponent(runId)}`).then((r) => r),
+  payWorkflowRun: (runId) => request(`/developers/network/workflows/${encodeURIComponent(runId)}/pay`, { method: 'POST', timeout: 300000 }),
   cancelWorkflowRun: (runId) => request(`/developers/network/workflows/${encodeURIComponent(runId)}/cancel`, { method: 'POST' }).then((r) => r.run),
   networkAnalytics: () => request('/developers/network/analytics').then((r) => r.analytics),
   networkTimeline: (days = 30) => request(`/developers/network/analytics/timeline?days=${days}`).then((r) => r.timeline),

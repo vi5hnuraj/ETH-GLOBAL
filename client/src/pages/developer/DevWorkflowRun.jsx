@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useParams, Link } from 'react-router-dom';
 import { FiArrowLeft, FiActivity, FiLayers, FiDollarSign, FiTrendingDown, FiXCircle, FiExternalLink, FiCpu, FiShare2 } from 'react-icons/fi';
@@ -21,6 +21,13 @@ const DevWorkflowRun = () => {
   const { data, loading, error, refresh, refreshing } = useApi({ fetcher: () => developerApi.workflowRun(runId) });
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    if (!data?.run || !['running', 'partial'].includes(data.run.status)) return undefined;
+    const timer = setInterval(() => refresh({ background: true }), 5000);
+    return () => clearInterval(timer);
+  }, [data?.run?.status, refresh]);
 
   const cancelRun = async () => {
     setCancelling(true);
@@ -36,6 +43,21 @@ const DevWorkflowRun = () => {
     }
   };
 
+  const payWorkflow = async () => {
+    setPaying(true);
+    try {
+      const result = await developerApi.payWorkflowRun(runId);
+      if (result.success) toast.success(result.message || 'Workflow payment settled');
+      else toast.error(result.message || 'Workflow payment failed');
+      refresh({ background: true });
+    } catch (err) {
+      toast.error(err.message || 'Workflow payment failed');
+      refresh({ background: true });
+    } finally {
+      setPaying(false);
+    }
+  };
+
   if (loading && !data) return <Skeleton className="h-72 rounded-2xl" />;
   if (error && !data) return (
     <div>
@@ -46,6 +68,9 @@ const DevWorkflowRun = () => {
 
   const run = data?.run;
   const steps = data?.steps || [];
+  const workflowTotal = steps.reduce((sum, step) => sum + Number(step.estimatedCostBOT || 0), 0);
+  const x402Steps = steps.filter((step) => step.requireX402 || step.x402Price);
+  const payable = steps.some((step) => step.sessionId && ['awaiting_payment', 'payment_failed'].includes(step.status)) && ['running', 'partial'].includes(run?.status);
 
   const deps = (run?.dependencies || []).map((d) => `step ${d.step} → ${(d.dependsOn || []).map((x) => `step ${x + 1}`).join(', ')}`);
 
@@ -59,10 +84,15 @@ const DevWorkflowRun = () => {
 
       <PageHeader
         title={run?.name}
-        subtitle={`${run?.runId} · created ${run?.createdAt ? new Date(run.createdAt).toLocaleString() : '—'}`}
+          subtitle={`Created ${run?.createdAt ? new Date(run.createdAt).toLocaleString() : '—'}`}
         actions={
           <>
             <RefreshButton onClick={() => refresh({ background: true })} refreshing={refreshing} />
+            {payable && (
+              <button type="button" onClick={payWorkflow} disabled={paying} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50">
+                {paying ? 'Paying workflow…' : `Pay workflow · ${workflowTotal.toFixed(4)} USDC`}
+              </button>
+            )}
             {run?.status === 'running' && (
               <button type="button" onClick={() => setConfirmCancel(true)} disabled={cancelling} className="inline-flex items-center gap-2 border border-red-900 text-red-400 hover:bg-red-950 text-sm font-medium px-3.5 py-2 rounded-lg transition-colors">
                 <FiXCircle size={14} /> Cancel run
@@ -78,16 +108,21 @@ const DevWorkflowRun = () => {
         <StatCard icon={<FiDollarSign size={18} />} label="Estimated Cost" value={`${Number(run?.estimatedCostBOT ?? 0).toFixed(4)} USDC`} accent="text-violet-400" />
         <StatCard icon={<FiTrendingDown size={18} />} label="Actual Cost" value={run?.actualCostBOT != null ? `${Number(run.actualCostBOT).toFixed(4)} USDC` : '—'} accent="text-amber-400" />
       </div>
+      {x402Steps.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-3 text-xs text-amber-200">
+          {x402Steps.length} workflow service{x402Steps.length === 1 ? '' : 's'} also require x402 per API request. The workflow payment covers service access/settlement; each direct invocation may require an additional x402 payment.
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <Card title={<span className="flex items-center gap-2"><FiShare2 size={14} /> Execution graph</span>} subtitle="Resource topology for this run">
+        <Card title={<span className="flex items-center gap-2"><FiShare2 size={14} /> Payment & execution</span>} subtitle="Provider payments and sequential service execution">
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-xs text-zinc-500 font-medium mb-2">Dependencies</p>
+              <p className="text-xs text-zinc-500 font-medium mb-2">Execution order</p>
               {deps.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {deps.map((d, i) => (
-                    <span key={i} className="text-[11px] font-mono text-zinc-400 bg-zinc-950/50 border border-zinc-800 rounded-full px-2.5 py-0.5">{d}</span>
+                    <span key={i} className="text-[11px] text-zinc-400 bg-zinc-950/50 border border-zinc-800 rounded-full px-2.5 py-0.5">{d.replace(/step (\d+) → step (\d+)/, 'Step $1 follows Step $2')}</span>
                   ))}
                 </div>
               ) : (
@@ -96,14 +131,14 @@ const DevWorkflowRun = () => {
             </div>
             <div className="bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
               <span className="text-xs text-zinc-500 flex items-center gap-1.5"><FiCpu size={12} /> Consumer agent</span>
-              <span className="font-mono text-xs text-zinc-200 break-all">{run?.consumerAgentId || '—'}</span>
+              <span className="text-xs text-zinc-200" title={run?.consumerAgentId || ''}>Paying agent</span>
             </div>
             <div>
-              <p className="text-xs text-zinc-500 font-medium mb-2">Sessions</p>
+              <p className="text-xs text-zinc-500 font-medium mb-2">Provider payments</p>
               <div className="flex flex-wrap gap-1.5">
-                {(run?.sessionIds || []).length ? run.sessionIds.map((id) => (
+                {(run?.sessionIds || []).filter(Boolean).length ? run.sessionIds.filter(Boolean).map((id) => (
                   <Link key={id} to={`/developer/commerce/sessions/${id}`} className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-300 bg-blue-600/10 border border-blue-800/40 rounded-full px-2.5 py-0.5 hover:bg-blue-600/20">
-                    {shortId(id)} <FiExternalLink size={10} />
+                    Open payment <FiExternalLink size={10} />
                   </Link>
                 )) : <span className="text-xs text-zinc-600">None attached yet.</span>}
               </div>
@@ -111,11 +146,11 @@ const DevWorkflowRun = () => {
             <div>
               <p className="text-xs text-zinc-500 font-medium mb-2">Invoices</p>
               <div className="flex flex-wrap gap-1.5">
-                {(run?.invoiceIds || []).length ? run.invoiceIds.map((id) => (
+                    {(run?.invoiceIds || []).filter(Boolean).length ? run.invoiceIds.filter(Boolean).map((id) => (
                   <Link key={id} to={`/developer/marketplace/invoices/${id}`} className="inline-flex items-center gap-1 text-[11px] font-mono text-violet-300 bg-violet-600/10 border border-violet-800/40 rounded-full px-2.5 py-0.5 hover:bg-violet-600/20">
-                    {shortId(id)} <FiExternalLink size={10} />
+                    Invoice <FiExternalLink size={10} />
                   </Link>
-                )) : <span className="text-xs text-zinc-600">No invoices generated yet.</span>}
+                )) : <span className="text-xs text-zinc-600">Invoices appear after provider payment confirms.</span>}
               </div>
             </div>
           </div>
@@ -133,17 +168,17 @@ const DevWorkflowRun = () => {
                     <StatusBadge status={st.status}>{st.status}</StatusBadge>
                     {st.failoverTried && <Pill tone="amber">failover</Pill>}
                   </div>
-                  <p className="text-sm text-zinc-200 mt-2">{st.category}<span className="text-zinc-600"> / </span>{st.capability}{st.model ? ` · ${st.model}` : ''}{st.quantity ? ` ×${st.quantity}` : ''}</p>
+                  <p className="text-sm text-zinc-200 mt-2">{st.serviceTitle || st.capability || st.category}{st.quantity ? ` ×${st.quantity}` : ''}</p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] text-zinc-500">
-                    {st.providerAgentId && <span className="font-mono">provider {shortId(st.providerAgentId)}</span>}
-                    {st.serviceId && <span className="font-mono">service {shortId(st.serviceId)}</span>}
+                    {st.providerAgentId && <span title={st.providerAgentId}>Provider: {st.providerName || 'Provider agent'}</span>}
+                    {st.serviceId && <span title={st.serviceId}>Marketplace service</span>}
                     <span>est {Number(st.estimatedCostBOT ?? 0).toFixed(4)} USDC</span>
                     {st.actualCostBOT != null && <span>actual {Number(st.actualCostBOT).toFixed(4)} USDC</span>}
                   </div>
                   {(st.sessionId || st.invoiceId) && (
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      {st.sessionId && <Link to={`/developer/commerce/sessions/${st.sessionId}`} className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-300 bg-blue-600/10 border border-blue-800/40 rounded-full px-2.5 py-0.5 hover:bg-blue-600/20">session {shortId(st.sessionId)} <FiExternalLink size={10} /></Link>}
-                      {st.invoiceId && <Link to={`/developer/marketplace/invoices/${st.invoiceId}`} className="inline-flex items-center gap-1 text-[11px] font-mono text-violet-300 bg-violet-600/10 border border-violet-800/40 rounded-full px-2.5 py-0.5 hover:bg-violet-600/20">invoice {shortId(st.invoiceId)} <FiExternalLink size={10} /></Link>}
+                      {st.sessionId && <Link to={`/developer/commerce/sessions/${st.sessionId}`} title={st.sessionId} className="inline-flex items-center gap-1 text-[11px] text-blue-300 bg-blue-600/10 border border-blue-800/40 rounded-full px-2.5 py-0.5 hover:bg-blue-600/20">Open session <FiExternalLink size={10} /></Link>}
+                      {st.invoiceId && <Link to={`/developer/marketplace/invoices/${st.invoiceId}`} title={st.invoiceId} className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-600/10 border border-violet-800/40 rounded-full px-2.5 py-0.5 hover:bg-violet-600/20">Open invoice <FiExternalLink size={10} /></Link>}
                     </div>
                   )}
                   {st.error && <p className="text-xs text-red-400 mt-2 font-mono break-all">{st.error}</p>}

@@ -268,6 +268,15 @@ const DevSessionDetail = () => {
   const marketState = useApi({ fetcher: () => developerApi.marketplace({ perPage: 100 }) });
   const agentsState = useApi({ fetcher: () => developerApi.agents({ perPage: 100 }) });
   const service = s ? (marketState.data?.services || []).find((x) => x.serviceId === s.serviceId) : undefined;
+  const invoiceForDisplay = invoiceState.data && s && ['paid', 'active', 'completed'].includes(s.status)
+    ? {
+      ...invoiceState.data,
+      status: 'paid',
+      amountBOT: Number(invoiceState.data.amountBOT || s.actualCostBOT || s.estimatedCostBOT || 0) || 0,
+      paidAt: invoiceState.data.paidAt || s.completedAt || s.updatedAt,
+      txHash: invoiceState.data.txHash || s.paymentTxHash || null
+    }
+    : invoiceState.data;
   const agentName = (id) => {
     if (!id) return null;
     const a = (agentsState.data?.agents || []).find((x) => x.agentId === id);
@@ -525,7 +534,7 @@ h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin-top:
             </div>
           </Card>
 
-          <InvoiceSection invoice={invoiceState.data} service={service} onDownload={downloadInvoice} />
+          <InvoiceSection invoice={invoiceForDisplay} service={service} onDownload={downloadInvoice} />
 
           {/* Developer details */}
           <Card

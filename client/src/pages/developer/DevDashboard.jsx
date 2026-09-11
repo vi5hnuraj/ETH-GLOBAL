@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   FiCpu, FiCheckCircle, FiZap, FiDollarSign, FiTrendingUp, FiCreditCard, FiGrid, FiActivity, FiRefreshCw,
-  FiServer, FiDatabase, FiRadio, FiClock, FiAlertTriangle, FiPackage, FiShoppingBag, FiGlobe, FiArrowRight
+  FiServer, FiDatabase, FiRadio, FiClock, FiAlertTriangle, FiPackage, FiShoppingBag, FiGlobe, FiArrowRight, FiExternalLink
 } from 'react-icons/fi';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -59,6 +59,7 @@ const EmptyMini = ({ note }) => (
 const DevDashboard = () => {
   const { data, loading, error, refresh, refreshing } = useApi({ fetcher: developerApi.dashboard });
   const monitor = useApi({ fetcher: developerApi.monitoring });
+  const graphStatus = useApi({ fetcher: developerApi.graphStatus });
 
   if (loading && !data) {
     return (
@@ -186,6 +187,43 @@ const DevDashboard = () => {
         </div>
       </Card>
 
+      {/* The Graph live status */}
+      {graphStatus.data?.graphLive && (
+        <div className="mb-6 rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-950/20 via-zinc-900/50 to-purple-950/20 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15">
+                <FiActivity size={15} className="text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">The Graph — Trust Engine</h3>
+                <p className="text-xs text-zinc-500">Live data from GlobalPay Arc Subgraph</p>
+              </div>
+            </div>
+            <a href="/developer/graph-intelligence" className="inline-flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors">
+              Analyze providers <FiExternalLink size={10} />
+            </a>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Indexed Block', value: `#${(graphStatus.data.indexedBlock || 0).toLocaleString()}`, ok: !graphStatus.data.syncing, desc: graphStatus.data.syncing ? 'Syncing…' : `${graphStatus.data.lagBlocks || 0} blocks behind head` },
+              { label: 'Payments Indexed', value: String(graphStatus.data.paymentCount || 0), ok: (graphStatus.data.paymentCount || 0) > 0, desc: 'On-chain settlements' },
+              { label: 'Settlements', value: String(graphStatus.data.settlementCount || 0), ok: (graphStatus.data.settlementCount || 0) > 0, desc: 'Verified payments' },
+              { label: 'Network', value: graphStatus.data.network || 'Arc Testnet', ok: true, desc: 'Deployment live' }
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3.5 py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{item.label}</p>
+                  <span className={`h-2 w-2 rounded-full ${item.ok ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                </div>
+                <p className="text-lg font-bold text-white font-mono">{item.value}</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Charts — only show when there's data, otherwise compact placeholder */}
       <div className="grid lg:grid-cols-2 gap-4 mb-6">
         <MiniChart title="API Requests" subtitle="Last 30 days" linkTo="/developer/usage">
@@ -216,8 +254,8 @@ const DevDashboard = () => {
           ) : <EmptyMini note="Wallets are created when you add AI agents." />}
         </MiniChart>
 
-        <MiniChart title="Revenue" subtitle="Paid invoices (USD)" linkTo="/developer/marketplace/revenue">
-          {hasData(c.revenue, 'revenue') ? (
+        <MiniChart title="Revenue" subtitle="Paid marketplace invoices (USDC)" linkTo="/developer/marketplace/revenue">
+          {Number(d.monthlyRevenueUsd || 0) > 0 || hasData(c.revenue, 'revenue') ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={c.revenue || []}>
                 <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
@@ -227,7 +265,7 @@ const DevDashboard = () => {
                 <Area type="monotone" dataKey="revenue" stroke="#22c55e" fill="#22c55e33" />
               </AreaChart>
             </ResponsiveContainer>
-          ) : <EmptyMini note="Revenue appears once billing is connected." />}
+          ) : <EmptyMini note="Paid marketplace invoices appear here after settlement." />}
         </MiniChart>
 
         <MiniChart title="USDC Volume" subtitle="Daily transaction volume">
@@ -241,7 +279,7 @@ const DevDashboard = () => {
                 <Bar dataKey="volume" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          ) : <EmptyMini note="Arc Chain payments appear here." />}
+          ) : <EmptyMini note="Confirmed Arc payments appear here after settlement." />}
         </MiniChart>
       </div>
 

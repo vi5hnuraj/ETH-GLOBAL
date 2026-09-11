@@ -41,6 +41,11 @@ const formatLabel = (raw, map) => {
   return raw.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+const formatCurrencies = (currencies) => [...new Set(
+  (Array.isArray(currencies) ? currencies : ['USDC'])
+    .map((currency) => String(currency).toUpperCase() === 'BOT' ? 'USDC' : String(currency).toUpperCase())
+)].join(', ');
+
 const CopyableId = ({ id }) => {
   const [copied, setCopied] = useState(false);
   if (!id) return null;
@@ -129,44 +134,38 @@ const DevServiceDetail = () => {
 
       <PageHeader
         title={service.title}
-        subtitle={`${formatLabel(service.category, CATEGORY_LABELS)} · ${formatLabel(service.pricingModel, PRICING_LABELS)}`}
-        actions={<RefreshButton onClick={() => { marketState.refresh({ background: true }); ownState.refresh({ background: true }); invoicesState.refresh({ background: true }); revenueState.refresh({ background: true }); }} refreshing={marketState.refreshing || ownState.refreshing || invoicesState.refreshing || revenueState.refreshing} />}
+        subtitle={service.description || `${formatLabel(service.category, CATEGORY_LABELS)} · ${formatLabel(service.pricingModel, PRICING_LABELS)}`}
+        compact
+        actions={<RefreshButton className="px-3 py-1.5" onClick={() => { marketState.refresh({ background: true }); ownState.refresh({ background: true }); invoicesState.refresh({ background: true }); revenueState.refresh({ background: true }); }} refreshing={marketState.refreshing || ownState.refreshing || invoicesState.refreshing || revenueState.refreshing} />}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card title="Unit price" className="!p-4">
-          <p className="text-2xl font-black text-gradient">{service.unitPriceBOT ?? Number(service.unitPrice)} USDC</p>
-          <p className="text-[11px] text-zinc-500 mt-1">per {service.unitLabel || 'unit'}</p>
-        </Card>
-        <Card title="Status" className="!p-4">
-          <Pill tone={service.isActive ? 'emerald' : 'zinc'} dot>{service.isActive ? 'Active' : 'Draft'}</Pill>
-          <p className="text-[11px] text-zinc-500 mt-2">{service.supportedCurrencies?.join(', ') || 'USDC'}</p>
-        </Card>
-        <Card title="Revenue" className="!p-4">
-          <p className="text-2xl font-black text-emerald-400">{Number(revenue.revenueBOT || 0).toFixed(4)} USDC</p>
-          <p className="text-[11px] text-zinc-500 mt-1">settled {Number(revenue.paid || 0).toFixed(4)} · pending {Number(revenue.pending || 0).toFixed(4)}</p>
-        </Card>
-        <Card title="Consumers" className="!p-4">
-          <p className="text-2xl font-black text-white">{consumers.length}</p>
-          <p className="text-[11px] text-zinc-500 mt-1">across {relatedInvoices.length} invoice{relatedInvoices.length === 1 ? '' : 's'}</p>
-        </Card>
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          ['Price', `${Number(service.unitPriceBOT ?? service.unitPrice).toFixed(4)} USDC`, `per ${service.unitLabel || 'unit'}`, 'text-cyan-300'],
+           ['Availability', service.isActive ? 'Live' : 'Inactive', formatCurrencies(service.supportedCurrencies), service.isActive ? 'text-emerald-300' : 'text-zinc-400'],
+          ['Settled', `${Number(revenue.paid || 0).toFixed(4)} USDC`, `${relatedInvoices.filter((i) => i.status === 'paid').length} paid invoice(s)`, 'text-emerald-300'],
+          ['Buyers', consumers.length, `${relatedInvoices.length} invoice(s)`, 'text-violet-300']
+        ].map(([label, value, sub, tone]) => (
+          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
+            <p className={`mt-1 text-lg font-black ${tone}`}>{value}</p>
+            <p className="mt-0.5 truncate text-[10px] text-zinc-500">{sub}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <Card title="Overview">
-          <div className="mb-3"><CopyableId id={service.serviceId} /></div>
-          <p className="text-sm text-zinc-300 leading-relaxed">{service.description || 'No description provided.'}</p>
-          <div className="mt-4 space-y-2 text-sm">
+      <div className="mb-5 grid items-start gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card dense title="Service overview" subtitle="What buyers receive">
+          <div className="mb-3 flex flex-wrap items-center gap-2"><CopyableId id={service.serviceId} /><Pill tone="blue">{formatLabel(service.category, CATEGORY_LABELS)}</Pill>{service.requireX402 && <Pill tone="amber">x402 · {service.x402Price || '0.01'} USDC</Pill>}</div>
+          <p className="text-sm leading-relaxed text-zinc-300">{service.description || 'No description provided.'}</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Category</span>
               <Pill tone="blue">{formatLabel(service.category, CATEGORY_LABELS)}</Pill>
             </div>
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Provider</span>
-              <span className="text-xs text-zinc-200 flex items-center gap-1.5">
-                {service.providerOrg?.name || service.provider?.name || 'Unknown'}
-                {service.providerOrg?.verificationLevel ? <VerificationBadge level={service.providerOrg.verificationLevel} size="sm" /> : <span className="text-[10px] text-zinc-500 border border-zinc-700 rounded px-1.5 py-0.5">Unverified</span>}
-              </span>
+              <Link to={service.provider?.agentId ? `/developer/agent-profile?agentId=${encodeURIComponent(service.provider.agentId)}&serviceId=${encodeURIComponent(service.serviceId)}` : '/developer/marketplace'} className="max-w-[65%] truncate text-xs text-violet-300 hover:text-violet-200">{service.providerOrg?.name || service.provider?.name || 'Unknown'} →</Link>
             </div>
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Created</span>
@@ -179,7 +178,7 @@ const DevServiceDetail = () => {
           </div>
         </Card>
 
-        <Card title="Usage & pricing" subtitle="How this service is metered and billed">
+        <Card dense title="Access & pricing" subtitle="How this service is used and paid">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Pricing model</span>
@@ -191,9 +190,10 @@ const DevServiceDetail = () => {
             </div>
             <div className="flex justify-between bg-zinc-950/50 border border-zinc-800 rounded-lg px-3 py-2">
               <span className="text-zinc-500">Currencies</span>
-              <span className="text-xs text-zinc-200 font-mono">{(service.supportedCurrencies || ['USDC']).join(', ')}</span>
+              <span className="text-xs text-zinc-200 font-mono">{formatCurrencies(service.supportedCurrencies)}</span>
             </div>
-            <p className="text-xs text-zinc-600 pt-2">Every usage report against this service creates an invoice for the consumer agent and settles automatically from its MPC wallet.</p>
+            <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-400">Usage is billed in USDC. Consumer agents pay through GlobalPay and settlement is recorded on Arc.</div>
+            {service.requireX402 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-amber-200">This endpoint requires x402 payment per request: {service.x402Price || '0.01'} USDC.</div>}
           </div>
         </Card>
       </div>

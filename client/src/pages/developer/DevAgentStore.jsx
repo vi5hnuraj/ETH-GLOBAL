@@ -22,7 +22,7 @@ const PRICING_MODELS = [
 ];
 const WIZARD_STEPS = ['Agent', 'Marketplace', 'Pricing', 'Integration', 'Publish'];
 const input = 'w-full bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all';
-const emptyForm = { title: '', tagline: '', description: '', category: 'automation', pricingModel: 'per_request', priceBOT: '', billingCycle: 'monthly', tags: '', iconUrl: '', apiEndpoint: '', webhookEndpoint: '', createDefaultService: true, documentationUrl: '', websiteUrl: '', supportEmail: '' };
+const emptyForm = { title: '', tagline: '', description: '', category: 'automation', customCategory: '', pricingModel: 'per_request', priceBOT: '', billingCycle: 'monthly', tags: '', iconUrl: '', apiEndpoint: '', webhookEndpoint: '', createDefaultService: true, documentationUrl: '', websiteUrl: '', supportEmail: '' };
 
 /* ═══════════════ HELPERS ═══════════════ */
 const ChartTooltip = ({ active, payload, label }) => {
@@ -64,16 +64,37 @@ const DevAgentStore = () => {
     // World AgentKit verification gate — must verify before publishing
     if (!prefillAgent) {
       try {
-        const agentsRes = await developerApi.agents({ perPage: 1 });
+        const [worldRes, agentsRes] = await Promise.all([
+          developerApi.worldUserStatus(),
+          developerApi.agents({ perPage: 1 })
+        ]);
+        const accountVerified = Boolean(worldRes?.verified);
         const agent = agentsRes?.agents?.[0];
-        if (agent && !agent.worldVerified) {
+        if (!accountVerified && agent && !agent.worldVerified) {
           toast.error('World verification required before publishing. Verify your identity with World ID.', { duration: 5000 });
           navigate('/developer/network/profile');
           return;
         }
       } catch { /* proceed anyway if check fails */ }
     }
-    setForm({ ...emptyForm }); setAgentId(prefillAgent?.agentId || '');
+    const listing = prefillAgent?.listing;
+    setForm(listing ? {
+      ...emptyForm,
+      title: listing.title || prefillAgent.name || '',
+      tagline: listing.tagline || '',
+      description: listing.description || prefillAgent.description || '',
+      category: listing.category || emptyForm.category,
+      pricingModel: listing.pricingModel || emptyForm.pricingModel,
+      priceBOT: listing.priceBOT || '',
+      billingCycle: listing.billingCycle || emptyForm.billingCycle,
+      tags: (listing.tags || []).join(', '),
+      iconUrl: listing.iconUrl || '',
+      apiEndpoint: listing.apiEndpoint || '',
+      webhookEndpoint: listing.webhookEndpoint || '',
+      documentationUrl: listing.documentationUrl || '',
+      supportEmail: listing.supportContact || ''
+    } : { ...emptyForm });
+    setAgentId(prefillAgent?.agentId || '');
     setWizardStep(prefillAgent ? 1 : 0); setWizardOpen(true);
     publishable.refresh({ background: true });
   };
@@ -82,7 +103,8 @@ const DevAgentStore = () => {
     if (!agentId) return toast.error('Select an agent.');
     setBusy(true);
     try {
-      await developerApi.marketplacePublish(agentId, { ...form, status: 'published', tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean) });
+      const effectiveCategory = form.category === 'other' ? form.customCategory : form.category;
+      await developerApi.marketplacePublish(agentId, { ...form, category: effectiveCategory, status: 'published', tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean) });
       toast.success('Published'); setWizardOpen(false); setForm({ ...emptyForm }); setAgentId(''); setWizardStep(0); reloadAll();
     } catch (err) { toast.error(err.message || 'Publish failed'); } finally { setBusy(false); }
   };
@@ -113,7 +135,7 @@ const DevAgentStore = () => {
   const validateEmail = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   const validateUrl = (v) => !v || /^https?:\/\//.test(v);
   const validateAgentStep = () => { if (!agentId) { setErrors({ agentId: 'Select an agent to continue.' }); return false; } setErrors({}); return true; };
-  const validateMarketplaceStep = () => { const errs = {}; if (!form.title.trim()) errs.title = 'Name is required.'; if (!form.tagline.trim()) errs.tagline = 'Tagline is required.'; if (!form.description.trim()) errs.description = 'Description is required.'; if (!form.category) errs.category = 'Select a category.'; if (form.supportEmail && !validateEmail(form.supportEmail)) errs.supportEmail = 'Enter a valid email.'; if (form.documentationUrl && !validateUrl(form.documentationUrl)) errs.documentationUrl = 'Enter a valid URL.'; if (form.websiteUrl && !validateUrl(form.websiteUrl)) errs.websiteUrl = 'Enter a valid URL.'; if (form.iconUrl && !validateUrl(form.iconUrl)) errs.iconUrl = 'Enter a valid URL.'; setErrors(errs); return Object.keys(errs).length === 0; };
+  const validateMarketplaceStep = () => { const errs = {}; if (!form.title.trim()) errs.title = 'Name is required.'; if (!form.tagline.trim()) errs.tagline = 'Tagline is required.'; if (!form.description.trim()) errs.description = 'Description is required.'; if (!form.category) errs.category = 'Select a category.'; if (form.category === 'other' && !(form.customCategory || '').trim()) errs.category = 'Describe your custom category.'; if (form.supportEmail && !validateEmail(form.supportEmail)) errs.supportEmail = 'Enter a valid email.'; if (form.documentationUrl && !validateUrl(form.documentationUrl)) errs.documentationUrl = 'Enter a valid URL.'; if (form.websiteUrl && !validateUrl(form.websiteUrl)) errs.websiteUrl = 'Enter a valid URL.'; if (form.iconUrl && !validateUrl(form.iconUrl)) errs.iconUrl = 'Enter a valid URL.'; setErrors(errs); return Object.keys(errs).length === 0; };
   const validatePricingStep = () => { const errs = {}; if (!form.pricingModel) errs.pricingModel = 'Select a pricing model.'; if ((form.pricingModel === 'per_request' || form.pricingModel === 'monthly') && (!form.priceBOT || Number(form.priceBOT) <= 0)) errs.priceBOT = 'Enter a valid price greater than 0.'; setErrors(errs); return Object.keys(errs).length === 0; };
   const validateIntegrationStep = () => { const errs = {}; if (form.apiEndpoint && !validateUrl(form.apiEndpoint)) errs.apiEndpoint = 'Enter a valid URL.'; if (form.webhookEndpoint && !validateUrl(form.webhookEndpoint)) errs.webhookEndpoint = 'Enter a valid URL.'; setErrors(errs); return Object.keys(errs).length === 0; };
   const isStepValid = (step) => { if (step === 0) return !!agentId; if (step === 1) return !!(form.title.trim() && form.tagline.trim() && form.description.trim() && form.category); if (step === 2) { if (!form.pricingModel) return false; if ((form.pricingModel === 'per_request' || form.pricingModel === 'monthly') && (!form.priceBOT || Number(form.priceBOT) <= 0)) return false; return true; } if (step === 3) { if (form.apiEndpoint && !validateUrl(form.apiEndpoint)) return false; if (form.webhookEndpoint && !validateUrl(form.webhookEndpoint)) return false; return true; } return true; };
@@ -179,7 +201,7 @@ const DevAgentStore = () => {
       <div className="flex items-end justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Publisher Hub</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Manage, publish and monetize AI Agents</p>
+           <p className="text-sm text-zinc-500 mt-0.5">Manage one Agent Marketplace listing and publish multiple services from the same agent wallet.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => openWizard()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors">
@@ -583,9 +605,9 @@ const DevAgentStore = () => {
 
       {/* ═══ WIZARD ═══ */}
       {wizardOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end" style={{ animation: 'fadeIn 150ms ease-out' }}>
-          <div className="absolute inset-0 bg-black/45" style={{ backdropFilter: 'blur(12px)' }} onClick={() => setWizardOpen(false)} />
-          <div className="relative w-full max-w-[520px] bg-zinc-900 border-l border-zinc-700 shadow-2xl flex flex-col" style={{ animation: 'slideIn 200ms ease-out' }}>
+<div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ animation: 'fadeIn 150ms ease-out' }}>
+            <div className="absolute inset-0 bg-black/55" style={{ backdropFilter: 'blur(12px)' }} onClick={() => setWizardOpen(false)} />
+            <div className="relative w-full max-w-[600px] max-h-[90vh] bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl flex flex-col" style={{ animation: 'scaleIn 200ms ease-out' }}>
             <div className="shrink-0 px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-white">Publish Agent</h2>
@@ -609,14 +631,14 @@ const DevAgentStore = () => {
                 })}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto" key={wizardStep} style={{ animation: 'slideStep 200ms ease-out' }}>
+            <div className="flex-1 overflow-y-auto mb-2" key={wizardStep} style={{ animation: 'slideStep 200ms ease-out' }}>
               {wizardStep === 0 && (
                 <div className="px-5 py-4">
                   <div className="mb-4">
                     <label className="block text-sm text-zinc-400 mb-1 font-medium">Agent</label>
                     <select value={agentId} onChange={(e) => { setAgentId(e.target.value); clearError('agentId'); }} className={`${input} ${errors.agentId ? 'border-red-500/50' : ''}`}>
                       <option value="">Select an agent…</option>
-                      {agents.filter((a) => !a.published).map((a) => <option key={a.agentId} value={a.agentId}>{a.name} — v{a.version || '1.0.0'}</option>)}
+                      {agents.map((a) => <option key={a.agentId} value={a.agentId}>{a.name} — v{a.version || '1.0.0'}{a.published ? ' · Published — select to update' : ''}</option>)}
                     </select>
                     <FieldError error={errors.agentId} />
                   </div>
@@ -633,38 +655,67 @@ const DevAgentStore = () => {
               )}
               {wizardStep === 1 && (
                 <div className="flex">
-                  <div className="flex-1 px-5 py-4 space-y-3 min-w-0 border-r border-zinc-800/40">
-                    <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Name *</label><input value={form.title} onChange={(e) => { set('title')(e); clearError('title'); }} placeholder="e.g. OCR Assistant" className={`${input} ${errors.title ? 'border-red-500/50' : ''}`} /><FieldError error={errors.title} /></div>
-                    <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Tagline *</label><input value={form.tagline} onChange={(e) => { set('tagline')(e); clearError('tagline'); }} placeholder="Short description." className={`${input} ${errors.tagline ? 'border-red-500/50' : ''}`} maxLength={70} /><FieldError error={errors.tagline} /></div>
-                    <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Description *</label><textarea value={form.description} onChange={(e) => { set('description')(e); clearError('description'); }} rows={3} placeholder="What this agent does…" className={`${input} resize-none ${errors.description ? 'border-red-500/50' : ''}`} maxLength={1000} /><FieldError error={errors.description} /></div>
+                  <div className="flex-1 px-5 py-4 space-y-4 min-w-0">
                     <div>
-                      <label className="block text-sm text-zinc-400 mb-1.5 font-medium">Category *</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {CATEGORIES.map((c) => (<button key={c} type="button" onClick={() => { setForm((f) => ({ ...f, category: c })); clearError('category'); }} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${form.category === c ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800/40 text-zinc-500 border-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}`}>{c.replace(/_/g, ' ')}</button>))}
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Basic Info</p>
+                      <div className="space-y-3">
+                        <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Name *</label><input value={form.title} onChange={(e) => { set('title')(e); clearError('title'); }} placeholder="e.g. OCR Assistant" className={`${input} ${errors.title ? 'border-red-500/50' : ''}`} /><FieldError error={errors.title} /></div>
+                        <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Tagline *</label><input value={form.tagline} onChange={(e) => { set('tagline')(e); clearError('tagline'); }} placeholder="Short description." className={`${input} ${errors.tagline ? 'border-red-500/50' : ''}`} maxLength={70} /><FieldError error={errors.tagline} /></div>
+                        <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Description *</label><textarea value={form.description} onChange={(e) => { set('description')(e); clearError('description'); }} rows={3} placeholder="What this agent does…" className={`${input} resize-none ${errors.description ? 'border-red-500/50' : ''}`} maxLength={1000} /><FieldError error={errors.description} /></div>
                       </div>
-                      <FieldError error={errors.category} />
                     </div>
                     <div>
-                      <label className="block text-sm text-zinc-400 mb-1 font-medium">Tags</label>
-                      <div className="flex flex-wrap gap-1.5 mb-1.5">
-                        {form.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (<span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800 text-zinc-300 text-xs rounded-md">{t}<button type="button" onClick={() => setForm((f) => ({ ...f, tags: f.tags.split(',').map((x) => x.trim()).filter((x) => x !== t).join(', ') }))} className="text-zinc-500 hover:text-zinc-300"><FiX size={9} /></button></span>))}
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Classification</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-zinc-400 mb-1.5 font-medium">Category *</label>
+                          <div className="flex flex-wrap gap-1.5 mb-1.5">
+                            {CATEGORIES.map((c) => (
+                              <button key={c} type="button" onClick={() => { setForm((f) => ({ ...f, category: c })); clearError('category'); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                form.category === c
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                                  : 'bg-zinc-800/50 text-zinc-400 border-zinc-700/50 hover:border-zinc-600 hover:text-zinc-200'
+                              }`}>{c.replace(/_/g, ' ')}</button>
+                            ))}
+                          </div>
+                          {form.category === 'other' && (
+                            <input value={form.customCategory || ''} onChange={(e) => setForm((f) => ({ ...f, customCategory: e.target.value }))} placeholder="Describe your category…" className={input} />
+                          )}
+                          <FieldError error={errors.category} />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-zinc-400 mb-1 font-medium">Tags</label>
+                          <div className="flex flex-wrap gap-1.5 mb-1.5">
+                            {form.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (<span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800 text-zinc-300 text-xs rounded-md">{t}<button type="button" onClick={() => setForm((f) => ({ ...f, tags: f.tags.split(',').map((x) => x.trim()).filter((x) => x !== t).join(', ') }))} className="text-zinc-500 hover:text-zinc-300"><FiX size={9} /></button></span>))}
+                          </div>
+                          <input onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim(); if (v && !form.tags.split(',').map((x) => x.trim()).includes(v)) { setForm((f) => ({ ...f, tags: f.tags ? `${f.tags}, ${v}` : v })); e.target.value = ''; } } }} placeholder="Type and press Enter…" className={input} />
+                        </div>
                       </div>
-                      <input onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim(); if (v && !form.tags.split(',').map((x) => x.trim()).includes(v)) { setForm((f) => ({ ...f, tags: f.tags ? `${f.tags}, ${v}` : v })); e.target.value = ''; } } }} placeholder="Type and press Enter…" className={input} />
                     </div>
-                    <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Icon URL</label><input value={form.iconUrl} onChange={set('iconUrl')} placeholder="https://..." className={input} /></div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><label className="block text-xs text-zinc-500 mb-0.5">Docs URL</label><input value={form.documentationUrl} onChange={(e) => { set('documentationUrl')(e); clearError('documentationUrl'); }} placeholder="https://..." className={`${input} ${errors.documentationUrl ? 'border-red-500/50' : ''}`} /><FieldError error={errors.documentationUrl} /></div>
-                      <div><label className="block text-xs text-zinc-500 mb-0.5">Website</label><input value={form.websiteUrl} onChange={(e) => { set('websiteUrl')(e); clearError('websiteUrl'); }} placeholder="https://..." className={`${input} ${errors.websiteUrl ? 'border-red-500/50' : ''}`} /><FieldError error={errors.websiteUrl} /></div>
+                    <div>
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-2">Links</p>
+                      <div className="space-y-3">
+                        <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Icon URL</label><input value={form.iconUrl} onChange={(e) => { set('iconUrl')(e); clearError('iconUrl'); }} placeholder="https://..." className={`${input} ${errors.iconUrl ? 'border-red-500/50' : ''}`} /><FieldError error={errors.iconUrl} /></div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className="block text-xs text-zinc-500 mb-0.5">Docs URL</label><input value={form.documentationUrl} onChange={(e) => { set('documentationUrl')(e); clearError('documentationUrl'); }} placeholder="https://..." className={`${input} ${errors.documentationUrl ? 'border-red-500/50' : ''}`} /><FieldError error={errors.documentationUrl} /></div>
+                          <div><label className="block text-xs text-zinc-500 mb-0.5">Website</label><input value={form.websiteUrl} onChange={(e) => { set('websiteUrl')(e); clearError('websiteUrl'); }} placeholder="https://..." className={`${input} ${errors.websiteUrl ? 'border-red-500/50' : ''}`} /><FieldError error={errors.websiteUrl} /></div>
+                        </div>
+                        <div><label className="block text-xs text-zinc-500 mb-0.5">Support Email</label><input value={form.supportEmail} onChange={(e) => { set('supportEmail')(e); clearError('supportEmail'); }} placeholder="support@..." className={`${input} ${errors.supportEmail ? 'border-red-500/50' : ''}`} /><FieldError error={errors.supportEmail} /></div>
+                      </div>
                     </div>
-                    <div><label className="block text-xs text-zinc-500 mb-0.5">Support Email</label><input value={form.supportEmail} onChange={(e) => { set('supportEmail')(e); clearError('supportEmail'); }} placeholder="support@..." className={`${input} ${errors.supportEmail ? 'border-red-500/50' : ''}`} /><FieldError error={errors.supportEmail} /></div>
                   </div>
-                  <div className="w-[160px] shrink-0 px-3 py-4 hidden md:block">
+                  <div className="w-[220px] shrink-0 px-4 py-4 hidden md:block">
                     <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium mb-2">Preview</p>
                     <div className="p-3 bg-zinc-800/30 rounded-lg border border-zinc-800">
-                      <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 text-sm font-bold mb-2">{form.iconUrl ? <img src={form.iconUrl} alt="" className="w-9 h-9 rounded-lg object-cover" /> : (form.title || 'A')[0]}</div>
-                      <p className="text-xs font-semibold text-zinc-100 truncate">{form.title || 'Untitled'}</p>
-                      <p className="text-[10px] text-zinc-500 truncate mt-0.5">{form.tagline || 'No tagline'}</p>
-                      <span className="inline-block mt-1.5 px-1.5 py-0.5 bg-zinc-800 text-zinc-400 text-[9px] rounded font-medium">{form.category.replace(/_/g, ' ')}</span>
+                      <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 text-base font-bold mb-2.5">{form.iconUrl ? <img src={form.iconUrl} alt="" className="w-10 h-10 rounded-lg object-cover" /> : (form.title || 'A')[0]}</div>
+                      <p className="text-sm font-semibold text-zinc-100 truncate">{form.title || 'Untitled'}</p>
+                      <p className="text-xs text-zinc-500 truncate mt-0.5">{form.tagline || 'No tagline'}</p>
+                      <p className="text-[11px] text-zinc-600 mt-1 line-clamp-2">{form.description || 'No description'}</p>
+                      {(form.category === 'other' && form.customCategory) ? <span className="inline-block mt-2 px-1.5 py-0.5 bg-blue-500/15 text-blue-400 text-[10px] rounded font-medium">{form.customCategory}</span> : <span className="inline-block mt-2 px-1.5 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] rounded font-medium">{form.category.replace(/_/g, ' ')}</span>}
+                      <div className="mt-2 pt-2 border-t border-zinc-800/60">
+                        <div className="text-[10px] text-zinc-600">From USDC 0.02</div>
+                        <div className="mt-1.5 w-full py-1 bg-zinc-800 text-zinc-500 text-[10px] text-center rounded font-medium">Install</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -693,20 +744,8 @@ const DevAgentStore = () => {
               )}
               {wizardStep === 3 && (
                 <div className="px-5 py-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    {[{ icon: <FiLink size={12} className="text-emerald-400" />, label: 'API Endpoint', key: 'apiEndpoint', val: form.apiEndpoint, ph: 'https://api...' }, { icon: <FiGlobe size={12} className="text-blue-400" />, label: 'Webhook', key: 'webhookEndpoint', val: form.webhookEndpoint, ph: 'https://...' }].map((c) => (
-                      <div key={c.key} className="p-2.5 bg-zinc-800/40 rounded-lg border border-zinc-800">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">{c.icon}<span className="text-sm font-medium text-zinc-200">{c.label}</span></div>
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${c.val ? 'bg-emerald-500/15 text-emerald-400' : 'bg-zinc-700 text-zinc-500'}`}>{c.val ? 'Connected' : 'Optional'}</span>
-                        </div>
-                        <input value={c.val} onChange={(e) => { set(c.key)(e); clearError(c.key); }} placeholder={c.ph} className={`${input} ${errors[c.key] ? 'border-red-500/50' : ''}`} />
-                        <FieldError error={errors[c.key]} />
-                      </div>
-                    ))}
-                    <div className="p-2.5 bg-zinc-800/40 rounded-lg border border-zinc-800"><div className="flex items-center justify-between mb-1"><div className="flex items-center gap-1.5"><FiDollarSign size={12} className="text-amber-400" /><span className="text-sm font-medium text-zinc-200">Billing</span></div><span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Auto</span></div></div>
-                    <div className="p-2.5 bg-zinc-800/40 rounded-lg border border-zinc-800"><div className="flex items-center justify-between mb-1"><div className="flex items-center gap-1.5"><FiActivity size={12} className="text-violet-400" /><span className="text-sm font-medium text-zinc-200">Wallet</span></div><span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Connected</span></div></div>
-                  </div>
+                  <div><label className="block text-sm text-zinc-400 mb-1 font-medium">API Endpoint</label><input value={form.apiEndpoint} onChange={(e) => { set('apiEndpoint')(e); clearError('apiEndpoint'); }} placeholder="https://api.example.com/v1" className={`${input} ${errors.apiEndpoint ? 'border-red-500/50' : ''}`} /><FieldError error={errors.apiEndpoint} /></div>
+                  <div><label className="block text-sm text-zinc-400 mb-1 font-medium">Webhook Endpoint</label><input value={form.webhookEndpoint} onChange={(e) => { set('webhookEndpoint')(e); clearError('webhookEndpoint'); }} placeholder="https://api.example.com/webhook" className={`${input} ${errors.webhookEndpoint ? 'border-red-500/50' : ''}`} /><FieldError error={errors.webhookEndpoint} /></div>
                 </div>
               )}
               {wizardStep === 4 && (
@@ -727,7 +766,7 @@ const DevAgentStore = () => {
                         <p className="text-sm font-semibold text-zinc-100">{form.title || 'Untitled'}</p>
                         <p className="text-xs text-zinc-500">{form.tagline || 'No tagline'}</p>
                         <div className="flex items-center gap-1.5 mt-1.5">
-                          <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] rounded font-medium">{form.category.replace(/_/g, ' ')}</span>
+                          <span className="px-1.5 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] rounded font-medium">{(form.category === 'other' && form.customCategory ? form.customCategory : form.category).replace(/_/g, ' ')}</span>
                           <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] rounded font-medium">{form.pricingModel.replace(/_/g, ' ')}</span>
                           {form.priceBOT && <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] rounded font-mono font-medium">{form.priceBOT} USDC</span>}
                         </div>
@@ -744,7 +783,7 @@ const DevAgentStore = () => {
                 {wizardStep < 4 ? (
                   <button onClick={handleContinue} disabled={!canProceed()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors">Continue <FiChevronRight size={12} /></button>
                 ) : (
-                  <button onClick={publish} disabled={busy || !canProceed()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"><FiUpload size={12} /> {busy ? 'Publishing…' : 'Publish'}</button>
+                  <button onClick={publish} disabled={busy || !canProceed()} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"><FiUpload size={12} /> {busy ? 'Publishing…' : 'Publish'}</button>
                 )}
               </div>
             </div>
