@@ -120,14 +120,14 @@ const shouldSkipLimit = (req) => {
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 600,
+  max: 3000,
   skip: shouldSkipLimit,
   message: { message: "Too many requests, please try again later." }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 300,
   skipSuccessfulRequests: true,
   skip: shouldSkipLimit,
   message: { message: "Too many authentication attempts, please try again later." }

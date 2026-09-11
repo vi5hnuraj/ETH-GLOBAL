@@ -12,18 +12,23 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const migrationFilePath = path.resolve(process.cwd(), './src/config/agents_migration.sql');
+const migrationFilePaths = [
+  path.resolve(process.cwd(), './src/config/agents_migration.sql'),
+  path.resolve(process.cwd(), './scripts/migrations/create_agentkit_usage.sql'),
+  path.resolve(process.cwd(), './scripts/migrations/create_world_id_nullifiers.sql')
+];
 
 async function run() {
   console.log('🚀 Starting Database Migrations for Production...');
   
-  if (!fs.existsSync(migrationFilePath)) {
-    console.error(`❌ [Migration] SQL Migration file not found at: ${migrationFilePath}`);
-    process.exit(1);
-  }
-
-  const sqlContent = fs.readFileSync(migrationFilePath, 'utf8');
-  console.log(`✔️ Loaded SQL migration script (${(sqlContent.length / 1024).toFixed(2)} KB).`);
+  const sqlContent = migrationFilePaths.map((migrationFilePath) => {
+    if (!fs.existsSync(migrationFilePath)) {
+      throw new Error(`SQL migration file not found at: ${migrationFilePath}`);
+    }
+    const sql = fs.readFileSync(migrationFilePath, 'utf8');
+    console.log(`✔️ Loaded ${path.basename(migrationFilePath)} (${(sql.length / 1024).toFixed(2)} KB).`);
+    return sql;
+  }).join('\n');
 
   const pool = new pg.Pool({
     connectionString,
