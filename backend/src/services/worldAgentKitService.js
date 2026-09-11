@@ -164,13 +164,14 @@ export const getBulkVerificationStatus = async (agentIds) => {
   try {
     const { data } = await supabase
       .from('ai_agents')
-      .select('agent_id, wallet_address, world_verified, human_backed')
+      .select('agent_id, wallet_address, world_verified, human_backed, agent_book_id')
       .in('agent_id', agentIds);
 
     for (const row of data || []) {
       results.set(row.agent_id, {
         verified: Boolean(row.world_verified),
         humanBacked: Boolean(row.human_backed),
+        agentBookId: row.agent_book_id || null,
         walletAddress: row.wallet_address
       });
     }
@@ -196,7 +197,8 @@ export const enrichServicesWithVerification = async (services) => {
     return {
       ...s,
       humanBacked: vStatus?.humanBacked || false,
-      worldVerified: vStatus?.verified || false
+      worldVerified: vStatus?.verified || false,
+      agentBookId: vStatus?.agentBookId || null
     };
   });
 };

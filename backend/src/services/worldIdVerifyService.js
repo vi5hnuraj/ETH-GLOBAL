@@ -18,6 +18,7 @@ import crypto from 'node:crypto';
 import { signRequest } from '@worldcoin/idkit-core/signing';
 import logger from '../utils/logger.js';
 import { supabase } from '../config/supabaseClient.js';
+import { getPool } from '../utils/db.js';
 
 const APP_ID = process.env.WORLD_APP_ID || '';
 const RP_ID = process.env.WORLD_RP_ID || '';
@@ -95,21 +96,36 @@ export const verifyIdkitProof = async ({ idkitResponse, expectedAction, develope
   const nullifier = nullifierToDecimal(nullifierHex);
   const action = idkitResponse.action || expectedAction;
 
+  const nullifierRow = {
+    nullifier,
+    action,
+    developer_id: asUuidOrNull(developerId),
+    agent_id: asUuidOrNull(agentId)
+  };
   const { error: dupError } = await supabase
     .from('world_id_nullifiers')
-    .insert({
-      nullifier,
-      action,
-      developer_id: asUuidOrNull(developerId),
-      agent_id: asUuidOrNull(agentId)
-    });
+    .insert(nullifierRow);
 
   if (dupError) {
     if (dupError.code === '23505') {
       throw Object.assign(new Error('This World ID has already verified this action. One verification per human.'), { status: 409 });
     }
-    logger.error('[WORLD_ID] nullifier insert failed:', dupError.message);
-    throw Object.assign(new Error('Failed to record verification. Please try again.'), { status: 500 });
+    // Supabase can expose the table through anon/RLS even when the backend
+    // service role is degraded. Use the existing direct DB path to persist the
+    // proof instead of rejecting a valid World verification.
+    try {
+      await getPool().query(
+        `INSERT INTO world_id_nullifiers (nullifier, action, developer_id, agent_id)
+         VALUES ($1, $2, $3, $4)`,
+        [nullifier, action, nullifierRow.developer_id, nullifierRow.agent_id]
+      );
+    } catch (directError) {
+      if (directError.code === '23505') {
+        throw Object.assign(new Error('This World ID has already verified this action. One verification per human.'), { status: 409 });
+      }
+      logger.error('[WORLD_ID] nullifier insert failed:', directError.message);
+      throw Object.assign(new Error('Failed to record verification. Please try again.'), { status: 500 });
+    }
   }
 
   return { verified: true, nullifier, action, environment: idkitResponse.environment || ENVIRONMENT };

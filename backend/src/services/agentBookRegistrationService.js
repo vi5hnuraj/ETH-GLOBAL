@@ -21,13 +21,15 @@ import { supabase } from '../config/supabaseClient.js';
 
 const sessions = new Map(); // sessionId -> { agentId, wallet, url, proc, status, startedAt, humanId, txHash, error }
 
-const SESSION_TTL_MS = 10 * 60 * 1000; // verify links are short-lived
+// Keep the local session longer than the CLI process so delayed approval can
+// still be detected. This does not extend the World-issued QR itself.
+const SESSION_TTL_MS = 30 * 60 * 1000;
 
 const gcSessions = () => {
   const now = Date.now();
   for (const [id, s] of sessions) {
-    if (s.status === 'completed' || s.status === 'failed' || now - s.startedAt > SESSION_TTL_MS) {
-      if (s.proc && !s.proc.killed && s.status === 'pending') {
+    if (s.status === 'completed' || now - s.startedAt > SESSION_TTL_MS) {
+      if (s.proc && !s.proc.killed && ['pending', 'cli_submitted', 'awaiting_confirmation'].includes(s.status)) {
         try { s.proc.kill(); } catch { /* already dead */ }
       }
       sessions.delete(id);
@@ -106,16 +108,18 @@ export const startRegistration = async ({ agentId, wallet }) => {
             await persistRegistration({ agentId, wallet, humanId, txHash: tx });
             logger.info(`[AGENTBOOK] registration CONFIRMED for ${wallet} humanId=${humanId}`);
           } else {
-            session.status = 'failed';
-            session.error = 'CLI exited successfully but AgentBook lookup did not confirm registration yet (indexing delay). Retry status shortly.';
+            session.status = 'awaiting_confirmation';
+            session.error = 'World App approval was received, but AgentBook indexing is still pending. Keep this session open while GlobalPay checks again.';
           }
         } catch (err) {
-          session.status = 'failed';
-          session.error = `Post-registration confirmation failed: ${err.message}`;
+          session.status = 'awaiting_confirmation';
+          session.error = `AgentBook confirmation is temporarily unavailable: ${err.message}`;
         }
       } else if (session.status === 'pending') {
-        session.status = 'failed';
-        session.error = `agentkit-cli exited with code ${code} before completing. Output: ${stdoutBuf.slice(-300)}`;
+        session.status = session.url ? 'awaiting_confirmation' : 'failed';
+        session.error = session.url
+          ? 'The CLI stopped before confirmation. GlobalPay will continue checking AgentBook; if World expired the request, generate a new QR.'
+          : `agentkit-cli exited with code ${code} before producing a verification request. Output: ${stdoutBuf.slice(-300)}`;
       }
     });
 
@@ -123,9 +127,9 @@ export const startRegistration = async ({ agentId, wallet }) => {
     setTimeout(() => {
       if (!session.url && session.status === 'pending') {
         try { proc.kill(); } catch { /* noop */ }
-        reject(new Error('agentkit-cli did not produce a verify link within 60s.'));
+        reject(new Error('agentkit-cli did not produce a verify link within 120s.'));
       }
-    }, 60_000);
+    }, 120_000);
   });
 };
 
@@ -158,7 +162,7 @@ export const getSessionStatus = async (sessionId) => {
 
   // Independent check — catches the case where the human approved and the
   // chain indexed while the CLI is still finishing up.
-  if (s.status === 'pending' || s.status === 'cli_submitted') {
+    if (s.status === 'pending' || s.status === 'cli_submitted' || s.status === 'awaiting_confirmation') {
     try {
       const humanId = await runStatusCheck(s.wallet);
       if (humanId && s.status !== 'completed') {
@@ -177,7 +181,7 @@ export const getSessionStatus = async (sessionId) => {
     sessionId: s.sessionId,
     agentId: s.agentId,
     wallet: s.wallet,
-    status: s.status,           // pending | cli_submitted | completed | failed
+    status: s.status,           // pending | cli_submitted | awaiting_confirmation | completed | failed
     verifyUrl: s.url,
     humanId: s.humanId,
     txHash: s.txHash,
