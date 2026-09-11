@@ -198,7 +198,7 @@ const attachPublisher = async (listings) => {
 // Phase 1 — Publish / manage AI agents
 // ============================================================================
 
-export const listPublishableAgents = async ({ organizationId }) => {
+export const listPublishableAgents = async ({ organizationId, developerId }) => {
   let { data: agents, error } = await supabase
     .from('ai_agents')
     .select('id,agent_id,agent_name,description,status,organization_id')
@@ -219,10 +219,25 @@ export const listPublishableAgents = async ({ organizationId }) => {
   }
   if (error) throw httpError(500, `Agents fetch failed: ${error.message}`);
 
+  // Include legacy agents owned by the same developer when their organization
+  // linkage was created before organization scoping was introduced.
+  if (developerId) {
+    const { data: developerAgents, error: developerError } = await supabase
+      .from('ai_agents')
+      .select('id,agent_id,agent_name,description,status,organization_id')
+      .eq('developer_id', developerId)
+      .order('created_at', { ascending: false });
+    if (!developerError && developerAgents) {
+      const byId = new Map((agents || []).map((agent) => [agent.id, agent]));
+      developerAgents.forEach((agent) => byId.set(agent.id, agent));
+      agents = Array.from(byId.values());
+    }
+  }
+
   let listings = [];
   const { data: listingData, error: listingErr } = await supabase
     .from('agent_catalog')
-    .select('listing_id,agent_id,status,title')
+    .select('listing_id,agent_id,status,title,tagline,description,category,pricing_model,price_bot,billing_cycle,icon_url,api_endpoint,webhook_endpoint,documentation_url,support_contact,tags')
     .eq('organization_id', organizationId);
 
   if (!listingErr && listingData) {
@@ -231,15 +246,26 @@ export const listPublishableAgents = async ({ organizationId }) => {
     try {
       const pool = getPool();
       const { rows } = await pool.query(
-        `SELECT listing_id, agent_id, status, title FROM agent_catalog WHERE organization_id = $1`,
+        `SELECT listing_id, agent_id, status, title, tagline, description, category, pricing_model, price_bot, billing_cycle, icon_url, api_endpoint, webhook_endpoint, documentation_url, support_contact, tags FROM agent_catalog WHERE organization_id = $1`,
         [organizationId]
       );
       listings = rows;
     } catch (_) { /* ignore */ }
   }
 
-  const byAgent = Object.fromEntries(listings.map((l) => [l.agent_id, l.listing_id]));
-  const byAgentStatus = Object.fromEntries(listings.map((l) => [l.agent_id, l.status]));
+  if (developerId) {
+    const { data: developerListings, error: developerListingError } = await supabase
+      .from('agent_catalog')
+      .select('listing_id,agent_id,status,title,tagline,description,category,pricing_model,price_bot,billing_cycle,icon_url,api_endpoint,webhook_endpoint,documentation_url,support_contact,tags')
+      .eq('developer_id', developerId);
+    if (!developerListingError && developerListings) {
+      const byListing = new Map((listings || []).map((listing) => [listing.listing_id, listing]));
+      developerListings.forEach((listing) => byListing.set(listing.listing_id, listing));
+      listings = Array.from(byListing.values());
+    }
+  }
+
+  const byAgent = Object.fromEntries(listings.map((l) => [l.agent_id, l]));
 
   return (agents || []).map((a) => ({
     agentId: a.agent_id,
@@ -247,8 +273,23 @@ export const listPublishableAgents = async ({ organizationId }) => {
     description: a.description,
     status: a.status,
     published: !!byAgent[a.id],
-    listingId: byAgent[a.id] || null,
-    listingStatus: byAgentStatus[a.id] || null
+    listingId: byAgent[a.id]?.listing_id || null,
+    listingStatus: byAgent[a.id]?.status || null,
+    listing: byAgent[a.id] ? {
+      title: byAgent[a.id].title,
+      tagline: byAgent[a.id].tagline,
+      description: byAgent[a.id].description,
+      category: byAgent[a.id].category,
+      pricingModel: byAgent[a.id].pricing_model,
+      priceBOT: byAgent[a.id].price_bot,
+      billingCycle: byAgent[a.id].billing_cycle,
+      iconUrl: byAgent[a.id].icon_url,
+      apiEndpoint: byAgent[a.id].api_endpoint,
+      webhookEndpoint: byAgent[a.id].webhook_endpoint,
+      documentationUrl: byAgent[a.id].documentation_url,
+      supportContact: byAgent[a.id].support_contact,
+      tags: byAgent[a.id].tags || []
+    } : null
   }));
 };
 

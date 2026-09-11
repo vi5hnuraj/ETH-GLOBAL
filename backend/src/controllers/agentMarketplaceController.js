@@ -26,7 +26,7 @@ import { ok, handleError } from '../utils/respond.js';
 
 export const devPublishableAgents = async (req, res) => {
   try {
-    const agents = await listPublishableAgents({ organizationId: req.organization.id });
+    const agents = await listPublishableAgents({ organizationId: req.organization.id, developerId: req.developerId });
     return ok(res, { agents });
   } catch (err) {
     return handleError(res, err, 'agent-marketplace');
