@@ -25,7 +25,7 @@ import { getPool } from '../utils/db.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
 import logger from '../utils/logger.js';
-import { analyzeProvider, verifySettlement, isGraphConfigured } from './graphIntelligenceService.js';
+import { analyzeProvider, analyzeProviders, verifySettlement, isGraphConfigured } from './graphIntelligenceService.js';
 import { getPaymentEntity } from './graphIntelligenceService.js';
 const EXPLORER_URL = process.env.ARC_EXPLORER_URL || process.env.EXPLORER_URL || 'https://testnet.arcscan.app/';
 const REPUTATION_TTL_MS = Number(process.env.REPUTATION_TTL_MS || 15 * 60 * 1000);
@@ -587,6 +587,13 @@ const inferRequirement = (task = '', requirement) => {
     else if (/\bstorage|store|backup/.test(t)) req.capability = 'storage';
     else if (/\binfer|llm|model|gpu|inference/.test(t) || !req.capability) req.capability = 'inference';
   }
+  if (req.maxBudgetBot == null) {
+    const budgetMatch = t.match(/(?:under|below|less than|maximum|max)\s+([0-9]+(?:\.[0-9]+)?)\s*(?:usdc|usd|bot)?/i);
+    if (budgetMatch) req.maxBudgetBot = Number(budgetMatch[1]);
+  }
+  if (req.verifiedOnly == null && /\bverif(?:ied|y)|world id|human[- ]backed/.test(t)) req.verifiedOnly = true;
+  if (!req.sortBy && /fastest|lowest latency|quickest/.test(t)) req.sortBy = 'latency';
+  if (!req.sortBy && /uptime|reliable|reliability/.test(t)) req.sortBy = 'uptime';
   const modelMatch = t.match(/\b[a-z0-9][a-z0-9.-]*-\d+(?:b|m)?(?:-\d+[a-z0-9]*)?\b/gi);
   if (!req.model && modelMatch && modelMatch[0] && modelMatch[0].toLowerCase() !== 'gpu') req.model = modelMatch[0];
   return req;
@@ -629,6 +636,7 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     budget: 0,
     gpuModels: 0,
     capability: 0,
+    verified: 0,
     self: 0
   };
   const block = (name, c) => { filters[name] += 1; return false; };
@@ -646,6 +654,14 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     try { unitWeiMap[s.id] = BigInt(ethers.parseEther(String(s.unit_price || '0')).toString()); } catch { unitWeiMap[s.id] = 0n; }
   }
   const candidates = [];
+  const graphIds = [...new Set(enriched.map((s) => s.ai_agents?.agent_id).filter(Boolean))];
+  let graphMap = new Map();
+  try {
+    const graphRows = await analyzeProviders({ providerIds: graphIds });
+    graphMap = new Map((graphRows || []).map((row) => [String(row.providerId || '').toLowerCase(), row]));
+  } catch (err) {
+    logger.warn('[RECOMMEND] Graph batch analysis unavailable; using marketplace data:', err.message);
+  }
 
   for (const s of enriched) {
     if (consumerAgent && s.agent_id === consumerAgent.id) { filters.self += 1; continue; }
@@ -657,7 +673,7 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     const trust = rep.trustScore ?? null;
     // The Graph-powered Trust Engine is the primary provider signal. The
     // existing reputation score remains a local fallback for unindexed data.
-    const graphTrust = providerCode ? await analyzeProvider(providerCode) : null;
+    const graphTrust = providerCode ? graphMap.get(String(providerCode).toLowerCase()) || null : null;
     const uptime = cap.uptimePct ?? null;
     const latency = cap.averageLatencyMs ?? null;
     const quantity = req.quantity && Number(req.quantity) > 0 ? String(req.quantity) : '1';
@@ -680,10 +696,14 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     if (req.minTrustScore != null && trust != null && trust < req.minTrustScore) { block('trust'); continue; }
     if (req.maxLatencyMs && latency != null && latency > req.maxLatencyMs) { block('latency'); continue; }
     if (req.maxBudgetBot && priceBOT > Number(req.maxBudgetBot)) { block('budget'); continue; }
+    if (req.verifiedOnly && !s.worldVerified) { block('verified'); continue; }
     if (req.model && !hasModel(cap.supportedModels, req.model)) { block('capability'); continue; }
-    if (req.capability && cap.capabilities && !cap.capabilities[req.capability]) { block('capability'); continue; }
+    const serviceText = `${s.title || ''} ${s.description || ''} ${s.category || ''}`.toLowerCase();
+    const capabilityMatched = cap.capabilities?.[req.capability] || serviceText.includes(String(req.capability || '').toLowerCase()) || (req.capability === 'inference' && ['ai-model', 'gpu', 'compute'].includes(s.category));
+    if (req.capability && !cap.capabilities && !capabilityMatched) { block('capability'); continue; }
+    if (req.capability && cap.capabilities && !capabilityMatched) { block('capability'); continue; }
 
-    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust: graphTrust ? trust : null, graphTrust, uptime, latency, estWei });
+    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust, graphTrust, uptime, latency, estWei });
   }
 
   // Scoring
@@ -697,7 +717,10 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
      const chainSuccessRate = chainTotal ? (chainSuccess / chainTotal) * 100 : 0;
      const chainActivity = c.graphTrust?.recentActivity ? 100 : 0;
      const chainVolume = Math.min(100, (c.graphTrust?.settlementVolume || 0) * 10);
-     const trustScore = c.graphTrust ? (chainSuccessRate * 0.55 + chainActivity * 0.25 + chainVolume * 0.20) : (c.trust ?? 0);
+     const hasGraphEvidence = c.graphTrust && (chainTotal > 0 || c.graphTrust.recentActivity || Number(c.graphTrust.settlementVolume || 0) > 0);
+     const trustScore = hasGraphEvidence
+       ? (chainSuccessRate * 0.55 + chainActivity * 0.25 + chainVolume * 0.20)
+       : (c.trust ?? 0);
     const latencyScore = c.latency ? Math.min((1 - c.latency / maxLatency) * 100, 100) : 60;
     const availScore = c.uptime ?? 90;
     const regionScore = p && p.preferredRegions.length && c.regions.length
@@ -727,7 +750,8 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
 
   const ranked = candidates
     .map((c) => ({ c, confidence: score(c) }))
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((a, b) => b.confidence - a.confidence)
+    .filter((item, index, all) => all.findIndex((other) => other.c.s.service_id === item.c.s.service_id) === index);
 
   const estMs = (c) => {
     const base = Math.max(c.cap.averageResponseTimeMs || c.latency || 1000, 100);
@@ -758,7 +782,7 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
       estimatedQuantity: req.quantity ? String(req.quantity) : '1',
       estimatedCompletionMs: estMs(c),
        reasons: reasons(c)
-       ,trustScore: Math.round(trustScore * 100) / 100
+       ,trustScore: Math.round(((c.graphTrust?.trustScore != null && (c.graphTrust.successfulPayments || c.graphTrust.failedPayments || c.graphTrust.recentActivity || c.graphTrust.settlementVolume)) ? c.graphTrust.trustScore : c.trust ?? 0) * 100) / 100
        ,trustSource: c.graphTrust?.source || 'GlobalPay database'
        ,graphLive: c.graphTrust?.graphLive === true
      })),

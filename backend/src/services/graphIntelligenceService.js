@@ -158,7 +158,17 @@ const nowMs = () => Date.now();
  * Rich provider intelligence — every field derived only from indexed payments.
  * Includes the fraud signals the Trust Engine reasons over.
  */
-const providerIntelligence = (payee, payments, humanBacked = false) => {
+/**
+ * Provider intelligence with optional publisher (human identity) context.
+ *
+ * `publisherContext` carries GlobalPay's publisher-level identity model:
+ *   { humanVerified, walletCount, aggregatedSettlementVolume, firstSettlement,
+ *     inheritsReputation, siblingWallets }
+ * World verification acts as a bounded trust floor + bonus (never a multiplier),
+ * and publisher continuity lets a freshly-registered agent wallet inherit the
+ * publisher-level settlement history instead of starting from zero.
+ */
+const providerIntelligence = (payee, payments, humanBacked = false, publisherContext = null) => {
   const rows = payments
     .filter((payment) => String(payment.payee || '').toLowerCase() === payee)
     .sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
@@ -248,9 +258,20 @@ const providerIntelligence = (payee, payments, humanBacked = false) => {
   if (total >= 2 && failedRows.length > successfulRows.length) trust -= 20;
   let trustScore = Math.max(0, Math.min(100, Math.round(trust)));
 
-  // Identity-based trust adjustment (after Graph calculation)
+  // Identity-based trust adjustment (after the Graph-only calculation).
+  // World ID + AgentBook verification sets a trust FLOOR (25) for verified human
+  // publishers and adds a small bounded bonus (+5) — a confidence signal, never
+  // a multiplier. Unverified providers keep the pure on-chain score.
   if (humanBacked && trustScore < 25) trustScore = 25;
   else if (humanBacked && trustScore > 0) trustScore = Math.min(100, trustScore + 5);
+
+  // Publisher continuity (GlobalPay identity model): a newly registered wallet
+  // of an already-verified publisher inherits the publisher-level settlement
+  // record, so its first wallet rotation does not erase its track record.
+  const inheritsPublisherReputation = Boolean(
+    publisherContext?.inheritsReputation && total < 3 && (publisherContext.walletCount || 0) > 1
+  );
+  if (inheritsPublisherReputation && trustScore < 25) trustScore = 25;
 
   const confidence = humanBacked && total === 0
     ? 0.15
@@ -265,6 +286,9 @@ const providerIntelligence = (payee, payments, humanBacked = false) => {
       ? 'Verified human publisher (World ID + AgentBook): trust floor applied — no settlement history yet'
       : 'Verified human publisher (World ID + AgentBook): +5 trust bonus applied');
   }
+  if (inheritsPublisherReputation) {
+    reasoning.push(`Publisher continuity: new wallet inherits the verified publisher's record — ${publisherContext.walletCount} AgentBook-registered wallet(s), ${(publisherContext.aggregatedSettlementVolume || 0).toFixed(4)} USDC combined volume`);
+  }
   reasoning.push(`${successfulRows.length} successful settlement(s) of ${total} indexed payment(s) — ${(successRate * 100).toFixed(1)}% success rate`);
   reasoning.push(`${volume.toFixed(4)} USDC total settlement volume (avg ${amounts.length ? (volume / amounts.length).toFixed(4) : '0'} / median ${medianPayment.toFixed(4)} USDC)`);
   reasoning.push(`${uniquePayerSet.size} unique buyer(s)${repeatPayers ? `, ${repeatPayers} repeat buyer(s)` : ''}`);
@@ -276,6 +300,14 @@ const providerIntelligence = (payee, payments, humanBacked = false) => {
   return {
     providerId: payee,
     humanBacked,
+    publisher: publisherContext ? {
+      humanVerified: Boolean(humanBacked),
+      walletCount: publisherContext.walletCount ?? 1,
+      aggregatedSettlementVolume: publisherContext.aggregatedSettlementVolume ?? volume,
+      firstSettlement: publisherContext.firstSettlement ?? (lastTimestamp || null),
+      inheritsReputation: inheritsPublisherReputation,
+      siblingWallets: publisherContext.siblingWallets || []
+    } : null,
     paymentCount: total,
     successfulPayments: successfulRows.length,
     releasedPayments: releasedRows.length,
@@ -354,20 +386,70 @@ export const getGraphStatus = async () => {
   };
 };
 
-export const analyzeProvider = async (providerId) => {
-  const snapshot = await loadGraphSnapshot();
-  const addr = providerAddress(providerId);
-  // Look up human_backed from DB
-  let humanBacked = false;
+/**
+ * GlobalPay publisher-identity context — the continuity layer on top of
+ * World/AgentBook identity. World proves that a unique human verified once;
+ * GlobalPay associates every AgentBook-registered wallet that human owns with
+ * one publisher profile and aggregates reputation at the publisher level.
+ * This is a GlobalPay feature built on top of World's identity model —
+ * AgentBook itself links wallets to humans, it does not transfer reputation.
+ */
+export const buildPublisherContext = async ({ developerId, organizationId, currentWallet }) => {
+  const scope = organizationId ? { column: 'organization_id', value: organizationId } : { column: 'developer_id', value: developerId };
+  let wallets = [];
   try {
     const { data } = await supabase
       .from('ai_agents')
-      .select('human_backed')
+      .select('wallet_address, agent_id, world_verified, agent_book_id')
+      .eq(scope.column, scope.value);
+    wallets = (data || []).filter((a) => a.wallet_address);
+  } catch (err) {
+    logger.debug('[GRAPH] publisher wallet lookup skipped:', err.message);
+    return null;
+  }
+  const verifiedWallets = wallets.filter((a) => a.world_verified || a.agent_book_id);
+  if (!verifiedWallets.length) return null;
+  const agentBookWallets = wallets.filter((a) => a.agent_book_id);
+  const snapshot = await loadGraphSnapshot();
+  const walletSet = new Set(verifiedWallets.map((a) => String(a.wallet_address).toLowerCase()));
+  const pubPayments = snapshot.payments.filter((p) => walletSet.has(String(p.payee || '').toLowerCase()));
+  const successful = pubPayments.filter((p) => ['HELD', 'RELEASED'].includes(String(p.status).toUpperCase()));
+  const timestamps = pubPayments.map((p) => Number(p.timestamp || 0)).filter(Boolean);
+  const firstSettlement = timestamps.length ? Math.min(...timestamps) : null;
+  const aggregatedVolume = successful.reduce((sum, p) => sum + amount(p.amount), 0);
+  return {
+    walletCount: agentBookWallets.length || walletSet.size,
+    agentBookCount: agentBookWallets.length,
+    siblingWallets: [...walletSet].filter((w) => w !== currentWallet).slice(0, 10),
+    aggregatedSettlementVolume: aggregatedVolume,
+    firstSettlement,
+    inheritsReputation: walletSet.size > 1,
+    successfulPayments: successful.length,
+    paymentCount: pubPayments.length
+  };
+};
+
+export const analyzeProvider = async (providerId) => {
+  const snapshot = await loadGraphSnapshot();
+  const addr = providerAddress(providerId);
+  let humanBacked = false;
+  let publisherContext = null;
+  try {
+    const { data: agentRow } = await supabase
+      .from('ai_agents')
+      .select('human_backed, developer_id, organization_id')
       .eq('wallet_address', addr)
       .maybeSingle();
-    humanBacked = data?.human_backed || false;
+    humanBacked = agentRow?.human_backed || false;
+    if (agentRow && (agentRow.developer_id || agentRow.organization_id)) {
+      publisherContext = await buildPublisherContext({
+        developerId: agentRow.developer_id,
+        organizationId: agentRow.organization_id,
+        currentWallet: addr
+      });
+    }
   } catch { /* fall through */ }
-  return providerIntelligence(addr, snapshot.payments, humanBacked);
+  return providerIntelligence(addr, snapshot.payments, humanBacked, publisherContext);
 };
 
 export const analyzeProviders = async ({ providerIds = [] } = {}) => {
@@ -375,21 +457,25 @@ export const analyzeProviders = async ({ providerIds = [] } = {}) => {
   const payees = providerIds.length
     ? await resolveProviderIdentifiers(providerIds)
     : Array.from(new Set(snapshot.payments.map((payment) => String(payment.payee || '').toLowerCase()).filter(Boolean)));
-
-  // Bulk lookup human_backed for all payees
   const humanBackedMap = new Map();
+  const publisherContextMap = new Map();
   try {
     const { data: agents } = await supabase
       .from('ai_agents')
-      .select('wallet_address, human_backed')
+      .select('wallet_address, human_backed, developer_id, organization_id')
       .in('wallet_address', payees);
     for (const row of agents || []) {
-      humanBackedMap.set(String(row.wallet_address || '').toLowerCase(), row.human_backed || false);
+      const key = String(row.wallet_address || '').toLowerCase();
+      humanBackedMap.set(key, row.human_backed || false);
+      if (row.developer_id || row.organization_id) {
+        publisherContextMap.set(key, await buildPublisherContext({
+          developerId: row.developer_id, organizationId: row.organization_id, currentWallet: key
+        }));
+      }
     }
-  } catch { /* fall through — treat all as unverified */ }
-
+  } catch { /* fall through */ }
   return payees
-    .map((payee) => providerIntelligence(payee, snapshot.payments, humanBackedMap.get(payee) || false))
+    .map((payee) => providerIntelligence(payee, snapshot.payments, humanBackedMap.get(payee) || false, publisherContextMap.get(payee) || null))
     .sort((a, b) => (b.trustScore - a.trustScore) || (b.settlementVolume - a.settlementVolume));
 };
 

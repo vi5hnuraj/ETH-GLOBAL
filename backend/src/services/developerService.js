@@ -164,6 +164,21 @@ const fetchInvoices = async (orgId) => {
   return data || [];
 };
 
+const fetchMarketplaceInvoices = async (orgId) => {
+  try {
+    const { data, error } = await supabase
+      .from('service_invoices')
+      .select('amount_wei,status,paid_at,created_at,organization_id')
+      .eq('organization_id', orgId)
+      .eq('status', 'paid');
+    if (!error && data?.length) return data;
+    if (error) return [];
+    return data || [];
+  } catch {
+    return [];
+  }
+};
+
 const fetchSubscription = async (orgId) => {
   const { data, error } = await requireTables(() =>
     supabase.from('subscriptions').select('*').eq('organization_id', orgId).maybeSingle()
@@ -270,12 +285,13 @@ const fetchV3Metrics = async (orgId) => {
 
 export const getDashboard = async (orgId, developerId) => {
   const agents = await fetchAgents(orgId, developerId);
-  const [logs, txs, settings, subscription, invoices, v3metrics] = await Promise.all([
+  const [logs, txs, settings, subscription, invoices, marketplaceInvoices, v3metrics] = await Promise.all([
     fetchUsageLogs(orgId),
     fetchTransactions(agents.map((a) => a.id)),
     getSettings(developerId).catch(() => null),
     fetchSubscription(orgId).catch(() => null),
     fetchInvoices(orgId).catch(() => []),
+    fetchMarketplaceInvoices(orgId),
     fetchV3Metrics(orgId).catch(() => null)
   ]);
 
@@ -285,7 +301,10 @@ export const getDashboard = async (orgId, developerId) => {
 
   const activeAgents = agents.filter((a) => a.status === 'active');
   const successfulPayments = txs.filter((t) => t.status === 'confirmed');
-  const volumeBOT = formatBOT(sumWei(txs));
+  const marketplaceVolumeWei = marketplaceInvoices.reduce((sum, invoice) => {
+    try { return sum + BigInt(invoice.amount_wei || '0'); } catch { return sum; }
+  }, 0n);
+  const volumeBOT = formatBOT(sumWei(txs) + marketplaceVolumeWei);
 
   const buckets = buildBuckets('month');
   const requestsOverTime = buckets.map((b, i) => ({
@@ -294,12 +313,14 @@ export const getDashboard = async (orgId, developerId) => {
   }));
   const volumeOverTime = buckets.map((b, i) => ({
     date: b.label,
-    volume: Number(
+    volume: Number((
       txs
         .filter((t) => bucketIndex(t.created_at, buckets) === i && t.status === 'confirmed')
         .reduce((s, t) => s + Number(t.amount || 0) / 1e18, 0)
-        .toFixed(6)
-    )
+      + marketplaceInvoices
+        .filter((invoice) => bucketIndex(invoice.paid_at || invoice.created_at, buckets) === i)
+        .reduce((s, invoice) => s + Number(invoice.amount_wei || 0) / 1e18, 0)
+    ).toFixed(6))
   }));
 
   let cumulativeWallets = 0;
@@ -318,10 +339,16 @@ export const getDashboard = async (orgId, developerId) => {
     revenue: invoices
       .filter((inv) => inv.status === 'paid' && bucketIndex(inv.paid_at || inv.created_at, buckets) === i)
       .reduce((s, inv) => s + (inv.amount_cents || 0) / 100, 0)
+      + marketplaceInvoices
+        .filter((invoice) => bucketIndex(invoice.paid_at || invoice.created_at, buckets) === i)
+        .reduce((s, invoice) => s + Number(invoice.amount_wei || 0) / 1e18, 0)
   }));
 
   const plan = getPlan(subscription?.plan || settings?.plan || 'free');
-  const monthlyRevenue = subscription ? (plan.priceCents * (subscription.status === 'active' ? 1 : 0)) / 100 : 0;
+  const monthlyMarketplaceRevenue = marketplaceInvoices
+    .filter((invoice) => new Date(invoice.paid_at || invoice.created_at) >= startOfMonth)
+    .reduce((sum, invoice) => sum + Number(invoice.amount_wei || 0) / 1e18, 0);
+  const monthlyRevenue = monthlyMarketplaceRevenue || (subscription ? (plan.priceCents * (subscription.status === 'active' ? 1 : 0)) / 100 : 0);
 
   return {
     totalAgents: agents.length,
