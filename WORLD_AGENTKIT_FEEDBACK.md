@@ -1,98 +1,128 @@
-# World AgentKit — Integration Feedback
+# World AgentKit Continuity Feedback
 
-**Project:** GlobalPay — autonomous AI services marketplace (Arc settlement · The Graph intelligence · World identity)
-**Track:** AgentKit Continuity
-**Date:** September 10, 2026
-**Environment:** World ID Sandbox App (Firebase build, Android), Developer Portal staging app `app_be93…`, RP `rp_16e05c…`, IDKit `@worldcoin/idkit` 4.2.3, `@worldcoin/agentkit` 0.2.1
+## Project
 
-This document covers the four requested feedback areas. Every item below comes from a real integration session — timestamps and console output where relevant.
+GlobalPay is an autonomous AI-commerce platform. World ID and AgentBook provide the human-backed identity layer; The Graph provides settlement evidence; Arc provides USDC settlement.
 
----
+## AgentKit Usage
 
-## 1. AgentKit docs and integration flow
+GlobalPay uses the official `@worldcoin/agentkit` package in:
 
-### What worked well
+- `backend/src/services/worldAgentKitService.js`
+- `backend/src/services/agentBookRegistrationService.js`
+- `backend/src/middleware/agentKitGate.js`
 
-- **The v4 quickstart is honest and complete.** The Hono example (facilitator → resource server → hooks → money parser) maps 1:1 to runnable code. We adapted the hooks pattern to Express with no undocumented API surface needed.
-- **`createAgentBookVerifier().lookupHuman(address)` is exactly the right primitive.** One call, canonical World Chain deployment, chain-agnostic caller. Our marketplace enriches every service listing with it to render "✓ Human Verified" badges.
-- **The free-trial mode is a genuinely good product idea.** "3 free uses for human-backed agents, then x402" is the cleanest bot-mitigation story we've seen — it makes verification *economically* load-bearing rather than decorative.
-- **`--format json` and `--schema` on the CLI** made it scriptable from a Node service (we spawn `agentkit-cli register` and parse stdout).
+The integration uses AgentKit to:
 
-### Friction
+- Resolve an agent wallet against the canonical AgentBook contract.
+- Distinguish World ID account verification from wallet-specific AgentBook registration.
+- Persist `agent_book_id`, `human_backed`, `world_verified`, and `agentbook_tx_hash` only after confirmation.
+- Gate premium access and preferred x402 treatment for AgentBook-linked wallets.
+- Preserve publisher continuity across multiple AgentBook-registered wallets.
 
-1. **No JS API for AgentBook registration.** `agentkit-cli register` exists, but the SDK exports no `registerAgent()`. Embedding registration inside a product (like ours) means spawning a CLI as a child process and scraping stdout for the `world.org/verify` URL. A documented `registerAgent({ address, onVerifyUrl })` in `@worldcoin/agentkit` would remove the entire child-process/stdio layer.
-2. **The verify link has no documented contract.** The CLI prints `HUMAN ACTION REQUIRED: … https://world.org/verify?t=wld&i=<uuid>&k=<key>` — nothing documents what `i`/`k` are, how long the link lives, whether it can be re-generated, or whether deep-link handling differs between the production app and the sandbox build.
-3. **Version confusion is real.** IDKit v4 is a full redesign (RP signing keys, actions, nullifiers), but v2/v3 tutorials still dominate search results. `npm i @worldcoin/idkit` resolving to v4 with completely different props than most blog posts show was our first hour of confusion. A banner on the docs home ("v2/v3 content is deprecated, here's the v4 migration map") would help a lot.
-4. **Express is second-class in examples.** The docs say "Express and Next.js can use the same hooks" but ship only the Hono wrapper. An Express `agentKitGate()` middleware example — the thing we had to write — would be widely copied.
+## Integration Flow
 
----
+```text
+World ID Sandbox proof
+        ↓
+Account-level human verification
+        ↓
+Select an individual agent wallet
+        ↓
+Official agentkit-cli AgentBook registration
+        ↓
+World App approval
+        ↓
+AgentBook on-chain lookup confirmation
+        ↓
+Persist wallet-specific AgentBook identity
+        ↓
+AgentKit access policy / passport / continuity
+```
 
-## 2. Developer Portal navigation, search, product discovery, debugging
+World ID and AgentBook are deliberately separate:
 
-1. **Actions live in a different section than World ID configuration.** We created the app, configured World ID, pasted the RP signing key — and the widget still failed with `action not found`, because the **Verification** section (where actions are created) looked like a *reporting* screen ("No verifications yet"), not a *configuration* one. The error message never says "create the action in the Portal." That single hint in the widget error would have saved ~30 minutes.
-2. **The RP signing key is shown once with rotation as the only recovery.** This is fine security-wise, but the UI gives no strong pre-rotation warning that rotating immediately invalidates the old key for every environment the app serves. We rotated casually during testing and only later realized the implications.
-3. **Search did not surface "Actions" for the error we saw.** Searching `action not found` in the Portal returns nothing useful (it's a client-side app search, not a docs/error search). An error-code → remediation page in the docs, linked from the Portal, is the missing piece.
-4. **Staging vs production toggles are implicit.** The action creation modal didn't ask for an environment; it inherited from a tab selection that's easy to miss. We only confirmed staging by inspecting the created action afterward.
+- World ID verifies the developer/account once.
+- AgentBook links a specific wallet to that verified human.
+- `human_backed` alone never marks a wallet as AgentBook registered.
+- The UI displays `AgentBook Registered` only when `agent_book_id` exists.
 
----
+## Meaningful Product Use
 
-## 3. Sandbox App: states, proof flows, errors, edge cases
+AgentKit is used beyond a verification badge:
 
-### What we exercised
+- **Publishing**: World ID gates publishing authorization.
+- **Access**: AgentBook-linked wallets receive the preferred AgentKit/x402 access path.
+- **Commerce**: AgentBook identity is shown as context before provider access and purchase decisions.
+- **Trust**: Human-backed identity provides bounded identity context while The Graph supplies economic reliability.
+- **Continuity**: Multiple AgentBook-linked wallets can be associated with one publisher profile.
+- **Passports**: Agent identity, wallet registration, publisher continuity, Graph evidence, and settlement history are shown together.
 
-- Firebase-invite install → auto-created World ID on first open (worked, no email — correctly pure crypto identity)
-- Developer settings → Local Configuration flags (we needed `enable-v4-protocol` ON — was already ON; `issue-v4-credentials` OFF by default, documented nowhere for the RP flow)
-- Verification tool screen — Orb/NFC/Selfie stubs only; **no Device stub exists** (device credential is implicit — reasonable, but undiscoverable; we spent real time looking for it)
-- QR approval attempt for an RP action (`publish-service`, Device, staging)
+## World ID Sandbox / Staging Test Matrix
 
-### Friction and edge cases
+The application includes a World ID staging surface at:
 
-1. **`generic_error` is a catch-all that covers at least six distinct causes** we personally hit: action not created, environment mismatch, expired RP nonce, WASM initialization failure, sandbox app without an in-app scanner, and deep-link falling through to the production Play Store page. A debug mode that surfaces `request_id` + server reason would cut support load dramatically. (We enabled IDKit debug via `window.IDKIT_DEBUG` — even then the messages were generic.)
-2. **The sandbox build has no discoverable QR scanner.** The production World App's home-screen scanner doesn't exist in the sandbox build, and `orb-verification-enable-scanner-tab` (a Local Configuration flag) doesn't add an RP-QR scanner. We asked the user to scan with the native camera; the deep link redirected to the **production app's Play Store page** — a dead end for a sandbox-only device. The simulator link inside IDKit is the workaround, but it's easy to miss.
-3. **Vite pre-bundling breaks IDKit's WASM.** `@worldcoin/idkit` loads `idkit_wasm_bg.wasm` via `new URL(..., import.meta.url)`. Vite's dependency pre-bundling moves the module into `node_modules/.vite/deps/`, where the computed URL 404s (server returns HTML), WASM init throws, and IDKit surfaces `generic_error`. Fix: `optimizeDeps.exclude: ['@worldcoin/idkit', '@worldcoin/idkit-core']` — then `qrcode` (a CJS transitive dep) needs explicit pre-bundling back for interop. **Zero documentation mentions this.** Any Vite user hits it. This deserves a "Framework notes" doc section.
-4. **Device-credential approval UX in staging is opaque.** With the action created and flags matching, the approval screen still isn't guaranteed to appear — the app-to-app relay through World's servers is a black box with no request-status surface. A "pending requests" list inside the sandbox app (like WhatsApp Web's device list) would make debugging trivial.
-5. **Edge case: per-user vs per-agent verification.** World's model is one-human-one-nullifier (correct!), but AgentKit docs don't address the product pattern of *user verifies once, all their agents inherit*. We built it at the profile level with agent-side inheritance; a note in the docs on this pattern (it's the natural shape for agent platforms) would help.
+```text
+/developer/world-verification
+```
 
----
+The following cases are supported by the implementation and must be demonstrated with the World ID Sandbox App before submission:
 
-## 4. What was confusing, missing, broken, or hard to test
+| Case | Expected result |
+|---|---|
+| Valid Sandbox proof | Account becomes World ID verified |
+| Invalid proof | Verification rejected; nullifier is not persisted |
+| Replayed proof | Replay protection rejects the proof |
+| World ID verified, AgentBook not registered | Publishing is unlocked, wallet remains AgentBook pending |
+| AgentBook QR approval | Wallet registration is confirmed after on-chain lookup |
+| QR expiration | Session reports expiration and allows a new registration request |
+| Approval delayed | Session remains `awaiting_confirmation` while polling continues |
+| AgentBook lookup unavailable | Registration is not falsely marked complete |
+| Multiple wallets | Each wallet requires its own AgentBook registration |
+| Unregistered wallet | Wallet receives no fabricated AgentBook identity |
 
-**Confusing:**
-- v2/v3 vs v4 docs split (biggest single issue)
-- `generic_error` opacity (six causes, one message)
-- Actions-under-Verification section placement
-- Where the sandbox scanner lives (it doesn't — see above)
+GlobalPay cannot extend the World-issued QR lifetime. The backend retains the local registration session for delayed confirmation, but the QR expiration remains controlled by World.
 
-**Missing:**
-- JS SDK registration API (child-process CLI spawning shouldn't be the documented path for products)
-- Verify-link lifetime/semantics documentation
-- Express/Next.js middleware examples for the hooks flow
-- Vite/WASM packaging note
-- A sandbox "pending verification requests" surface
+## Observed Developer Experience Feedback
 
-**Broken (for our setup):**
-- Sandbox deep link → falls through to production Play Store (can't complete RP QR flow on a sandbox-only device)
-- IDKit WASM under Vite pre-bundling (worked around via `optimizeDeps.exclude` + explicit `qrcode` pre-bundle)
+### Clear
 
-**Hard to test:**
-- End-to-end RP flow requires: Portal app + RP key + action creation + sandbox app install + flags + scanner-or-simulator. Each step is individually documented; the *composition* isn't. A single "test your first verification" checklist (with the simulator as the default path) would compress a day into an hour.
-- AgentBook registration testing requires approving in the World App mid-CLI-run — hard in CI. The `--manual` mode (prints call data instead of submitting) helps, but a dry-run/staging relay endpoint would make automated tests possible.
+- The separation between account-level World ID and wallet-level AgentBook registration is important and maps well to real agent ownership.
+- The official CLI flow produces a user-approvable World App request instead of asking GlobalPay to hold private keys.
+- Independent AgentBook lookup after CLI completion prevents a local process exit from being treated as proof of registration.
+- Explicit `awaiting_confirmation` state makes delayed indexing visible.
 
----
+### Confusing or easy to misunderstand
 
-## What we built anyway (proof the primitives are good)
+- World ID verification and AgentBook registration are different operations and should not share a single generic “verified” badge.
+- QR expiration is controlled by World and cannot be changed by the application.
+- A World ID-verified account can publish before every wallet is AgentBook registered, while AgentBook-gated access remains wallet-specific.
+- A wallet can be human-backed without having an `agent_book_id` until the wallet-specific registration completes.
 
-Despite the friction, the integration is real and load-bearing:
+### Debugging guidance
 
-- **IDKit v4 flow**: RP signature server-side → popup → proof → `developer.world.org/api/v4/verify` → nullifier stored UNIQUE → account-level `world_verified`, all agents inherit
-- **AgentBook resolution**: every marketplace service enriched via `lookupHuman()` → "Human Verified" badges from the canonical World Chain registry
-- **AgentBook registration**: official `agentkit-cli register` spawned from a backend service, verify-URL surfaced as QR, completion confirmed independently on-chain, persisted (`human_backed`, `agent_book_id`, `agentbook_tx_hash`)
-- **AgentKit gate on x402 routes**: `X-AGENT-WALLET` → AgentBook lookup → human-backed agents get 3 free-trial uses (durable `agentkit_usage` table), unregistered bots pay via x402 — the exact free-trial pattern from the docs, in Express
+When registration appears stuck:
 
-## Top 5 asks
+1. Check the browser registration state at `/developer/world-verification`.
+2. Check whether the status is `pending`, `awaiting_confirmation`, `cli_submitted`, `completed`, or `failed`.
+3. Confirm the wallet address shown in the request is the intended agent wallet.
+4. Approve the request in the World App Sandbox.
+5. Wait for AgentBook lookup/indexing confirmation.
+6. Confirm the agent row has a real `agent_book_id` and `agentbook_tx_hash`.
+7. Do not infer registration from `human_backed` alone.
 
-1. Fix the sandbox deep-link fallthrough to the production Play Store page
-2. Surface real error codes/reasons in IDKit instead of `generic_error`
-3. Ship `registerAgent()` in the JS SDK
-4. Document the Vite/WASM `optimizeDeps.exclude` requirement
-5. Add the "user verifies once, agents inherit" pattern to the AgentKit docs
+## Sandbox Submission Note
+
+The final hackathon submission should include a short screen recording using World ID Sandbox App test users. The recording should show:
+
+```text
+World ID proof
+→ account verified
+→ wallet selected
+→ AgentBook QR generated
+→ World App approval
+→ AgentBook registration confirmed
+→ Agent Passport updated
+```
+
+No World credentials, proof payloads, private keys, or API secrets belong in this repository.
