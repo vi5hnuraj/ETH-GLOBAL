@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/supabase-js": "^2.110.8",
     "@worldcoin/agentkit": "^0.2.1",
     "@worldcoin/idkit-core": "^4.2.4",
