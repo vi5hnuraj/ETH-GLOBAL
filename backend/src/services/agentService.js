@@ -355,8 +355,10 @@ export const getAgentHistory = async (agent, { limit = 50, page, offset } = {}) 
   const { data, error, count } = await query;
   if (error) throw new Error(`History fetch failed: ${error.message}`);
 
-  const transactions = (data || []).map((tx) => ({
+  const transactions = (data || []).filter((tx) => tx.agent_id === agent.id).map((tx) => ({
     id: tx.id,
+    agentId: agent.agent_id,
+    walletAddress: agent.wallet_address,
     to: tx.destination_address,
     amount: (Number(tx.amount) / 1e18).toFixed(8),
     token: tx.token || 'USDC',

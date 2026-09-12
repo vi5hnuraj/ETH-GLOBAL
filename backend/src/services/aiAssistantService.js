@@ -10,7 +10,7 @@
 import logger from '../utils/logger.js';
 import { askTrustEngine, analyzeProviders, getGraphStatus, verifySettlement } from './graphIntelligenceService.js';
 import { listMarketplace } from './marketplaceService.js';
-import { createPrepaidIntent, confirmPrepaidPurchase } from './commerceService.js';
+import { createPrepaidIntent, confirmPrepaidPurchase, getMonthlySpendWei } from './commerceService.js';
 import { getArcBalance, getArcNetworkStatus } from './arcService.js';
 import { supabase } from '../config/supabaseClient.js';
 
@@ -22,6 +22,10 @@ const INTENTS = [
   { id: 'purchase_cheapest', patterns: /(?:buy|purchase|get|acquire|order)\s+(?:the\s+)?(?:cheapest|lowest|most\s+affordable|least\s+expensive)/i },
   { id: 'purchase_under', patterns: /(?:buy|purchase|get)\s+.+?(?:under|below|less\s+than)\s+[\d.]+\s*(?:usdc|dollar|\$)/i },
   { id: 'purchase_generic', patterns: /(?:buy|purchase|get|acquire|order)\s+.+/i },
+  { id: 'verify_payment', patterns: /(?:verify|check|confirm|inspect)\s+(?:my\s+)?(?:last\s+)?(?:payment|transaction|tx|settlement|invoice)/i },
+  { id: 'show_spending', patterns: /(?:show|what(?:'s| is)|how much)\s+(?:my\s+)?(?:spending|spend|spent).*(?:month|today|week)?/i },
+  { id: 'compare_providers', patterns: /compare\s+(?:providers?|services?)(?:\s+by\s+(?:trust|price|reliability))?/i },
+  { id: 'run_workflow', patterns: /(?:run|start|execute)\s+(?:my\s+)?(?:document|ocr|resume|data)\s+workflow/i },
   // Lifecycle intents (checked before discovery to avoid false matches)
   { id: 'how_much_earned', patterns: /(?:how\s+much\s+(?:have\s+i\s+)?earned|total\s+revenue|my\s+earnings)/i },
   // Discovery intents
@@ -37,7 +41,6 @@ const INTENTS = [
   { id: 'what_do_i_need', patterns: /(?:what\s+do\s+i\s+need|what(?:'s| is)\s+required|before\s+(?:selling|publishing))/i },
   { id: 'show_services', patterns: /(?:show|list|what(?:'s| are))\s+(?:my\s+)?(?:published\s+)?services/i },
   // Verification + payment
-  { id: 'verify_payment', patterns: /(?:verify|check|confirm|inspect)\s+(?:my\s+)?(?:last\s+)?(?:payment|transaction|tx|settlement|invoice)/i },
   { id: 'show_balance', patterns: /(?:show|check|what(?:'s| is))\s+(?:my\s+)?(?:balance|wallet|funds|money)/i },
   { id: 'show_reputation', patterns: /(?:show|what(?:'s| is))\s+(?:my\s+)?(?:reputation|trust\s+score|provider\s+score)/i },
   { id: 'help', patterns: /(?:help|what\s+can\s+you|commands|capabilities|what\s+do\s+you)/i },
@@ -52,10 +55,10 @@ const classifyIntent = (text) => {
 
 const extractCapability = (text) => {
   const match = text.match(/(?:for|about|related\s+to)\s+(\w+(?:\s+\w+)?)/i);
-  if (match) return match[1].trim();
+  if (match) return match[1].trim().replace(/\s+(provider|service|agent)s?$/i, '');
   // Try to extract from common patterns: "buy OCR", "purchase GPU inference"
   const capabilityMatch = text.match(/(?:buy|purchase|get|find)\s+(?:the\s+)?(?:safest|best|cheapest)?\s*(\w+(?:\s+\w+)?)/i);
-  if (capabilityMatch) return capabilityMatch[1].trim();
+  if (capabilityMatch) return capabilityMatch[1].trim().replace(/\s+(provider|service|agent)s?$/i, '');
   return null;
 };
 
@@ -132,7 +135,17 @@ const handlePurchase = async (text, { consumerAgentId, developerId, organization
 
   // Resolve consumer agent
   if (!consumerAgentId) {
-    const { data: agents } = await supabase.from('ai_agents').select('agent_id').limit(1);
+    const { data: agents } = await supabase.from('ai_agents').select('*').limit(1);
+    consumerAgentId = agents?.[0]?.agent_id;
+  }
+  let consumerAgent = null;
+  if (consumerAgentId) {
+    const { data: agent } = await supabase.from('ai_agents').select('*').eq('agent_id', consumerAgentId).maybeSingle();
+    consumerAgent = agent;
+  }
+  if (!consumerAgent) {
+    const { data: agents } = await supabase.from('ai_agents').select('*').limit(1);
+    consumerAgent = agents?.[0] || null;
     consumerAgentId = agents?.[0]?.agent_id;
   }
   if (!consumerAgentId) {
@@ -150,7 +163,7 @@ const handlePurchase = async (text, { consumerAgentId, developerId, organization
       intent = await createPrepaidIntent({
         developerId,
         organizationId,
-        consumerAgent: { agent_id: consumerAgentId },
+        consumerAgent,
         service: { ...candidate, service_id: candidate.serviceId },
         quantity: '1',
         reason: `AI Assistant: ${text}`
@@ -246,34 +259,42 @@ const handlePurchase = async (text, { consumerAgentId, developerId, organization
 
 const handleFindProviders = async (text, tracker) => {
   const intent = classifyIntent(text);
+  const capability = extractCapability(text);
 
   tracker.add('observe', 'Querying The Graph', 'Loading provider settlement history...');
 
   let question;
-  if (intent === 'find_earners') question = 'Who earned the most USDC?';
+  if (intent === 'find_earners') question = `Who earned the most USDC${capability ? ` for ${capability}` : ''}?`;
   else if (intent === 'find_risky') question = 'Are there any fraud signals?';
   else if (intent === 'find_active') question = 'Which provider was most recently active?';
   else if (intent === 'find_cheapest') question = 'Which provider has the most affordable services?';
   else if (intent === 'find_success_rate') question = text;
-  else question = 'Which provider is safest?';
+  else question = `Which provider is safest${capability ? ` for ${capability}` : ''}?`;
 
-  const result = await askTrustEngine(question);
+  let providerIds;
+  if (capability) {
+    const marketplace = await listMarketplace({ search: capability, perPage: 100 });
+    providerIds = [...new Set((marketplace.services || []).map((service) => service.provider?.wallet).filter(Boolean))];
+  }
+  const result = await askTrustEngine(question, providerIds);
+  const graphBackedProviders = (result.providers || []).filter((provider) => Number(provider.paymentCount || 0) > 0);
 
-  tracker.add('decide', 'Analyzing results', `${result.providers?.length || 0} provider(s) analyzed`);
+  tracker.add('decide', 'Analyzing results', `${graphBackedProviders.length} provider(s) with indexed evidence analyzed`);
 
-  const providerLines = (result.providers || []).slice(0, 5).map((p, i) => {
+  const topProviders = graphBackedProviders.slice(0, 5);
+  const providerLines = topProviders.map((p, i) => {
     const worldBadge = p.humanBacked ? '✓ Human Verified (World)' : '⚠ Unverified';
     return `${i + 1}. ${worldBadge}\n   Trust ${p.trustScore}/100 · ${p.successfulPayments}/${p.paymentCount} successful · ${p.settlementVolume?.toFixed(4)} USDC · ${p.uniquePayers} buyer(s) · risk ${p.riskLevel}`;
   }).join('\n\n');
 
   return {
-    message: result.answer,
-    answer: result.answer,
+    message: topProviders.length ? result.answer : 'No matching providers have indexed Graph settlement evidence yet.',
+    answer: topProviders.length ? result.answer : 'No matching providers have indexed settlement evidence on The Graph yet. GlobalPay will not recommend a provider without verifiable on-chain history.',
     steps: tracker.steps,
     data: {
       intent: result.intent,
-      providers: result.providers,
-      recommendation: result.recommendation,
+       providers: topProviders,
+       recommendation: topProviders[0] || null,
       providerSummary: providerLines
     }
   };
@@ -315,13 +336,15 @@ const handleVerifyPayment = async (text, tracker) => {
   };
 };
 
-const handleCheckVerified = async (tracker) => {
+const handleCheckVerified = async (tracker, consumerAgentId) => {
   tracker.add('observe', 'Checking verification status', 'Querying World AgentKit...');
-  const { data: agents } = await supabase.from('ai_agents').select('agent_id, agent_name, world_verified, human_backed, wallet_address').limit(1);
+  let query = supabase.from('ai_agents').select('agent_id, agent_name, world_verified, human_backed, agent_book_id, wallet_address');
+  if (consumerAgentId) query = query.eq('agent_id', consumerAgentId);
+  const { data: agents } = await query.limit(1);
   const agent = agents?.[0];
   if (!agent) return { message: 'No agent found. Create one first.', answer: '❌ No agent found. Create an AI agent in the Agent Studio first.', steps: tracker.steps };
   if (agent.world_verified) {
-    return { message: 'Agent is verified.', answer: `✅ Your agent ${agent.agent_name || agent.agent_id} is verified via World AgentKit.\n\n• World Verified: Yes\n• AgentBook Registered: Yes\n• Human-backed: Yes\n• Wallet: ${agent.wallet_address?.slice(0, 10)}…\n\nYou can publish AI services in the marketplace.`, steps: tracker.steps };
+    return { message: 'World ID verified.', answer: `✅ Your agent ${agent.agent_name || agent.agent_id} is verified via World ID.\n\n• World Verified: Yes\n• AgentBook Registered: ${agent.agent_book_id ? 'Yes' : 'No — wallet registration is still required'}\n• Human-backed: ${agent.human_backed ? 'Yes' : 'Pending'}\n• Wallet: ${agent.wallet_address?.slice(0, 10)}…\n\nWorld ID unlocks publishing. AgentBook is wallet-specific and is only marked registered after this wallet completes the AgentBook flow. The Graph separately measures settlement trust.`, steps: tracker.steps };
   }
   return { message: 'Agent is not verified.', answer: `❌ Your agent ${agent.agent_name || agent.agent_id} is NOT verified.\n\n• World Verified: No\n• Wallet: ${agent.wallet_address?.slice(0, 10)}…\n\nTo publish services, you must verify with World ID first.\nGo to: /developer/world-verification`, steps: tracker.steps };
 };
@@ -364,6 +387,28 @@ const handleHowMuchEarned = async (tracker) => {
   const { data: invoices } = await supabase.from('service_invoices').select('amount_wei, status').eq('status', 'paid');
   const total = (invoices || []).reduce((sum, inv) => sum + Number(inv.amount_wei || 0), 0) / 1e18;
   return { message: `Total earned: ${total.toFixed(4)} USDC`, answer: `💰 Total Earnings\n\n• ${total.toFixed(4)} USDC across ${(invoices || []).length} payment(s)\n\nRevenue comes from Arc settlements verified by The Graph.`, steps: tracker.steps };
+};
+
+const handleShowSpending = async (tracker, { organizationId }) => {
+  tracker.add('observe', 'Checking spending', 'Querying prepaid purchase history...');
+  const start = new Date();
+  start.setUTCDate(1); start.setUTCHours(0, 0, 0, 0);
+  let query = supabase.from('service_invoices').select('amount_wei,status,created_at').eq('status', 'paid').gte('created_at', start.toISOString());
+  if (organizationId) query = query.eq('organization_id', organizationId);
+  const { data: invoices, error } = await query;
+  if (error) tracker.add('observe', 'Spending lookup degraded', 'The invoice ledger did not return a complete result.');
+  const total = (invoices || []).reduce((sum, inv) => sum + Number(inv.amount_wei || 0), 0) / 1e18;
+  return { message: `Monthly spending: ${total.toFixed(4)} USDC`, answer: `💳 Spending this month\n\n• ${total.toFixed(4)} USDC paid\n• ${(invoices || []).length} settled purchase(s)\n\nPayments are settled on Arc and verified through The Graph.`, steps: tracker.steps, data: { spending: { monthToDateUSDC: total, settledPurchases: (invoices || []).length } } };
+};
+
+const handleRunWorkflow = async (tracker) => {
+  tracker.add('decide', 'Workflow handoff', 'A workflow requires step selection, a paying agent, and a policy review before execution.');
+  return {
+    message: 'Workflow ready to configure.',
+    answer: '⚙️ Workflow execution\n\nI can prepare the workflow, but I will not invent steps or providers from a chat request. Open the Workflow Builder to select live Marketplace services, choose the paying agent, and review the payment policy before execution.',
+    steps: tracker.steps,
+    data: { action: 'workflow_handoff', href: '/developer/network/workflows' }
+  };
 };
 
 const handleBalance = async (text, tracker) => {
@@ -429,7 +474,7 @@ Every response explains WHY — backed by The Graph, World AgentKit, and Arc.`,
 // ==================== Main Entry Point ====================
 
 export const processAssistantMessage = async (text, context = {}) => {
-  const { consumerAgentId, developerId, organizationId } = context;
+  const { consumerAgentId, developerId, organizationId, mode = 'ask' } = context;
   const tracker = createStepTracker();
   const intent = classifyIntent(text);
 
@@ -437,6 +482,11 @@ export const processAssistantMessage = async (text, context = {}) => {
 
   try {
     if (intent === 'purchase_safest' || intent === 'purchase_cheapest' || intent === 'purchase_under' || intent === 'purchase_generic') {
+      if (mode !== 'act') {
+        const analysisText = text.replace(/\b(?:buy|purchase|get|acquire|order)\b/gi, '').trim() || 'Which provider is safest?';
+        const analysis = await handleFindProviders(analysisText, tracker);
+        return { ...analysis, message: 'Analysis complete — no purchase was initiated.', answer: `🔍 Analysis only\n\n${analysis.answer}\n\nNo payment or purchase intent was created because Ask & Analyze mode is active.` };
+      }
       return await handlePurchase(text, { consumerAgentId, developerId, organizationId }, tracker);
     }
     if (intent === 'find_safest' || intent === 'find_cheapest' || intent === 'find_earners' || intent === 'find_risky' || intent === 'find_active' || intent === 'find_success_rate') {
@@ -445,6 +495,15 @@ export const processAssistantMessage = async (text, context = {}) => {
     if (intent === 'verify_payment') {
       return await handleVerifyPayment(text, tracker);
     }
+    if (intent === 'show_spending') {
+      return await handleShowSpending(tracker, { organizationId });
+    }
+    if (intent === 'compare_providers') {
+      return await handleFindProviders('Which provider is safest and most reliable?', tracker);
+    }
+    if (intent === 'run_workflow') {
+      return await handleRunWorkflow(tracker);
+    }
     if (intent === 'show_balance') {
       return await handleBalance(text, tracker);
     }
@@ -452,7 +511,7 @@ export const processAssistantMessage = async (text, context = {}) => {
       return await handleFindProviders('Which provider is safest?', tracker);
     }
     if (intent === 'check_verified') {
-      return await handleCheckVerified(tracker);
+      return await handleCheckVerified(tracker, consumerAgentId);
     }
     if (intent === 'why_cant_publish') {
       return await handleWhyCantPublish(tracker);

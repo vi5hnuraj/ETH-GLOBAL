@@ -574,7 +574,7 @@ export const enrichServices = async (services) => {
 // INTELLIGENT PROVIDER SELECTION (Phase 3)
 // =====================================================================
 
-const inferRequirement = (task = '', requirement) => {
+export const inferRequirements = (task = '', requirement) => {
   const t = String(task).toLowerCase();
   const req = { ...(requirement || {}) };
   if (!req.capability) {
@@ -590,6 +590,11 @@ const inferRequirement = (task = '', requirement) => {
   if (req.maxBudgetBot == null) {
     const budgetMatch = t.match(/(?:under|below|less than|maximum|max)\s+([0-9]+(?:\.[0-9]+)?)\s*(?:usdc|usd|bot)?/i);
     if (budgetMatch) req.maxBudgetBot = Number(budgetMatch[1]);
+  }
+  if (req.quantity == null) {
+    const quantityMatch = t.match(/(?:buy|purchase|order|reserve)\s+(?:one|a|an|the\s+)?([0-9]+(?:\.\d+)?)\s+(?:credit|credits|request|requests|unit|units|hour|hours)/i);
+    if (quantityMatch) req.quantity = Number(quantityMatch[1]);
+    else if (/\bone\b|\ba\b|\ban\b/.test(t) && /credit|request|unit/.test(t)) req.quantity = 1;
   }
   if (req.verifiedOnly == null && /\bverif(?:ied|y)|world id|human[- ]backed/.test(t)) req.verifiedOnly = true;
   if (!req.sortBy && /fastest|lowest latency|quickest/.test(t)) req.sortBy = 'latency';
@@ -611,7 +616,7 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
   if (!isGraphConfigured()) {
     throw httpError(503, 'The Graph provider is required for provider recommendations. Configure GRAPH_GATEWAY_URL and GRAPH_API_KEY.', 'GRAPH_REQUIRED');
   }
-  const req = inferRequirement(task, requirements);
+  const req = inferRequirements(task, requirements);
   const policy = await getPolicyByOrg(organizationId);
 
   let q = supabase
@@ -1363,6 +1368,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     credits: String(session.quantity),
     amountBOT,
     txHash,
+    settlementVerification,
     providerReputation,
     paidAt,
     accessKey,

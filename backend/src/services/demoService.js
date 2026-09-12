@@ -18,7 +18,7 @@ import { supabase } from '../config/supabaseClient.js';
 import { askTrustEngine, verifySettlement, getGraphStatus } from './graphIntelligenceService.js';
 import { listMarketplace } from './marketplaceService.js';
 import { createPrepaidIntent, confirmPrepaidPurchase } from './commerceService.js';
-import { getArcNetworkStatus } from './arcService.js';
+import { getArcBalance, getArcNetworkStatus } from './arcService.js';
 import { getVerificationStatus } from './worldAgentKitService.js';
 
 /**
@@ -51,17 +51,19 @@ export const runAutonomousDemo = async ({ developerId, organizationId } = {}) =>
 
     const { data: agents } = await supabase
       .from('ai_agents')
-      .select('agent_id, agent_name, wallet_address, world_verified, human_backed')
+      .select('id, agent_id, agent_name, wallet_id, developer_id, organization_id, wallet_address, world_verified, human_backed, agent_book_id')
       .order('created_at', { ascending: true })
       .limit(5);
 
-    if (!agents?.length) {
-      addStage('agent', 'failed', 'No agents found. Create an agent first.');
+    const payableAgents = (agents || []).filter((agent) => agent.wallet_id);
+    if (!payableAgents.length) {
+      addStage('agent', 'failed', 'No consumer agent with an MPC wallet found. Create or fund an agent wallet first.');
       return report;
     }
 
-    const consumerAgent = agents[0];
-    addStage('agent', 'complete', `Using agent: ${consumerAgent.agent_name || consumerAgent.agent_id}`, {
+    let consumerAgent = payableAgents[0];
+    const displayAgentName = /\$\(date|\$\{/.test(String(consumerAgent.agent_name || '')) ? 'Funded consumer agent' : (consumerAgent.agent_name || consumerAgent.agent_id);
+    addStage('agent', 'complete', `Using agent: ${displayAgentName}`, {
       agentId: consumerAgent.agent_id,
       wallet: consumerAgent.wallet_address,
       worldVerified: consumerAgent.world_verified
@@ -74,7 +76,8 @@ export const runAutonomousDemo = async ({ developerId, organizationId } = {}) =>
     if (verification?.world_verified) {
       addStage('world', 'complete', 'Agent is World verified — publishing allowed', {
         verified: true,
-        agentBookId: verification.agent_book_id
+        agentBookId: verification.agent_book_id || null,
+        agentBookRegistered: Boolean(verification.agent_book_id)
       });
     } else {
       addStage('world', 'pending', 'Agent not World verified — buying still works, publishing requires verification', {
@@ -123,6 +126,38 @@ export const runAutonomousDemo = async ({ developerId, organizationId } = {}) =>
       price: matchingService.unitPrice
     });
 
+    const requiredAmount = Number(matchingService.unitPrice || 0);
+    let consumerBalance = null;
+    try {
+      for (const candidate of payableAgents) {
+        const balance = candidate.wallet_address ? await getArcBalance(candidate.wallet_address) : null;
+        if (balance && Number(balance.balanceUsdc || 0) >= requiredAmount) {
+          consumerAgent = candidate;
+          consumerBalance = balance;
+          if (candidate.agent_id !== agents?.[0]?.agent_id) {
+            addStage('agent', 'complete', `Using funded agent: ${candidate.agent_name || candidate.agent_id}`, {
+              agentId: candidate.agent_id,
+              wallet: candidate.wallet_address,
+              balanceUSDC: balance.balanceUsdc
+            });
+          }
+          break;
+        }
+      }
+    } catch (err) {
+      addStage('agent', 'failed', `Unable to check consumer wallet balance: ${err.message}`);
+      return report;
+    }
+    const availableAmount = Number(consumerBalance?.balanceUsdc || 0);
+    if (!consumerBalance || availableAmount < requiredAmount) {
+      addStage('settlement', 'failed', `Insufficient USDC balance. Required ${requiredAmount.toFixed(4)} USDC; available ${availableAmount.toFixed(4)} USDC.`, {
+        requiredUSDC: requiredAmount,
+        availableUSDC: availableAmount,
+        wallet: consumerAgent.wallet_address
+      });
+      return report;
+    }
+
     // ── Stage 7: Arc Settlement ───────────────────────────────────
     addStage('settlement', 'running', 'Executing Arc payment...');
 
@@ -131,7 +166,7 @@ export const runAutonomousDemo = async ({ developerId, organizationId } = {}) =>
       const intent = await createPrepaidIntent({
         developerId,
         organizationId,
-        consumerAgent: { agent_id: consumerAgent.agent_id },
+        consumerAgent,
         service: { ...matchingService, service_id: matchingService.serviceId },
         quantity: '1',
         reason: 'Autonomous demo — one-click lifecycle verification'
