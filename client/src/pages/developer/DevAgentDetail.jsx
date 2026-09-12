@@ -217,7 +217,7 @@ const DevAgentDetail = () => {
           {/* Transactions */}
           <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white">Transactions</h3>
+               <div><h3 className="text-sm font-semibold text-white">Transactions from this wallet</h3><p className="mt-0.5 truncate text-[10px] font-mono text-zinc-600" title={agent.wallet}>{agent.wallet}</p></div>
               {txHistory.length > 0 && (
                 <button type="button" onClick={downloadLogs} className="text-[11px] text-zinc-500 hover:text-white inline-flex items-center gap-1">
                   <FiDownload size={10} /> Export

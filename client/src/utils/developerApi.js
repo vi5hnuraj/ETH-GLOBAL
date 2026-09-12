@@ -260,7 +260,9 @@ export const developerApi = {
   graphStatus: () => request('/developers/graph/status'),
   providerAnalysis: (providerIds) => request('/developers/graph/provider-analysis', { method: 'POST', body: JSON.stringify({ providerIds }) }),
   graphAsk: (question, providerIds) => request('/developers/graph/ask', { method: 'POST', body: JSON.stringify({ question, providerIds }) }),
-  autonomousCommerce: (body) => request('/developers/commerce/autonomous', { method: 'POST', body: JSON.stringify(body) }),
+  // Autonomous commerce includes MPC signing, Arc confirmation, and Graph
+  // indexing verification; it can legitimately outlive the default 20s API timeout.
+  autonomousCommerce: (body) => request('/developers/commerce/autonomous', { method: 'POST', body: JSON.stringify(body), timeout: 180000 }),
   assistantChat: (body) => request('/developers/assistant/chat', { method: 'POST', body: JSON.stringify(body), timeout: 120000 }),
 
   // ---- World AgentKit ----

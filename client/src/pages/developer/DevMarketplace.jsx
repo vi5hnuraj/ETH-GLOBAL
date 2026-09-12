@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import {
   FiShoppingBag, FiSearch, FiCpu, FiZap, FiBookOpen, FiPlus,
-  FiTrendingUp, FiStar, FiX, FiShoppingCart, FiCheckCircle
+  FiTrendingUp, FiStar, FiX, FiShoppingCart, FiCheckCircle, FiActivity, FiArrowUpRight
 } from 'react-icons/fi';
 import StatCard from '../../components/dev/StatCard';
 import Card from '../../components/dev/Card';
@@ -95,6 +95,23 @@ const DevMarketplace = () => {
   const [pendingSession, setPendingSession] = useState(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [addingToCart, setAddingToCart] = useState(null);
+  const [evidence, setEvidence] = useState(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+  const openEvidence = async (service) => {
+    const agentId = service.agent?.agentId || service.provider?.agentId || service.agentId;
+    setEvidence({ service, passport: null });
+    if (!agentId) return;
+    setEvidenceLoading(true);
+    try {
+      const response = await developerApi.agentPassportProfile({ agentId, serviceId: service.serviceId });
+      setEvidence({ service, passport: response.passport || response });
+    } catch {
+      setEvidence({ service, passport: null, error: 'Provider evidence is temporarily unavailable.' });
+    } finally {
+      setEvidenceLoading(false);
+    }
+  };
 
   const allServices = data?.services || [];
   const catalogLoaded = !!data;
@@ -348,7 +365,7 @@ const DevMarketplace = () => {
             }>
               <div className="grid md:grid-cols-3 gap-4">
                 {featured.map((s) => (
-                  <ServiceCard key={s.serviceId} s={s} onBuy={() => openBuy(s)} onAddToCart={() => handleAddToCart(s)} addingToCart={addingToCart === s.serviceId} featured />
+                  <ServiceCard key={s.serviceId} s={s} onBuy={() => openBuy(s)} onEvidence={openEvidence} onAddToCart={() => handleAddToCart(s)} addingToCart={addingToCart === s.serviceId} featured />
                 ))}
               </div>
             </Card>
@@ -394,7 +411,7 @@ const DevMarketplace = () => {
             ) : (
               <>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-                  {pageItems.map((s) => <ServiceCard key={s.serviceId} s={s} onBuy={() => openBuy(s)} onAddToCart={() => handleAddToCart(s)} addingToCart={addingToCart === s.serviceId} />)}
+                  {pageItems.map((s) => <ServiceCard key={s.serviceId} s={s} onBuy={() => openBuy(s)} onEvidence={openEvidence} onAddToCart={() => handleAddToCart(s)} addingToCart={addingToCart === s.serviceId} />)}
                 </div>
                 <Pagination
                   page={page}
@@ -568,11 +585,43 @@ const DevMarketplace = () => {
           </div>
         </div>
       )}
+
+      {evidence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setEvidence(null)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-violet-400">Provider evidence</p>
+                <h3 className="mt-1 text-lg font-semibold text-white">{evidence.service.title}</h3>
+                <p className="text-xs text-zinc-500">{evidence.service.provider?.name || evidence.service.provider?.agentId || 'Provider'}</p>
+              </div>
+              <button type="button" onClick={() => setEvidence(null)} className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white"><FiX size={16} /></button>
+            </div>
+            {evidenceLoading ? <div className="mt-6 text-sm text-zinc-500">Loading live Graph evidence…</div> : evidence.error ? <div className="mt-6 text-sm text-amber-400">{evidence.error}</div> : (
+              <>
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 p-3"><p className="text-[10px] text-zinc-500">Trust score</p><p className="mt-1 text-lg font-bold text-violet-300">{evidence.passport?.trustScore ?? '—'}/100</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-[10px] text-zinc-500">Success</p><p className="mt-1 text-lg font-bold text-emerald-400">{evidence.passport?.intelligence?.paymentCount ? `${((evidence.passport.intelligence.successfulPayments / evidence.passport.intelligence.paymentCount) * 100).toFixed(0)}%` : '—'}</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-[10px] text-zinc-500">Risk</p><p className="mt-1 text-sm font-semibold text-zinc-200">{evidence.passport?.riskLevel || '—'}</p></div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-zinc-500">Settlements</p><p className="mt-1 text-white">{evidence.passport?.intelligence?.successfulPayments ?? 0} / {evidence.passport?.intelligence?.paymentCount ?? 0}</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-zinc-500">Volume</p><p className="mt-1 text-white">{Number(evidence.passport?.intelligence?.settlementVolume || 0).toFixed(4)} USDC</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-zinc-500">Unique buyers</p><p className="mt-1 text-white">{evidence.passport?.intelligence?.uniqueBuyers ?? 0}</p></div>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><p className="text-zinc-500">Repeat buyers</p><p className="mt-1 text-white">{evidence.passport?.intelligence?.repeatBuyers ?? 0}</p></div>
+                </div>
+                <div className="mt-4 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-xs"><span className="text-zinc-500">Identity</span><span className="text-zinc-200">{evidence.passport?.humanVerified ? 'World ID verified' : 'Not verified'} · {evidence.passport?.agentBookRegistered ? 'AgentBook registered' : 'AgentBook pending'}</span></div>
+                <div className="mt-4 flex items-center justify-between"><span className="text-[11px] text-violet-400">The Graph · Arc Testnet</span><Link to={`/developer/agent-profile?agentId=${encodeURIComponent(evidence.service.agent?.agentId || evidence.service.provider?.agentId || evidence.service.agentId || '')}&serviceId=${encodeURIComponent(evidence.service.serviceId)}`} onClick={() => setEvidence(null)} className="inline-flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">View full Passport <FiArrowUpRight size={11} /></Link></div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
+const ServiceCard = ({ s, onBuy, onEvidence, onAddToCart, addingToCart, featured }) => (
   <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-4 flex flex-col h-full hover:border-zinc-700 hover:bg-zinc-950 transition-colors group">
     <div className="flex items-center justify-between mb-2">
       <Pill tone={featured ? 'amber' : 'blue'}>{s.category}</Pill>
@@ -614,46 +663,14 @@ const ServiceCard = ({ s, onBuy, onAddToCart, addingToCart, featured }) => (
             </span>
           )}
         </div>
-        {/* Settlement stats — only show when genuine (jobs > 0, fresh snapshot) */}
-        {(() => {
-          const jobs = s.reputation?.completedJobs ?? 0;
-          const fresh = s.reputation?.recomputedAt && (Date.now() - new Date(s.reputation.recomputedAt).getTime()) < 7 * 24 * 60 * 60 * 1000;
-          const rate = s.reputation?.paymentSuccessRate;
-          // paymentSuccessRate is stored as 0-1 in DB; display as percentage
-          const ratePct = rate != null ? (rate <= 1 ? (rate * 100).toFixed(0) : Math.min(100, rate).toFixed(0)) : null;
-          if (jobs <= 0 && !fresh) return null;
-          return (
-            <div className="flex items-center gap-3 text-[10px] text-zinc-500">
-              {jobs > 0 && <span title="Completed jobs">{jobs} jobs</span>}
-              {ratePct && jobs > 0 && <span title="Success Rate" className={Number(ratePct) >= 90 ? 'text-emerald-400' : ''}>{ratePct}% success</span>}
-              {Number(s.reputation.totalRevenueBOT) >= 0.01 && <span title="Revenue">Earned {Number(s.reputation.totalRevenueBOT).toFixed(2)} USDC</span>}
-            </div>
-          );
-        })()}
-        {(!s.reputation || s.reputation.completedJobs === 0) && s.humanBacked && (
-          <p className="text-[10px] text-zinc-600">Newly published verified provider — settlement history builds with each transaction</p>
-        )}
-        {/* Why this provider? explainable trust reasoning */}
-        {(() => {
-          const reasons = [];
-          if (s.humanBacked) reasons.push('Verified human publisher (World ID + AgentBook) — reduces counterparty risk');
-          if (s.agentBookId) reasons.push('AgentBook registered on World Chain — wallet linked to verified identity');
-          if (s.reputation?.completedJobs > 0) reasons.push(`${s.reputation.completedJobs} settlement(s) completed on Arc`);
-          if (s.reputation?.paymentSuccessRate > 0 && s.reputation?.completedJobs > 0) { const rpct = s.reputation.paymentSuccessRate <= 1 ? (s.reputation.paymentSuccessRate * 100).toFixed(0) : Math.min(100, s.reputation.paymentSuccessRate).toFixed(0); reasons.push(`${rpct}% payment success rate`); }
-          if (s.reputation?.repeatCustomers > 0) reasons.push(`${s.reputation.repeatCustomers} repeat buyer(s) — indicates provider reliability`);
-          if (s.requireX402) reasons.push(`x402 micropayment required — ${s.x402Price || '0.01'} USDC per API call on Arc`);
-          if (!reasons.length) return null;
-          return (
-            <div className="mt-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-2.5">
-              <p className="mb-1.5 text-[10px] font-semibold text-zinc-400">Why this provider?</p>
-              <ul className="space-y-1">
-                {reasons.map((r, i) => (
-                  <li key={i} className="text-[10px] leading-relaxed text-zinc-500">• {r}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
+          {s.humanBacked ? <span className="text-violet-300">✓ Human-backed</span> : <span>Identity pending</span>}
+          <span className="text-cyan-400">● Arc settlement</span>
+          {s.reputation?.paymentSuccessRate != null && <span className="text-emerald-400">{(Number(s.reputation.paymentSuccessRate) <= 1 ? Number(s.reputation.paymentSuccessRate) * 100 : Number(s.reputation.paymentSuccessRate)).toFixed(0)}% success</span>}
+        </div>
+        <button type="button" onClick={() => onEvidence(s)} className="mt-2 inline-flex items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300">
+          <FiActivity size={11} /> View provider evidence <FiArrowUpRight size={10} />
+        </button>
       </div>
     )}
     <div className="mt-auto pt-3 flex items-center justify-between">
