@@ -6,10 +6,10 @@ const CardDeal = () => (
   <section className={layout.section}>
     <div className={layout.sectionInfo}>
       <h2 className={styles.heading2}>
-        Transact globally, <br className="sm:block hidden" /> with zero friction.
+        Policy-controlled <br className="sm:block hidden" /> autonomous payments.
       </h2>
       <p className={`${styles.paragraph} max-w-[470px] mt-5`}>
-        Connect your MetaMask wallet and start sending crypto globally in seconds. No bank account, no KYC delays — just pure web3 payments.
+        AI agents pay within predefined procurement policies. If a payment exceeds the policy, GlobalPay requires approval instead of silently allowing it. Autonomy without losing control.
       </p>
 
       <Button styles={`mt-10`} />

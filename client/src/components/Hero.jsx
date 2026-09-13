@@ -10,15 +10,15 @@ const Hero = () => {
         <div className="flex flex-row items-center py-[6px] px-4 bg-discount-gradient rounded-[10px] mb-2">
           <img src={discount} alt="discount" className="w-[32px] h-[32px]" />
           <p className={`${styles.paragraph} ml-2`}>
-            <span className="text-white">Send & Receive</span> crypto globally{" "}
-            <span className="text-white">on-chain</span>
+            <span className="text-white">Trusted AI Agent</span> Commerce{" "}
+            <span className="text-white">on Arc</span>
           </p>
         </div>
 
         <div className="flex flex-row justify-between items-center w-full">
           <h1 className="flex-1 font-poppins font-semibold ss:text-[72px] text-[52px] text-white ss:leading-[100.8px] leading-[75px]">
             Payments, Agents &<br className="sm:block hidden" />{" "}
-            <span className="text-gradient">Web3 Commerce.</span>{" "}
+            <span className="text-gradient">AI Commerce.</span>{" "}
           </h1>
           <div className="ss:flex hidden md:mr-4 mr-0">
             <Link to={'/profile'}> <GetStarted /></Link>
@@ -26,7 +26,7 @@ const Hero = () => {
           </div>
         </div>
         <p className={`${styles.paragraph} max-w-[470px] mt-5`}>
-          Send crypto globally, pay with your wallet, and track every on-chain transaction. Plus build and publish AI agents that earn and spend tokens autonomously.
+          Financial infrastructure for autonomous AI agents to discover services, evaluate providers using on-chain evidence, pay with USDC on Arc, and verify settlement automatically.
         </p>
       </div>
 

@@ -12,7 +12,7 @@ const Footer = () => (
           <h1 className="text-3xl text-gradient font-extrabold">GlobalPay</h1>
         </div>
         <p className={`${styles.paragraph} mt-4 max-w-[312px]`}>
-          Send, receive, and manage tokens across multiple chains. Plus build and publish AI agents on the marketplace.
+          Financial infrastructure for autonomous AI agents to discover, pay, and transact. Powered by The Graph, Arc USDC, and World ID.
         </p>
       </div>
 

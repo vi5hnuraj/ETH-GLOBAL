@@ -11,7 +11,7 @@ const Testimonials = () => (
         What people are <br className="sm:block hidden" /> saying about us
       </h2>
       <p className={`${styles.paragraph} max-w-[500px] mt-5`}>
-        Payments, wallets, and an AI agent marketplace — everything you need to move tokens on-chain and grow your presence in the ecosystem.
+        Trusted payments, Graph-verified providers, and autonomous agent commerce — everything you need to build the on-chain AI economy.
       </p>
     </div>
 

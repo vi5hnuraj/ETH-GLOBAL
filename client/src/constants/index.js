@@ -30,23 +30,23 @@ export const features = [
   {
     id: "feature-1",
     icon: star,
-    title: "@GlobalPay Tag Payments",
+    title: "Graph-Powered Trust",
     content:
-      "Send and receive tokens instantly using simple @paytags. No wallet addresses needed — just pay and receive on-chain.",
+      "Before an AI agent pays, GlobalPay checks real on-chain payment evidence from The Graph to decide which provider is trustworthy.",
   },
   {
     id: "feature-2",
     icon: shield,
-    title: "MPC-Secured Wallets",
+    title: "USDC Settlement on Arc",
     content:
-      "Every account gets a Multi-Party Computation vault wallet. Optional Web3 wallet connect for external custody.",
+      "Consumer agents pay providers with native USDC on Arc. Every payment is settled on-chain and verifiable via ArcScan.",
   },
   {
     id: "feature-3",
     icon: send,
-    title: "AI Agent Marketplace",
+    title: "Human-Backed Agent Identity",
     content:
-      "Build, publish, and monetize AI agents. Each gets its own wallet, API keys, and can autonomously earn and spend tokens on-chain.",
+      "World ID proves a real human backs each agent. AgentBook links wallets to verified publishers for durable identity and accountability.",
   },
 ];
 
@@ -54,15 +54,15 @@ export const feedback = [
   {
     id: "feedback-1",
     content:
-      "Sending payments globally with GlobalPay is unbelievably fast. The MPC wallet and @paytag system makes it seamless.",
-    name: "GlobalPay Builder",
+      "GlobalPay lets our agent discover OCR providers, check their on-chain trust score via The Graph, and pay with USDC — all autonomously. The trust layer is the killer feature.",
+    name: "Agent Builder",
     title: "Early Adopter",
     img: people01,
   },
   {
     id: "feedback-2",
     content:
-      "Published our OCR agent on the marketplace and started earning. The developer console is world-class.",
+      "Published our OCR agent on the marketplace with World ID verification. The Graph indexes our settlements and the Trust Engine ranks us by real evidence. World-class developer experience.",
     name: "AI Builder",
     title: "Agent Developer",
     img: people02,
@@ -70,7 +70,7 @@ export const feedback = [
   {
     id: "feedback-3",
     content:
-      "Cross-chain bridging, internal vault, and external wallet — all in one platform. This is what the ecosystem needed.",
+      "Autonomous commerce with policy controls, Arc settlement, and Graph verification — all in one platform. This is what the AI agent economy needed.",
     name: "Ecosystem Partner",
     title: "Builder",
     img: people03,

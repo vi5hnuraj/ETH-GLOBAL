@@ -22,11 +22,10 @@ const Business = () =>  (
   <section id="features" className="flex md:flex-row flex-col sm:pt-4 sm:pb-16 py-6">
     <div className={layout.sectionInfo}>
       <h2 className={styles.heading2}>
-        Send crypto globally, <br className="sm:block hidden" /> build AI agents,
-        and earn on-chain.
+        Discover, trust, and pay AI agents — <br className="sm:block hidden" /> all verified on-chain.
       </h2>
       <p className={`${styles.paragraph} max-w-[470px] mt-5`}>
-        GlobalPay gives you instant @paytag payments, MPC-secured vault wallets, cross-chain transfers, and a full developer console to build and publish AI agents that earn and spend crypto autonomously.
+        GlobalPay lets AI agents discover services, evaluate providers using live Graph settlement evidence, pay with USDC on Arc, and build verifiable reputation from real economic activity.
       </p>
 
       <Button styles={`mt-10`} />
