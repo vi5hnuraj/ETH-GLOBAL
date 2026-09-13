@@ -243,7 +243,7 @@ export const developerApi = {
       body: JSON.stringify({ serviceId, consumerAgentId, quantity: String(quantity), reason })
     }).then((r) => r.session),
   confirmPrepaidPurchase: (sessionId) =>
-    request(`/developers/commerce/prepaid/${encodeURIComponent(sessionId)}/confirm`, { method: 'POST', body: '{}' }),
+    request(`/developers/commerce/prepaid/${encodeURIComponent(sessionId)}/confirm`, { method: 'POST', body: '{}', timeout: 120000 }),
 
   // ---- Autonomous Commerce ----
   updateCapabilities: (serviceId, body) => request(`/developers/services/${encodeURIComponent(serviceId)}/capabilities`, { method: 'PUT', body: JSON.stringify(body) }).then((r) => r.capabilities),

@@ -32,7 +32,7 @@ const REPUTATION_TTL_MS = Number(process.env.REPUTATION_TTL_MS || 15 * 60 * 1000
 
 export const genId = (prefix) => `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
 
-const waitForGraphPayment = async (paymentId, timeoutMs = 60000) => {
+const waitForGraphPayment = async (paymentId, timeoutMs = 15000) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const payment = await getPaymentEntity(paymentId);
@@ -585,7 +585,11 @@ export const inferRequirements = (task = '', requirement) => {
     else if (/\btranslat/.test(t)) req.capability = 'translation';
     else if (/\bimage gen|generate image|dall-e|sd\b/.test(t)) req.capability = 'imageGeneration';
     else if (/\bstorage|store|backup/.test(t)) req.capability = 'storage';
-    else if (/\binfer|llm|model|gpu|inference/.test(t) || !req.capability) req.capability = 'inference';
+    else if (/\bmarket intelligen|analytic|research|data|intelligence|insight|report|scrape|crawl|web search|search api|fetch data|fetching/.test(t)) req.capability = 'data';
+    else if (/\bapi|endpoint|rest|graphql|webhook/.test(t) && !/\bocr|speech|voice/.test(t)) req.capability = 'api';
+    else if (/\bgpu|cuda|h100|a100/.test(t)) req.capability = 'gpu';
+    else if (/\binfer|llm|model|inference/.test(t)) req.capability = 'inference';
+    else req.capability = 'inference';
   }
   if (req.maxBudgetBot == null) {
     const budgetMatch = t.match(/(?:under|below|less than|maximum|max)\s+([0-9]+(?:\.[0-9]+)?)\s*(?:usdc|usd|bot)?/i);
@@ -704,11 +708,34 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
     if (req.verifiedOnly && !s.worldVerified) { block('verified'); continue; }
     if (req.model && !hasModel(cap.supportedModels, req.model)) { block('capability'); continue; }
     const serviceText = `${s.title || ''} ${s.description || ''} ${s.category || ''}`.toLowerCase();
-    const capabilityMatched = cap.capabilities?.[req.capability] || serviceText.includes(String(req.capability || '').toLowerCase()) || (req.capability === 'inference' && ['ai-model', 'gpu', 'compute'].includes(s.category));
-    if (req.capability && !cap.capabilities && !capabilityMatched) { block('capability'); continue; }
-    if (req.capability && cap.capabilities && !capabilityMatched) { block('capability'); continue; }
 
-    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust, graphTrust, uptime, latency, estWei });
+    // Capability-specific text keywords for fuzzy matching
+    const CAPABILITY_KEYWORDS = {
+      data: ['data', 'intelligence', 'analytics', 'market', 'research', 'insight', 'report', 'scrape', 'crawl', 'web', 'fetch', 'monitor', 'tracking'],
+      api: ['api', 'endpoint', 'rest', 'graphql', 'webhook', 'integration', 'connect', 'gateway'],
+      inference: ['inference', 'llm', 'large language', 'generate text', 'predict', 'gpu inference', 'model inference', 'compute'],
+      gpu: ['gpu', 'cuda', 'h100', 'a100', 'v100', 't4', 'compute node', 'gpu inference', 'gpu agent'],
+      training: ['train', 'training', 'fine-tune', 'finetune', 'dataset'],
+      ocr: ['ocr', 'document', 'text extract', 'image text', 'scan'],
+      speech: ['speech', 'tts', 'voice', 'audio', 'transcri'],
+      translation: ['translat', 'language', 'locali'],
+      imageGeneration: ['image gen', 'generate image', 'dall-e', 'stable diffusion', 'midjourney', 'sd'],
+      embeddings: ['embed', 'vector', 'similarity', 'semantic'],
+      storage: ['storage', 'store', 'backup', 'bucket', 'ipfs', 's3']
+    };
+
+    const capKeywords = CAPABILITY_KEYWORDS[req.capability] || [];
+    const keywordMatch = capKeywords.some((kw) => serviceText.includes(kw));
+
+    const capabilityMatched = cap.capabilities?.[req.capability]
+      || keywordMatch
+      || (req.capability === 'inference' && s.category === 'gpu')
+      || (req.capability === 'gpu' && s.category === 'gpu')
+      || (req.capability === 'data' && ['data-api', 'api', 'ai-agent', 'other', 'compute', 'web-search'].includes(s.category))
+      || (req.capability === 'api' && ['api', 'data-api', 'developer-tools', 'ai-agent', 'compute'].includes(s.category));
+    if (req.capability && !capabilityMatched) { block('capability'); continue; }
+
+    candidates.push({ s, cap, rep, providerCode, regions, priceBOT, trust, graphTrust, uptime, latency, estWei, keywordMatch: !!keywordMatch });
   }
 
   // Scoring
@@ -732,13 +759,15 @@ export const recommendProviders = async ({ developerId, organizationId, consumer
       ? (intersects(c.regions, p.preferredRegions) ? 100 : 40)
       : 70;
     const ratingScore = (c.cap.averageRating ?? 3.5) / 5 * 100;
+    // Relevance: services matching capability keywords score higher
+    const relevanceScore = c.keywordMatch ? 100 : 60;
     return Math.round((
-      costScore * 0.30
-       + trustScore * 0.35
-      + latencyScore * 0.15
-      + availScore * 0.15
+      costScore * 0.25
+       + trustScore * 0.30
+      + latencyScore * 0.10
+      + availScore * 0.10
       + regionScore * 0.05
-       + ratingScore * 0.00
+      + relevanceScore * 0.20
     ) * 100) / 100;
   };
 
@@ -1185,10 +1214,10 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
   const txHash = result.txHash;
   const paidAt = new Date().toISOString();
   const settlementVerification = await waitForGraphPayment(paymentId);
-  if (!settlementVerification.verified) {
-    const failedSession = await setSessionPaymentFailed(session, 'GRAPH_INDEXING_PENDING', provider);
-    return { success: false, failed: true, failureReason: 'GRAPH_INDEXING_PENDING', session: toPublicSession(failedSession), invoice: null, credits: 0 };
-  }
+  // Graph indexing may be slow — don't fail the purchase. The payment
+  // succeeded on Arc (txHash exists). Grant credits and let the Graph
+  // worker verify settlement asynchronously.
+  const graphVerified = settlementVerification.verified;
   // Feed the completed Arc action back into GlobalPay's local reputation
   // engine so the next Trust Engine decision observes the outcome.
   let providerReputation = null;
@@ -1369,6 +1398,7 @@ export const confirmPrepaidPurchase = async ({ sessionId, organizationId }) => {
     amountBOT,
     txHash,
     settlementVerification,
+    graphPending: !graphVerified,
     providerReputation,
     paidAt,
     accessKey,

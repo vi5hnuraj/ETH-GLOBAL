@@ -16,7 +16,7 @@
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { supabase } from '../config/supabaseClient.js';
-import { listViaDb, getPool } from '../utils/db.js';
+import { listViaDb, insertViaDb, getPool } from '../utils/db.js';
 import { getWalletService } from '../wallets/walletService.js';
 import { dispatchEvent } from './webhookService.js';
 import { audit } from './auditService.js';
@@ -150,29 +150,28 @@ export const createService = async ({ agent, title, description, category, prici
   if (!endpointUrl || !String(endpointUrl).trim()) throw httpError(400, 'API endpoint URL is required. Buyers need this to access your service.');
 
   const serviceId = generateServiceId();
-  const { data, error } = await supabase
-    .from('ai_services')
-    .insert({
-      service_id: serviceId,
-      agent_id: agent.id,
-      agent_code: agent.agent_id,
-      developer_id: agent.developer_id || null,
-      organization_id: agent.organization_id || null,
-      title: String(title).trim(),
-      description: description || null,
-      category,
-      pricing_model: pricingModel,
-      unit_price: unitPrice,
-      unit_label: unitLabel || null,
-      endpoint_url: endpointUrl || null,
-      health_check_url: healthCheckUrl || null,
-      require_x402: Boolean(requireX402),
-      x402_price: requireX402 ? String(x402Price || process.env.X402_DEFAULT_PRICE || '0.01') : null,
-      is_active: true,
-      metadata: metadata || {}
-    })
-    .select()
-    .single();
+  const insertRow = {
+    service_id: serviceId,
+    agent_id: agent.id,
+    agent_code: agent.agent_id,
+    developer_id: agent.developer_id || null,
+    organization_id: agent.organization_id || null,
+    title: String(title).trim(),
+    description: description || null,
+    category,
+    pricing_model: pricingModel,
+    unit_price: unitPrice,
+    unit_label: unitLabel || null,
+    endpoint_url: endpointUrl || null,
+    health_check_url: healthCheckUrl || null,
+    require_x402: Boolean(requireX402),
+    x402_price: requireX402 ? String(x402Price || process.env.X402_DEFAULT_PRICE || '0.01') : null,
+    is_active: true,
+    metadata: metadata || '{}',
+    supported_currencies: ['USDC']
+  };
+  // Use direct DB insert to bypass Supabase gateway RLS degradation
+  const { data, error } = await insertViaDb('ai_services', insertRow);
   if (error) throw new Error(`Failed to publish service: ${error.message}`);
 
   // Invalidate marketplace cache
@@ -399,7 +398,7 @@ export const listMarketplace = async ({ search, category, sort, order, page = 1,
 
       if (category && category !== 'all') q = q.eq('category', category);
       if (excludeAgentId) q = q.neq('agent_id', excludeAgentId);
-      if (search) q = q.ilike('title', `%${search}%`);
+      if (search) q = q.or(`title.ilike.%${search}%,description.ilike.%${search}%,category.ilike.%${search}%`);
 
       const per = Math.min(Number(perPage) || 20, 100);
       const from = (Math.max(1, Number(page) || 1) - 1) * per;

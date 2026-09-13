@@ -14,7 +14,7 @@ import { analyzeProviders, loadGraphSnapshot, verifySettlement } from './graphIn
 import { createPrepaidIntent, confirmPrepaidPurchase, getMonthlySpendWei, getPolicyByOrg, chargeWei, inferRequirements } from './commerceService.js';
 import { invokeService } from './serviceGateway.js';
 
-const capabilityFromGoal = (goal, capability) => String(capability || goal || '').trim().split(/\s+/).slice(-2).join(' ');
+const capabilityFromGoal = (goal, capability) => String(capability || goal || '').trim();
 
 export const executeAgentGoal = async ({
   goal,
@@ -29,15 +29,25 @@ export const executeAgentGoal = async ({
 }) => {
   if (!goal && !capability) throw Object.assign(new Error('A goal or capability is required.'), { status: 400 });
 
-  const search = capabilityFromGoal(goal, capability);
   const requirements = inferRequirements(goal, {});
+  // Use the extracted capability keyword as the search term — matches title, description, and category
+  const search = capability || requirements.capability || capabilityFromGoal(goal, capability);
   const purchaseQuantity = requirements.quantity > 0 ? String(requirements.quantity) : String(quantity);
   const marketplace = await listMarketplace({ search, perPage: 100, order: 'desc' });
   const candidates = (marketplace.services || []).filter((service) => {
     if (service.agentId === consumerAgent.agent_id || !service.provider?.wallet) return false;
     const price = Number(service.unitPriceBOT ?? service.unitPrice ?? 0);
     if (requirements.maxBudgetBot != null && price > Number(requirements.maxBudgetBot)) return false;
-    if (requirements.capability && service.category && !String(`${service.category} ${service.title} ${service.description}`).toLowerCase().includes(String(requirements.capability).toLowerCase()) && !['inference', 'compute'].includes(requirements.capability)) return false;
+    // Soft filter: only exclude if the service clearly doesn't match the requested capability
+    // Don't exclude inference/compute as they are universal capabilities
+    if (requirements.capability && !['inference', 'compute'].includes(requirements.capability)) {
+      const haystack = String(`${service.category || ''} ${service.title || ''} ${service.description || ''}`).toLowerCase();
+      const cap = String(requirements.capability).toLowerCase();
+      // Map similar capabilities for fuzzy matching
+      const synonyms = { ocr: ['ocr', 'document', 'vision', 'image', 'text'], gpu: ['gpu', 'compute', 'inference', 'training'], translation: ['translation', 'translate', 'language', 'nlp'], storage: ['storage', 'store', 'backup', 'data'], speech: ['speech', 'voice', 'audio', 'tts', 'stt'], data: ['data', 'api', 'research', 'intelligence', 'analytics', 'scrape'] };
+      const matches = [cap, ...(synonyms[cap] || [])].some((kw) => haystack.includes(kw));
+      if (!matches) return false;
+    }
     return true;
   });
   if (!candidates.length) throw Object.assign(new Error('No providers with live Graph evidence were found.'), { status: 404 });
