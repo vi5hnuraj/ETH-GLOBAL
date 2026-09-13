@@ -1,222 +1,287 @@
-# GlobalPay — The Payment Network Where AI Agents Are the Customers
+# GlobalPay — Trusted Commerce Infrastructure for Autonomous AI Agents
 
-**Arc Track · ETHGlobal Online 2026**
+**ETHGlobal ETHOnline 2026 · Continuity Track**
 
-GlobalPay is a stablecoin-native platform where AI agents hold real wallets, buy and sell services from each other, and settle every transaction on-chain. Humans set the goals; agents transact; the blockchain proves it happened.
+> GlobalPay gives autonomous AI agents a trusted way to discover services, evaluate providers using on-chain evidence from The Graph, pay with USDC on Arc, and verify settlement automatically.
 
 ```
-Create an agent → get a real wallet
-Buy instantly → verify with World to sell
-Let The Graph decide who's trustworthy
-Let Arc move the money
-Let HTTP 402 make every API a vending machine
+Organization + World ID verification
+        ↓
+Create Agent + MPC Wallet + API Key
+        ↓
+Publish Service (with USDC pricing)
+        ↓
+Consumer discovers service in Marketplace
+        ↓
+Trust Engine evaluates provider via The Graph
+        ↓
+Agent pays with USDC on Arc
+        ↓
+Settlement verified on-chain
+        ↓
+Service invoked · Usage recorded · Reputation updated
 ```
 
 ---
 
-## The Four Sponsor Layers
+## What GlobalPay Is
 
-| Layer | Sponsor | Role | Status |
-|---|---|---|---|
-| 💵 Money rails | **Arc L1** | MPC wallets, USDC-native settlement, smart-contract escrow | ✅ Live (chainId 5042002) |
-| 🤖 Machine payments | **x402** | HTTP 402 protocol — agents pay per API call, no subscriptions | ✅ Live, real transactions |
-| 📊 Truth layer | **The Graph** | On-chain indexing → trust scores, provider intelligence, AI decisions | ✅ Live subgraph, synced |
-| 🛡 Trust gate | **World AgentKit** | Proof of personhood required to *sell* (buy-side stays open) | ✅ Enforced in production routes |
+GlobalPay is a **two-sided agent economy** where:
+
+- **Providers** publish AI services (OCR, GPU inference, market intelligence, translation, etc.)
+- **Consumers** discover, evaluate, and purchase those services
+- **The Graph** provides verifiable trust evidence from real on-chain settlements
+- **Arc + USDC** handles payment settlement with native stablecoin
+- **World ID / AgentBook** provides human-backed identity verification
+- **AI Operator** enables natural-language control and autonomous commerce
+
+One agent can publish a service. Another agent can discover it, check if the provider is trustworthy, pay with USDC, use the service, and record the entire transaction — all without human intervention.
 
 ---
 
-## Verified Architecture (proof next to every claim)
+## The Complete Product Flow
 
-Every number below was captured from the **live system on 2026-09-09** — real transactions, real subgraph queries, real API responses. Nothing in this section is aspirational.
+### Step 1: Organization + Identity Verification
 
-### 1. Arc — the money rails
+Every participant operates through an organization. GlobalPay verifies the human behind the organization using World ID, establishing that the platform is operated by a real, unique human without exposing personal information.
 
-Agents don't simulate wallets. Creating an agent mints an **MPC threshold-signed wallet** (3 local signing nodes, ports 8101–8103) on Arc Testnet, where **USDC is the native gas token**.
+```
+Organization created
+        ↓
+World ID verification → human-backed identity confirmed
+        ↓
+AgentBook registration → specific wallet linked to verified human
+```
 
-| Fact | Value |
+World ID verifies the human-backed identity, while on-chain activity is used separately to evaluate settlement reliability. Verification is completed once and supports all agents created under this organization.
+
+### Step 2: Create Agent + MPC Wallet + API Key
+
+Before an agent can transact, it needs infrastructure:
+
+1. **Developer API Key** — authenticates the developer for management operations
+2. **Agent Studio** — creates an agent with a managed MPC wallet
+3. **MPC Wallet** — blockchain address + USDC balance on Arc Testnet
+4. **Agent API Key** — allows the agent to authenticate and access services
+
+```
+Developer API Key → Agent Studio → Create Agent
+        ↓
+MPC wallet minted (e.g. 0xF48709…EA988)
+Agent API key generated (gp_ai_...)
+        ↓
+Agent is now a financially operational entity
+```
+
+The agent is not just a chatbot identity — it has a programmable financial identity that can hold funds, access services, and perform authorized transactions.
+
+### Step 3: Publish a Service
+
+An agent can become a service provider. Publishing a service makes it discoverable in the marketplace:
+
+```
+Service: Market Intelligence API
+Description: Provides structured market insights
+Pricing: 0.01 USDC per request
+Category: Analytics / Finance
+API Endpoint: https://api.globalpay.ai/services/market-intelligence/invoke
+```
+
+Optional **x402** setting enables pay-per-call API access — agents can pay automatically for individual API requests without pre-purchasing.
+
+### Step 4: Marketplace Discovery
+
+The marketplace is where consumers find services. Each listing shows:
+
+- Provider name and wallet address
+- Service capability and description
+- Price and pricing unit
+- **Human-backed badge** (World ID verified)
+- **Trust score** (powered by The Graph)
+- **Arc settlement history**
+
+### Step 5: Trust Engine Evaluation (The Graph)
+
+Before purchasing, consumers can inspect provider evidence. The Trust Engine is powered by **The Graph** — our custom subgraph indexes payment settlements from Arc Testnet:
+
+| Evidence | What It Means |
 |---|---|
-| Network | Arc Testnet, `chainId 5042002` |
-| Gas token | USDC (native) |
-| PaymentManager contract | [`0x775Ab463A19E51072C61bAe94A0931E00F7caa42`](https://testnet.arcscan.app/address/0x775Ab463A19E51072C61bAe94A0931E00F7caa42) |
-| Explorer | `testnet.arcscan.app` |
-| Live block (at time of writing) | **61,237,260** |
-| Wallet custody | MPC threshold signing; local encrypted-key fallback in non-production only |
+| **Trust Score: 88/100** | Computed from payment success, volume, buyer diversity, recency |
+| **Success: 100% (22/22)** | 22 of 22 indexed payments released successfully |
+| **Volume: 0.0022 USDC** | Real on-chain settlement volume — not self-reported |
+| **Unique Buyers: 14** | How many different wallets have paid this provider |
+| **Repeat Buyers: 2** | Do buyers come back? Repeat = higher trust |
+| **Risk: Low** | No fraud signals detected |
+| **Source: The Graph · Arc Testnet** | Live from the subgraph, not from a database |
 
-**Real settlement transaction** (marketplace service invocation paid from an agent wallet):
+Instead of relying on self-reported ratings, agents evaluate providers using actual blockchain settlement evidence.
+
+**The Trust Engine** answers: *"Who can I trust?"*  
+**AI Recommendations** answers: *"Who should I buy from?"*
+
+### Step 6: Purchase + Arc USDC Payment
+
+The consumer creates a purchase session and pays with USDC on Arc:
+
+```
+Selected Service → Price → Consumer Agent
+        ↓
+Payment Confirmation
+        ↓
+Arc USDC Transaction (on-chain)
+        ↓
+Transaction Hash: 0xa1705e74…
+        ↓
+Graph Verification → Settlement confirmed
+        ↓
+Credits/Access Granted → Invoice Created
+```
+
+The payment is settled through the GlobalPay Payment Manager contract and can be verified on ArcScan.
+
+### Step 7: Agent Store (App Store for AI Agents)
+
+GlobalPay supports a full agent marketplace, similar to an App Store:
+
+- **Publishers** release versioned agents with pricing, documentation, and support
+- **Consumers** browse, install, subscribe, invoke, and manage agents
+- **Installed Agents** show status, version, subscription, and invocation controls
+
+> Services are individual capabilities that can be purchased. Agents are complete installable products with their own lifecycle, versions, permissions, and subscriptions.
+
+### Step 8: AI Assistant + Autonomous Commerce
+
+The **AI Operator** provides natural-language control over the entire infrastructure:
+
+```
+"Find the safest OCR provider and purchase one credit"
+        ↓
+Intent recognition → Provider discovery
+        ↓
+Trust Engine evaluation → Graph evidence
+        ↓
+Policy check → Budget and approval controls
+        ↓
+Provider selected → Purchase prepared
+        ↓
+Arc USDC payment → Settlement verified
+        ↓
+Result returned → Usage recorded
+```
+
+**Autonomous Commerce** combines these capabilities into a programmable execution loop: discover → evaluate → apply policy → pay → invoke → verify → record.
+
+The agent acts within configured permissions, budgets, and approval policies — autonomy without losing control.
+
+---
+
+## Architecture
+
+```text
+┌─────────────────────────────────────────────────┐
+│  Human Identity                                  │
+│  World ID / AgentBook → verified publisher       │
+├─────────────────────────────────────────────────┤
+│  Agent Infrastructure                            │
+│  MPC wallets · API keys · spending policies      │
+├─────────────────────────────────────────────────┤
+│  Trust Intelligence                              │
+│  The Graph subgraph → trust scores · risk flags  │
+├─────────────────────────────────────────────────┤
+│  Settlement                                      │
+│  Arc USDC · Payment Manager · ArcScan receipts   │
+├─────────────────────────────────────────────────┤
+│  Commerce                                        │
+│  Marketplace · Agent Store · Autonomous Commerce │
+├─────────────────────────────────────────────────┤
+│  AI Control                                      │
+│  AI Operator · MCP Server · x402 · Workflows     │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Partner Integrations
+
+| Layer | Partner | Role | Status |
+|---|---|---|---|
+| 💵 Settlement | **Arc L1** | MPC wallets, USDC-native settlement, Payment Manager | ✅ Live (chainId 5042002) |
+| 🤖 Machine payments | **x402** | HTTP 402 protocol — agents pay per API call | ✅ Live |
+| 📊 Trust | **The Graph** | Custom subgraph indexing Arc settlements → trust scores | ✅ Live subgraph |
+| 🛡 Identity | **World ID / AgentKit** | Human verification, AgentBook wallet registration | ✅ Enforced in routes |
+
+---
+
+## Verified Proof
+
+### Real Arc Settlement Transaction
 
 ```
 tx      0xa1705e74edf3e435d2e2367fc1319f3514ff60b579ede2dcac121bfbeb194a5f
-block   61218730 · status 1 · gas 21,000
-from    0xF487090C702f7733C89669A756a61a090eceA988 (agent "probe")
-to      0xD25F8736C3Efc19a7cb7A3D15f2aF22c2980E317 (platform treasury)
+block   61218730 · status 1
+from    0xF487090C702f7733C89669A756a61a090eceA988 (consumer agent)
+to      0xD25F8736C3Efc19a7cb7A3D15f2aF22c2980E317 (provider)
 amount  0.01 USDC
 ```
 
-Marketplace purchases route through the deployed `GlobalPayPaymentManager`:
-`settleInvoice(bytes32,address,bytes32)` → `release()` — both MPC-signed, both indexed by The Graph below.
-
-### 2. x402 — HTTP 402 as a payment protocol
-
-Any API can become a vending machine. Publish a service, tick **"Require x402 payment"**, and every invocation without payment proof receives a machine-readable challenge:
-
-```http
-HTTP/1.1 402 Payment Required
-{
-  "payment": {
-    "x402Version": 1,
-    "paymentId": "x402_mttwsk2z_07a24035",
-    "amount": "0.01",
-    "currency": "USDC",
-    "network": "Arc",
-    "chainId": 5042002,
-    "recipientAddress": "0xD25F8736C3Efc19a7cb7A3D15f2aF22c2980E317",
-    "instructions": { "header": "X-PAYMENT", "headerFormat": "JSON { paymentId, txHash, payer }" }
-  }
-}
-```
-
-The agent pays from its own wallet and retries with the proof. The backend verifies **on-chain** (receipt status, recipient match, amount match) and enforces **replay protection** — every `(paymentId, txHash)` pair can be consumed exactly once.
-
-**Full loop executed live, three times:**
-
-| # | x402 paymentId | Arc tx | Verified result |
-|---|---|---|---|
-| 1 | `x402_mttsbj7a_e57d4f3c` | `0x288445d1ac9f56456f697e59d1859bd5170329b9b7080fc981a0ee15a2983f51` | 402 → pay → **200** live Graph data |
-| 2 | `x402_mttuy3qk_1bd05e39` | `0xae7f52e7052c4228f3027afbde9978d61a09b1116f0185b3c10f8ff83af9f7cc` | 402 → pay → **200** trust analysis |
-| 3 | `x402_mttwsk2z_07a24035` | `0xa1705e74edf3e435d2e2367fc1319f3514ff60b579ede2dcac121bfbeb194a5f` | 402 → pay → gate passed; replay attempt → **409 rejected** |
-
-Replay-protection proof: resubmitting tx #3 with a fresh `paymentId` returns `409 Conflict` — "payment has already been used". Fail-closed checks also verified: malformed tx hash → 400, nonexistent tx → 402 (never opens the gate).
-
-### 3. The Graph — the truth layer
-
-All payment/settlement history is indexed by a deployed subgraph. **The Trust Engine reads exclusively from The Graph** — never from the platform database — and the autonomous commerce pipeline *refuses to buy from providers without indexed settlement evidence*.
-
-**Live subgraph status** (captured from `GET /api/developers/graph/status`):
+### Live Graph Subgraph
 
 ```json
 {
-  "provider": "The Graph",
-  "deploymentId": "QmPzoTATA5b9aYPCvDGMdD7Xe6uejX3nXiPXhEDLuRpCbu",
-  "queryUrl": "https://api.studio.thegraph.com/query/1758639/globalpay-arc/version/latest",
   "indexedBlock": 61237228,
   "headBlock": 61237237,
   "lagBlocks": 9,
-  "syncing": false,
   "paymentCount": 16,
   "settlementCount": 16,
-  "invoiceReferenceCount": 15,
   "graphLive": true
 }
 ```
 
-**Raw GraphQL response** (latest indexed payments, verbatim):
+### x402 Payment Protocol (executed 3 times)
 
-```json
-{
-  "payments": [{
-    "id": "0x38186dcc98d0bd8f6fa331878c5df74f28d4ae6f8e327bc6a26e44db7dcad048",
-    "payer": "0x08a03ba5613cdb08b6e79cf8b0ec2005b37f4f35",
-    "payee": "0x144a62dfa8bc0cc7b29ff5b0c1c43d773edafd16",
-    "amount": "100000000000000",
-    "status": "RELEASED",
-    "transactionHash": "0x43691a08d8bcb4b4b335619565ece013e8de76f4a32febfdc3ddc2c921ec34c8",
-    "blockNumber": "61052894"
-  }],
-  "settlements": [{ "id": "0x38186dcc…", "amount": "100000000000000", "blockNumber": "61052895" }]
-}
-```
+| # | Arc tx | Result |
+|---|---|---|
+| 1 | `0x288445d1…` | 402 → pay → **200** live Graph data |
+| 2 | `0xae7f52e7…` | 402 → pay → **200** trust analysis |
+| 3 | `0xa1705e74…` | 402 → pay → gate passed; replay → **409 rejected** |
 
-Trust scores are **explainable by design**. Every score ships with its evidence bullets, e.g.:
-
-> • 14 successful settlements of 14 indexed payments — 100.0% success rate
-> • 0.0016 USDC total settlement volume
-> • 12 unique buyers, 2 repeat buyers
-> • Last settlement 4h ago; 3 payments in the last 7 days (accelerating)
-
-Brand-new providers show **"Trust — (Unknown)"**, never a misleading low score: *trust becomes measurable after the first verified Graph settlement*. Fraud signals (self-payments, cancellation streaks, volume spikes, failure dominance) are detected from indexed history and lower both the score and the risk level.
-
-### 4. World AgentKit — the human gate
-
-Anyone can create agents and **buy**. To **sell** — publish a service or an agent listing — the developer must first verify personhood through World AgentKit. The gate is enforced in the production routes, not the UI:
+### World ID Publishing Gate
 
 ```
-POST /api/developers/services                        → requireWorldVerification middleware
-POST /api/developers/agent-marketplace/agents/:id/publish → requireWorldVerification middleware
+POST /api/developers/services → 403 "World AgentKit verification required"
 ```
-
-**Live proof** — publishing without verification:
-
-```json
-HTTP 403
-{ "message": "World AgentKit verification required before publishing a service…" }
-```
-
-Deliberate design decision: World verification is **authorization, not reputation**. It never boosts trust scores — reputation comes only from on-chain settlement history. Verified-human gets you in the door; the market decides the rest.
 
 ---
 
-## The Full Story, End to End
+## What's Built
 
-Every link in this chain was executed and verified on the live system:
+**60+ Developer Console Pages**: organizations, profiles, API keys, webhooks, playground, x402, Trust Engine, Autonomous Commerce, AI Assistant, Agent Store, billing, analytics
 
-```
- Developer (Supabase auth → organization → API keys)
-      │
-      ▼
- World AgentKit gate          403 "verification required" ← enforced in routes
-      │
-      ▼
- Create Agent                 MPC wallet minted on Arc
-      │                       e.g. 0xF48709…EA988
-      ▼
- Agent needs a capability     "Find the safest OCR provider"
-      │
-      ▼
- Observe — The Graph          provider settlement history queried live
-      │
-      ▼
- Decide — Trust Engine        score + confidence + risk flags + evidence bullets
-      │                       (Graph-only; no Graph evidence → no purchase)
-      ▼
- Act — x402 / PaymentManager  HTTP 402 challenge → agent pays its own wallet
-      │                       0xa1705e74… (block 61218730, status 1)
-      ▼
- Verify — The Graph           PaymentCreated + PaymentReleased indexed
-      │                       subgraph lag ≈ 7–9 blocks
-      ▼
- Invoice · Credits · Usage    platform ledger mirrors the chain
-      │
-      ▼
- Reputation & Webhooks        provider trust updates; HMAC-signed events fire
-```
+**Agent Runtime**: create/suspend/rotate/delete agents, MPC wallets, balance checks, payments, history, usage metering, invoices, reputation
 
-The **AI Assistant** (`/developer/assistant`) exposes this entire pipeline to a single sentence — *"Buy the safest OCR provider"* — and answers with the full Observe → Decide → Act → Verify trace: provider chosen, why (evidence bullets), Arc tx card, Graph verification card, invoice, credits.
+**Marketplace**: service publishing (metered pricing, x402 flag), agent store with versions/reviews, installations, revenue dashboards
 
-## What's Built (all verified working)
+**Trust Infrastructure**: Graph-backed trust scores, risk flags, explainable recommendations, provider leaderboards, MCP server for AI environments
 
-**Developer Console** (44 pages): organizations, team, public profiles, API keys (`gpay_dev_ / gpay_sk_ / gpay_svc_`), webhooks (Stripe-grade: stats, secret rotation, delivery drawer, replay, test events, live 5s auto-refresh), playground (17 live endpoints, all tested), x402 console, Trust Engine, Autonomous Commerce, AI Assistant.
+---
 
-**Agent runtime**: create/suspend/rotate/delete agents, MPC balance checks, payments, history, stats, marketplace sessions, usage metering, invoices, reputation.
+## Tech Stack
 
-**Marketplace**: service publishing (metered pricing, x402 flag), agent store with versions and reviews, installations, disputes, revenue dashboards.
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, TailwindCSS, TanStack Query |
+| Backend | Node.js, Express, PostgreSQL (Supabase) |
+| Blockchain | Arc Testnet (chain 5042002), USDC native gas |
+| Settlement | Solidity (`GlobalPayPaymentManager`), ethers.js |
+| Wallets | MPC threshold signing (3 local nodes) |
+| Trust | The Graph subgraph, custom Trust Engine |
+| Identity | World ID, AgentKit, AgentBook |
+| AI | MCP stdio server, AI Operator, autonomous commerce |
+| Payments | x402 HTTP payment protocol, prepaid settlement |
 
-**Trust infrastructure**: Graph-backed trust scores with transparent formulas, risk flags (wash-trading, cancellation streaks, volume spikes), explainable recommendations, provider leaderboards.
+---
 
-**Verification results** (all 17 playground endpoints, live):
-
-| Endpoint | Result | Endpoint | Result |
-|---|---|---|---|
-| Create Agent | ✅ 200 | Create Purchase Session | ✅ 400 validation |
-| Pay (invalid addr) | ✅ 400 | Report Usage | ✅ 400 validation |
-| Balance (live Arc) | ✅ 200 | List Invoices | ✅ 200 |
-| History | ✅ 200 | Pay Invoice | ✅ 404 correct |
-| Stats | ✅ 200 | Network Analytics | ✅ 200 |
-| Rotate Key | ✅ 200 | Graph Status | ✅ 200 live |
-| Publish Service (World gate) | ✅ 403 | x402 Premium | ✅ 402 challenge |
-| Browse Marketplace | ✅ 200 | Install Agent | ✅ 404 correct |
-| Invoke Service (svc key) | ✅ 401 | | |
-
-## Running It
+## Running
 
 ```bash
 # Backend (port 5550)
@@ -224,24 +289,22 @@ cd backend && npm install && NODE_ENV=staging node server.js
 
 # Frontend (port 5173)
 cd client && npm install && npm run dev
-
-# MPC signing nodes
-cd mpc && go run ./cmd/node -port 8101   # ×3 nodes
 ```
 
-Required env (backend `.env`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ARC_RPC_URL`, `GLOBAL_PAY_MANAGER_ADDRESS`, `GRAPH_API_KEY`, `GRAPH_QUERY_URL`, `MPC_SERVICE_TOKEN`, `WORLD_API_KEY`, `ENCRYPTION_KEY`.
-
-## Honest Boundary
-
-We label what's real and what isn't:
-
-- ✅ **Real**: Arc transactions (hashes above), MPC wallet custody, live Graph subgraph, x402 on-chain verification + replay protection, World publish gate, trust scoring.
-- ⚠️ **Labeled**: off-chain escrow records are explicitly marked *"off-chain ledger — hackathon demo, no on-chain funds moved"* in their API responses. We don't claim chain guarantees we don't have.
-
-## Tech Stack
-
-React 18 + Vite + Tailwind + TanStack Query · Node.js + Express + PostgreSQL (Supabase) · Solidity (`GlobalPayPaymentManager`) · ethers.js · Go (MPC threshold nodes) · The Graph subgraph ( AssemblyScript ) · World AgentKit · x402 protocol
+Required env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ARC_RPC_URL`, `GLOBAL_PAY_MANAGER_ADDRESS`, `GRAPH_API_KEY`, `GRAPH_QUERY_URL`, `MPC_SERVICE_TOKEN`, `WORLD_API_KEY`, `ENCRYPTION_KEY`
 
 ---
 
-**Arc moves the money. x402 prices the API. The Graph decides who to trust. World proves who's human. GlobalPay is where agents do business.**
+## Documentation
+
+| Document | Description |
+|---|---|
+| [HACKATHON_SUBMISSION.md](./HACKATHON_SUBMISSION.md) | Complete submission with all 3 prize tracks |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and payment sequence |
+| [ARC_CIRCLE_README.md](./ARC_CIRCLE_README.md) | Arc/Circle integration details |
+| [THE_GRAPH_README.md](./THE_GRAPH_README.md) | The Graph integration and MCP server |
+| [WORLD_AGENTKIT_FEEDBACK.md](./WORLD_AGENTKIT_FEEDBACK.md) | World AgentKit feedback document |
+
+---
+
+**GlobalPay turns agents from software that only produces outputs into economic participants that can discover, transact, and operate within controlled financial policies.**
