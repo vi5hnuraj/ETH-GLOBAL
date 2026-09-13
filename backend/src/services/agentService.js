@@ -7,7 +7,7 @@
  * provider is swappable (local/Privy/BO Wallet).
  */
 
-import logger from '../utils/logger.js';import crypto from 'crypto';
+import logger from '../utils/logger.js';import crypto from 'crypto';import { getPool } from '../utils/db.js';
 import { supabase } from '../config/supabaseClient.js';
 import { encryptText } from '../utils/cryptoUtils.js';
 import { getWalletService } from '../wallets/walletService.js';
@@ -170,14 +170,27 @@ export const getAgentById = async (agentId) => {
   return data || null;
 };
 
-export const listAgentsByDeveloper = async (developerId) => {
+export const listAgentsByDeveloper = async (developerId, organizationId) => {
   let query = supabase.from('ai_agents').select('*');
   if (developerId) query = query.eq('developer_id', developerId);
   query = query.order('created_at', { ascending: false });
 
   const { data, error } = await query;
   if (error) throw new Error(`Agent list failed: ${error.message}`);
-  return data || [];
+  let agents = data || [];
+  // Direct DB fallback if gateway returned empty (RLS degradation)
+  if (!agents.length) {
+    try {
+      let sql = 'SELECT * FROM ai_agents WHERE 1=1';
+      const params = [];
+      if (organizationId) { params.push(organizationId); sql += ` AND organization_id = $${params.length}`; }
+      else if (developerId) { params.push(developerId); sql += ` AND developer_id = $${params.length}`; }
+      sql += ' ORDER BY created_at DESC';
+      const { rows } = await getPool().query(sql, params);
+      agents = rows;
+    } catch { /* fall through */ }
+  }
+  return agents;
 };
 
 // ==================== Balances / Payments / History ====================

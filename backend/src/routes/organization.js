@@ -62,6 +62,21 @@ router.get('/orgs/current', resolveOrganization, current);
 // ---- org-scoped (resolveOrganization captures :orgId, membership enforced) ----
 router.use('/orgs/:orgId', resolveOrganization);
 
+router.get('/orgs/:orgId', requirePermission('org.read'), (req, res) => {
+  // Return the resolved org from middleware — avoids a separate DB lookup
+  ok(res, {
+    organization: {
+      id: req.organization.id,
+      slug: req.organization.slug,
+      name: req.organization.name,
+      avatarUrl: req.organization.avatar_url,
+      metadata: req.organization.metadata,
+      isPersonal: req.organization.is_personal
+    },
+    membership: { role: req.membership?.role, joinedAt: req.membership?.joined_at }
+  });
+});
+
 router.get('/orgs/:orgId/roles', rolesCatalog);
 router.get('/orgs/:orgId/permissions', requirePermission('org.read'), permissions);
 router.patch('/orgs/:orgId', requirePermission('org.manage'), update);

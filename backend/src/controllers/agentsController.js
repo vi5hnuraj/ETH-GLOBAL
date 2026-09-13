@@ -51,7 +51,7 @@ export const list = async (req, res) => {
     if (!developerId) {
       return res.status(200).json({ success: true, count: 0, agents: [] });
     }
-    const agents = await listAgentsByDeveloper(developerId);
+    const agents = await listAgentsByDeveloper(developerId, req.organization?.id);
     return res.status(200).json({
       success: true,
       count: agents.length,

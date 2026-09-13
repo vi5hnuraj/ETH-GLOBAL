@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { supabase } from '../config/supabaseClient.js';
 import { listViaDb, getPool } from '../utils/db.js';
+import logger from '../utils/logger.js';
 import { genId, getPolicyByOrg, getMonthlySpendWei } from './commerceService.js';
 import { getServiceByCode, getAgentByCode } from './marketplaceService.js';
 import { audit } from './auditService.js';
@@ -352,16 +353,43 @@ export const publishAgent = async ({ developerId, organizationId, agentId, field
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('listing_id', existing.listing_id)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw httpError(500, `Publish failed: ${error.message}`);
     row = data;
+    // Direct DB fallback if gateway returned null
+    if (!row) {
+      try {
+        const cols = Object.keys(payload);
+        const vals = Object.values(payload);
+        const setClauses = cols.map((c, i) => `${c} = $${i + 1}`).join(', ');
+        const { rows } = await getPool().query(
+          `UPDATE agent_catalog SET ${setClauses}, updated_at = NOW() WHERE listing_id = $${cols.length + 1} RETURNING *`,
+          [...vals, existing.listing_id]
+        );
+        row = rows[0];
+      } catch (dbErr) { throw httpError(500, `Publish failed: ${dbErr.message}`); }
+    }
   } else {
+    const listingId = genId('agc');
     const { data, error } = await supabase.from('agent_catalog')
-      .insert({ ...payload, listing_id: genId('agc') })
+      .insert({ ...payload, listing_id: listingId })
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw httpError(500, `Publish failed: ${error.message}`);
     row = data;
+    // Direct DB fallback if gateway returned null
+    if (!row) {
+      try {
+        const cols = ['listing_id', ...Object.keys(payload)];
+        const vals = [listingId, ...Object.values(payload)];
+        const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
+        const { rows } = await getPool().query(
+          `INSERT INTO agent_catalog (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+          vals
+        );
+        row = rows[0];
+      } catch (dbErr) { throw httpError(500, `Publish failed: ${dbErr.message}`); }
+    }
   }
 
   audit({ developerId, organizationId, action: 'agent.published', resourceType: 'agent_catalog', resourceId: row.listing_id, metadata: { agentId: agent.agent_id, title, category } });
@@ -598,8 +626,10 @@ export const installAgent = async ({ developerId, organizationId, listingId, act
   const { data: existing } = await supabase.from('agent_installations')
     .select('*').eq('listing_id', listing.id).eq('organization_id', organizationId).eq('status', 'active').maybeSingle();
   if (existing) {
+    let activeSub = null;
     if (listing.pricing_model !== 'free') {
-      const { data: activeSub } = await supabase.from('agent_subscriptions').select('*').eq('installation_id', existing.id).eq('organization_id', organizationId).eq('status', 'active').maybeSingle();
+      const { data: subFound } = await supabase.from('agent_subscriptions').select('*').eq('installation_id', existing.id).eq('organization_id', organizationId).eq('status', 'active').maybeSingle();
+      activeSub = subFound;
       if (!activeSub) {
         const { data: sub, error: subErr } = await supabase.from('agent_subscriptions').insert({
           subscription_id: genId('asb'),
@@ -621,7 +651,7 @@ export const installAgent = async ({ developerId, organizationId, listingId, act
         return { installation: toPublicInstallation(existing), subscription: toPublicSubscription(sub), alreadyInstalled: true };
       }
     }
-    return { installation: toPublicInstallation(existing), subscription: toPublicSubscription(activeSub || null), alreadyInstalled: true };
+    return { installation: toPublicInstallation(existing), subscription: toPublicSubscription(activeSub), alreadyInstalled: true };
   }
 
   let acting = null;

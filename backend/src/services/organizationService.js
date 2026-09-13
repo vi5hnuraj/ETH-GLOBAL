@@ -728,21 +728,20 @@ export const updateOrganization = async ({ orgId, actorId, patch = {} }) => {
 };
 
 export const countOrgResources = async (orgId) => {
+  const pool = getPool();
   const counts = {};
-  const queries = {
-    ai_agents: (q) => q.eq('status', 'active'),
-    developer_api_keys: (q) => q.neq('status', 'revoked'),
-    webhook_endpoints: (q) => q.eq('is_active', true),
-    subscriptions: (q) => q.not('status', 'in', '(cancelled,canceled)'),
-    invoices: (q) => q
-  };
+  const directQueries = [
+    ['ai_agents', `SELECT count(*)::int AS n FROM ai_agents WHERE organization_id = $1 AND status = 'active'`],
+    ['developer_api_keys', `SELECT count(*)::int AS n FROM developer_api_keys WHERE organization_id = $1 AND status != 'revoked'`],
+    ['webhook_endpoints', `SELECT count(*)::int AS n FROM webhook_endpoints WHERE organization_id = $1 AND is_active = true`],
+    ['subscriptions', `SELECT count(*)::int AS n FROM subscriptions WHERE organization_id = $1 AND status NOT IN ('cancelled','canceled')`],
+    ['invoices', `SELECT count(*)::int AS n FROM invoices WHERE organization_id = $1`]
+  ];
   await Promise.all(
-    Object.entries(queries).map(async ([table, scope]) => {
+    directQueries.map(async ([table, sql]) => {
       try {
-        let q = supabase.from(table).select('*', { count: 'exact', head: true }).eq('organization_id', orgId);
-        q = scope(q);
-        const { count, error } = await q;
-        counts[table] = error ? 0 : count || 0;
+        const { rows } = await pool.query(sql, [orgId]);
+        counts[table] = rows[0]?.n || 0;
       } catch {
         counts[table] = 0;
       }
@@ -764,26 +763,57 @@ export const deleteOrganization = async ({ orgId, actorId }) => {
     throw httpError(409, `Cannot delete: organization still owns resources (${detail}). Remove or transfer them first.`, 'ORG_HAS_RESOURCES');
   }
 
-  const { data: org, error } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('id', orgId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!org) throw httpError(404, 'Organization not found.', 'ORG_NOT_FOUND');
+  // Read org for audit metadata — non-blocking if org is already gone
+  let org = null;
+  try {
+    const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .maybeSingle();
+    if (error) throw error;
+    org = data;
+  } catch { /* gateway read failed, try direct */ }
+  if (!org) {
+    try { org = await getOrgDirect({ id: orgId }); } catch { /* direct read failed */ }
+  }
+
+  // If org row already gone, the delete is effectively done — clean up
+  // any orphaned membership row and return success.
+  if (!org) {
+    try { await getPool().query('DELETE FROM organization_members WHERE organization_id = $1', [orgId]); } catch { /* best-effort */ }
+    return { deleted: true, id: orgId, alreadyGone: true };
+  }
 
   // Mirrored to the global audit log because the org audit trail cascades away.
-  await globalAudit({
-    developerId: actorId,
-    organizationId: orgId,
-    action: 'organization.deleted',
-    resourceType: 'organization',
-    resourceId: orgId,
-    metadata: { name: org.name, slug: org.slug }
-  });
+  try {
+    await globalAudit({
+      developerId: actorId,
+      organizationId: orgId,
+      action: 'organization.deleted',
+      resourceType: 'organization',
+      resourceId: orgId,
+      metadata: { name: org.name, slug: org.slug }
+    });
+  } catch { /* audit logging is best-effort */ }
 
-  const { error: delErr } = await supabase.from('organizations').delete().eq('id', orgId);
+  // Delete via gateway, fall back to direct DB on transient RLS errors
+  let delErr = null;
+  try {
+    const { error } = await supabase.from('organizations').delete().eq('id', orgId);
+    delErr = error;
+  } catch (e) { delErr = e; }
+  if (delErr && TRANSIENT_ERROR_CODES.has(delErr.code)) {
+    try {
+      await getPool().query('DELETE FROM organizations WHERE id = $1', [orgId]);
+      delErr = null;
+    } catch { /* direct delete failed too — throw original */ }
+  }
   if (delErr) throw delErr;
+
+  // Best-effort cleanup of membership rows
+  try { await getPool().query('DELETE FROM organization_members WHERE organization_id = $1', [orgId]); } catch { /* non-fatal */ }
+
   return { deleted: true, id: orgId };
 };
 

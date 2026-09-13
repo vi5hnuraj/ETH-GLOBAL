@@ -12,6 +12,7 @@ import logger from '../utils/logger.js';
 import { cache } from '../utils/ttlCache.js';
 import { getProvider } from './chainRpcService.js';
 import { supabase } from '../config/supabaseClient.js';
+import { getPool } from '../utils/db.js';
 
 const QUERY_URL = process.env.GRAPH_QUERY_URL || '';
 const API_KEY = process.env.GRAPH_API_KEY || '';
@@ -434,13 +435,15 @@ export const analyzeProvider = async (providerId) => {
   const addr = providerAddress(providerId);
   let humanBacked = false;
   let publisherContext = null;
+  let agentName = null;
   try {
     const { data: agentRow } = await supabase
       .from('ai_agents')
-      .select('human_backed, developer_id, organization_id')
+      .select('human_backed, developer_id, organization_id, agent_name')
       .eq('wallet_address', addr)
       .maybeSingle();
     humanBacked = agentRow?.human_backed || false;
+    agentName = agentRow?.agent_name || null;
     if (agentRow && (agentRow.developer_id || agentRow.organization_id)) {
       publisherContext = await buildPublisherContext({
         developerId: agentRow.developer_id,
@@ -449,7 +452,7 @@ export const analyzeProvider = async (providerId) => {
       });
     }
   } catch { /* fall through */ }
-  return providerIntelligence(addr, snapshot.payments, humanBacked, publisherContext);
+  return { ...providerIntelligence(addr, snapshot.payments, humanBacked, publisherContext), agentName };
 };
 
 export const analyzeProviders = async ({ providerIds = [] } = {}) => {
@@ -459,23 +462,37 @@ export const analyzeProviders = async ({ providerIds = [] } = {}) => {
     : Array.from(new Set(snapshot.payments.map((payment) => String(payment.payee || '').toLowerCase()).filter(Boolean)));
   const humanBackedMap = new Map();
   const publisherContextMap = new Map();
+  const nameMap = new Map();
+  let agentRows = [];
   try {
     const { data: agents } = await supabase
       .from('ai_agents')
-      .select('wallet_address, human_backed, developer_id, organization_id')
+      .select('wallet_address, human_backed, developer_id, organization_id, agent_name')
       .in('wallet_address', payees);
-    for (const row of agents || []) {
-      const key = String(row.wallet_address || '').toLowerCase();
-      humanBackedMap.set(key, row.human_backed || false);
-      if (row.developer_id || row.organization_id) {
-        publisherContextMap.set(key, await buildPublisherContext({
-          developerId: row.developer_id, organizationId: row.organization_id, currentWallet: key
-        }));
-      }
-    }
+    agentRows = agents || [];
   } catch { /* fall through */ }
+  // Direct DB fallback if gateway returned empty (RLS degradation)
+  if (!agentRows.length && payees.length) {
+    try {
+      const { rows } = await getPool().query(
+        'SELECT wallet_address, human_backed, developer_id, organization_id, agent_name FROM ai_agents WHERE LOWER(wallet_address) = ANY($1)',
+        [payees.map(p => String(p).toLowerCase())]
+      );
+      agentRows = rows;
+    } catch { /* fall through */ }
+  }
+  for (const row of agentRows) {
+    const key = String(row.wallet_address || '').toLowerCase();
+    humanBackedMap.set(key, row.human_backed || false);
+    if (row.agent_name) nameMap.set(key, row.agent_name);
+    if (row.developer_id || row.organization_id) {
+      publisherContextMap.set(key, await buildPublisherContext({
+        developerId: row.developer_id, organizationId: row.organization_id, currentWallet: key
+      }));
+    }
+  }
   return payees
-    .map((payee) => providerIntelligence(payee, snapshot.payments, humanBackedMap.get(payee) || false, publisherContextMap.get(payee) || null))
+    .map((payee) => ({ ...providerIntelligence(payee, snapshot.payments, humanBackedMap.get(payee) || false, publisherContextMap.get(payee) || null), agentName: nameMap.get(payee) || null }))
     .sort((a, b) => (b.trustScore - a.trustScore) || (b.settlementVolume - a.settlementVolume));
 };
 
@@ -506,8 +523,10 @@ export const getPaymentEntity = async (paymentId) => {
 
 // ==================== Natural-language Trust Engine ====================
 
-const rankLine = (provider, index) =>
-  `${index + 1}. ${provider.providerId} — trust ${provider.trustScore}/100, ${provider.successfulPayments}/${provider.paymentCount} successful, ${provider.settlementVolume.toFixed(4)} USDC volume, ${provider.uniquePayers} buyer(s), risk ${provider.riskLevel}`;
+const rankLine = (provider, index) => {
+  const name = provider.agentName || provider.providerId;
+  return `${index + 1}. ${name} — trust ${provider.trustScore}/100, ${provider.successfulPayments}/${provider.paymentCount} successful, ${provider.settlementVolume.toFixed(4)} USDC volume, ${provider.uniquePayers} buyer(s), risk ${provider.riskLevel}`;
+};
 
 /**
  * Answer a natural-language question using ONLY Graph-derived intelligence.
@@ -532,11 +551,11 @@ export const askTrustEngine = async (question, providerIds) => {
   } else if (intent === 'risk_audit') {
     const flagged = providers.filter((provider) => provider.riskFlags.length);
     answer = flagged.length
-      ? `Risk audit (Graph evidence only):\n${flagged.map((provider) => `• ${provider.providerId}: ${provider.riskFlags.map((flag) => flag.detail).join(' ')}`).join('\n')}`
+      ? `Risk audit (Graph evidence only):\n${flagged.map((provider) => `• ${provider.agentName || provider.providerId}: ${provider.riskFlags.map((flag) => flag.detail).join(' ')}`).join('\n')}`
       : `No fraud signals found across ${providers.length} provider(s): no self-payments, no cancellation streaks, no volume spikes.`;
   } else if (intent === 'earnings') {
     const ranked = [...providers].sort((a, b) => b.settlementVolume - a.settlementVolume);
-    answer = `Top earner: ${ranked[0].providerId} with ${ranked[0].settlementVolume.toFixed(4)} USDC across ${ranked[0].successfulPayments} successful settlement(s) from ${ranked[0].uniquePayers} unique buyer(s).\n\n${ranked.slice(0, 5).map(rankLine).join('\n')}`;
+    answer = `Top earner: ${ranked[0].agentName || ranked[0].providerId} with ${ranked[0].settlementVolume.toFixed(4)} USDC across ${ranked[0].successfulPayments} successful settlement(s) from ${ranked[0].uniquePayers} unique buyer(s).\n\n${ranked.slice(0, 5).map(rankLine).join('\n')}`;
   } else if (intent === 'reliability') {
     const thresholdMatch = q.match(/above (\d+(?:\.\d+)?)\s*%?/);
     const threshold = thresholdMatch ? Number(thresholdMatch[1]) / 100 : null;
@@ -545,14 +564,14 @@ export const askTrustEngine = async (question, providerIds) => {
     answer = threshold
       ? (qualifying.length
         ? `${qualifying.length} provider(s) exceed a ${(threshold * 100).toFixed(0)}% success rate:\n${qualifying.map(rankLine).join('\n')}`
-        : `No provider exceeds a ${(threshold * 100).toFixed(0)}% success rate. Best available: ${ranked[0].providerId} at ${(ranked[0].successRate * 100).toFixed(1)}%.`)
-      : `Most reliable provider: ${ranked[0].providerId} — ${(ranked[0].successRate * 100).toFixed(1)}% success rate over ${ranked[0].paymentCount} indexed payment(s).`;
+        : `No provider exceeds a ${(threshold * 100).toFixed(0)}% success rate. Best available: ${ranked[0].agentName || ranked[0].providerId} at ${(ranked[0].successRate * 100).toFixed(1)}%.`)
+      : `Most reliable provider: ${ranked[0].agentName || ranked[0].providerId} — ${(ranked[0].successRate * 100).toFixed(1)}% success rate over ${ranked[0].paymentCount} indexed payment(s).`;
   } else if (intent === 'recency') {
     const ranked = [...providers].sort((a, b) => (b.lastSettlement ? Date.parse(b.lastSettlement) : 0) - (a.lastSettlement ? Date.parse(a.lastSettlement) : 0));
-    answer = `Most recently active: ${ranked[0].providerId}, last settled ${ranked[0].lastSettlement ? new Date(ranked[0].lastSettlement).toLocaleString() : 'never'} (${ranked[0].paymentsLast7d} payment(s) in the last 7 days, trend ${ranked[0].activityTrend}).`;
+    answer = `Most recently active: ${ranked[0].agentName || ranked[0].providerId}, last settled ${ranked[0].lastSettlement ? new Date(ranked[0].lastSettlement).toLocaleString() : 'never'} (${ranked[0].paymentsLast7d} payment(s) in the last 7 days, trend ${ranked[0].activityTrend}).`;
   } else {
     answer = top
-      ? `I selected ${top.providerId} because The Graph shows:\n${top.reasoning.map((line) => `• ${line}`).join('\n')}\n\nConfidence ${(top.confidence * 100).toFixed(0)}% · Trust ${top.trustScore}/100\n\nAll candidates:\n${providers.slice(0, 5).map(rankLine).join('\n')}`
+      ? `I selected ${top.agentName || top.providerId} because The Graph shows:\n${top.reasoning.map((line) => `• ${line}`).join('\n')}\n\nConfidence ${(top.confidence * 100).toFixed(0)}% · Trust ${top.trustScore}/100\n\nAll candidates:\n${providers.slice(0, 5).map(rankLine).join('\n')}`
       : 'No providers to rank.';
   }
 

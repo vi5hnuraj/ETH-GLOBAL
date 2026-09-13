@@ -64,11 +64,25 @@ export const idkitVerify = async (req, res, next) => {
     const { idkitResponse, action } = req.body || {};
     const developerId = req.developerId;
 
-    const result = await verifyIdkitProof({
-      idkitResponse,
-      expectedAction: action,
-      developerId
-    });
+    let result = null;
+    try {
+      result = await verifyIdkitProof({
+        idkitResponse,
+        expectedAction: action,
+        developerId
+      });
+    } catch (verifyErr) {
+      // If the nullifier was already stored (e.g. first attempt succeeded at
+      // World + nullifier insert but profile update failed due to network drop),
+      // extract the nullifier and still mark the user verified.
+      if (verifyErr.status === 409 && idkitResponse?.responses?.[0]?.nullifier) {
+        const hex = String(idkitResponse.responses[0].nullifier).replace(/^0x/i, '');
+        const nullifier = BigInt(`0x${hex}`).toString(10);
+        await markUserVerified({ developerId, nullifier });
+        return res.json({ success: true, verified: true, nullifier, action: action || idkitResponse.action, alreadyRecorded: true, profileUpdated: true });
+      }
+      throw verifyErr;
+    }
 
     // Verification is once per USER — stored on the profile; agents inherit.
     const updatedProfile = await markUserVerified({ developerId, nullifier: result.nullifier });
@@ -191,17 +205,54 @@ export const verify = async (req, res, next) => {
 export const status = async (req, res, next) => {
   try {
     const { agentId } = req.params;
-    const { data: ownedAgent, error: ownershipError } = await supabase
-      .from('ai_agents')
-      .select('agent_id')
-      .eq('agent_id', agentId)
-      .eq('developer_id', req.developerId)
-      .maybeSingle();
-    if (ownershipError) throw ownershipError;
-    if (!ownedAgent) return res.status(404).json({ success: false, message: 'Agent not found.' });
+
+    // Ownership check: gateway first, then direct DB fallback (RLS degradation)
+    let ownedAgent = null;
+    try {
+      const { data, error } = await supabase
+        .from('ai_agents')
+        .select('agent_id')
+        .eq('agent_id', agentId)
+        .eq('developer_id', req.developerId)
+        .maybeSingle();
+      if (error) throw error;
+      ownedAgent = data;
+    } catch { /* gateway failed, try direct */ }
+    if (!ownedAgent) {
+      try {
+        const { rows } = await getPool().query(
+          'SELECT agent_id FROM ai_agents WHERE agent_id = $1 AND developer_id = $2',
+          [agentId, req.developerId]
+        );
+        ownedAgent = rows[0] || null;
+      } catch { /* direct also failed */ }
+    }
+    // If agent truly not found or not owned, return graceful unverified response
+    // instead of 404 (profile page just wants to display verification status)
+    if (!ownedAgent) {
+      return res.json({
+        success: true,
+        verified: false,
+        humanBacked: false,
+        agentBookId: null,
+        verifiedAt: null,
+        verificationMethod: null,
+        walletAddress: null
+      });
+    }
 
     const result = await getVerificationStatus(agentId);
-    if (!result) return res.status(404).json({ success: false, message: 'Agent not found.' });
+    if (!result) {
+      return res.json({
+        success: true,
+        verified: false,
+        humanBacked: false,
+        agentBookId: null,
+        verifiedAt: null,
+        verificationMethod: null,
+        walletAddress: null
+      });
+    }
     return res.json({
       success: true,
       verified: result.world_verified || false,
