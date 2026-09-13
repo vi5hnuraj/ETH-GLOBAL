@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   FiZap, FiSearch, FiClock, FiShield, FiCpu,
   FiDollarSign, FiAward, FiX, FiCheck, FiTrendingDown,
-  FiChevronDown, FiTarget, FiZap as FiBolt, FiServer, FiStar
+  FiChevronDown, FiTarget, FiZap as FiBolt, FiServer, FiStar, FiActivity
 } from 'react-icons/fi';
 import Card from '../../components/dev/Card';
 import Skeleton from '../../components/dev/Skeleton';
@@ -17,7 +17,7 @@ import developerApi from '../../utils/developerApi';
 
 const CAPABILITIES = [
   'inference', 'training', 'imageGeneration', 'embeddings',
-  'speech', 'ocr', 'translation', 'storage', 'compute', 'data'
+  'speech', 'ocr', 'translation', 'storage', 'compute', 'data', 'api'
 ];
 
 const FILTER_CHIPS = [
@@ -261,7 +261,7 @@ const DevRecommendations = () => {
     try {
       const requirements = {};
       if (activeFilters.capability) requirements.capability = activeFilters.capability;
-      if (activeFilters.maxPrice) requirements.maxPrice = Number(activeFilters.maxPrice);
+      if (activeFilters.maxPrice) requirements.maxBudgetBot = Number(activeFilters.maxPrice);
       if (activeFilters.verifiedOnly) requirements.verifiedOnly = true;
       if (activeFilters.lowestLatency) requirements.sortBy = 'latency';
       if (activeFilters.highestUptime) requirements.sortBy = 'uptime';

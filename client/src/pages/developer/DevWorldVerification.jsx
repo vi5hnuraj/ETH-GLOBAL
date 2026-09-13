@@ -364,7 +364,7 @@ export default function DevWorldVerification() {
           </div>
         )}
 
-        {!verified && widgetReady && (
+        {!verified && widgetReady && rpContext && (
           <IDKitRequestWidget
             open={widgetOpen}
             onOpenChange={setWidgetOpen}
@@ -378,7 +378,7 @@ export default function DevWorldVerification() {
             onSuccess={onSuccess}
             onError={(err) => {
               const detail = err?.message || err?.code || 'Verification cancelled or failed';
-              console.error('[WorldID] error:', err);
+              console.warn('[WorldID] verification:', detail);
               setVerifyResult({ verified: false, reason: detail });
             }}
           />

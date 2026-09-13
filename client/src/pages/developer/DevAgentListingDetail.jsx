@@ -48,6 +48,19 @@ const DevAgentListingDetail = () => {
   const [reviewBody, setReviewBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Fetch agents on mount so the dropdown is populated immediately
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setAgentsResult({ loading: true });
+        const r = await developerApi.agents({ page: 1, perPage: 100 });
+        setAgentsResult({ agents: r.agents || [] });
+      } catch (err) {
+        setAgentsResult({ error: err.message });
+      }
+    })();
+  }, []);
+
   if (loading && !data) return (
     <div className="space-y-6">
       <Skeleton className="h-5 w-40 rounded" />

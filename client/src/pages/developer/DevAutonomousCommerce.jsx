@@ -30,7 +30,11 @@ const stageState = (id, { busy, result }) => {
   return result.verification?.verified ? 'complete' : 'active';
 };
 
-const displayProvider = (provider) => provider?.title || provider?.serviceId || provider?.name || 'Provider not available';
+const displayProvider = (provider, graphEvidence) => {
+  const name = provider?.title || provider?.name || graphEvidence?.agentName || '';
+  const wallet = provider?.provider?.wallet || provider?.wallet || graphEvidence?.providerId || '';
+  return { name, wallet };
+};
 
 const formatTrust = (result) => result?.trustScore ?? result?.graphEvidence?.trustScore ?? 'Unknown';
 
@@ -179,7 +183,7 @@ export default function DevAutonomousCommerce() {
           <div className="grid gap-4 lg:grid-cols-3">
             <Card title="Decision" subtitle="Provider selected from Graph evidence.">
               <p className="text-xs uppercase tracking-widest text-zinc-500">Selected provider</p>
-              <p className="mt-1 text-lg font-semibold text-white">{displayProvider(result.providerChosen)}</p>
+              {(() => { const prov = displayProvider(result.providerChosen, evidence); return <><p className="mt-1 text-lg font-semibold text-white">{prov.name || 'Provider'}</p>{prov.wallet && <p className="mt-0.5 font-mono text-[11px] text-zinc-500" title={prov.wallet}>{prov.wallet.slice(0, 6)}…{prov.wallet.slice(-4)}</p>}</>; })()}
               <div className="mt-4 grid grid-cols-2 gap-3"><Metric label="Trust score" value={`${formatTrust(result)}/100`} /><Metric label="Risk" value={result.riskLevel || evidence?.riskLevel || 'Unknown'} /></div>
               <GraphEvidence evidence={evidence} />
             </Card>
